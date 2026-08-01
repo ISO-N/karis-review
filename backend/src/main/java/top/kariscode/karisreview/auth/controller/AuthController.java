@@ -1,6 +1,7 @@
 package top.kariscode.karisreview.auth.controller;
 
 import jakarta.validation.Valid;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import top.kariscode.karisreview.auth.dto.LoginRequest;
@@ -31,6 +32,7 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.success("登录成功", response));
     }
 
+    @SecurityRequirement(name = "bearerAuth")
     @PostMapping("/logout")
     public ResponseEntity<ApiResponse<Void>> logout() {
         authService.logout();

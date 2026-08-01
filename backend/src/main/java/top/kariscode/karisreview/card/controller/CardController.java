@@ -1,6 +1,7 @@
 package top.kariscode.karisreview.card.controller;
 
 import jakarta.validation.Valid;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -14,6 +15,7 @@ import top.kariscode.karisreview.common.dto.ApiResponse;
 import java.util.Map;
 import java.util.UUID;
 
+@SecurityRequirement(name = "bearerAuth")
 @RestController
 @RequestMapping("/api")
 public class CardController {
