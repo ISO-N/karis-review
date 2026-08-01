@@ -1,0 +1,1 @@
+C:/Users/KAR1SEVEN/Documents/Project/KarisSoftware/karis-review/CLAUDE.md
