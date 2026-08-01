@@ -1,0 +1,121 @@
+package top.kariscode.karisreview.review.service;
+
+import org.junit.jupiter.api.Test;
+import top.kariscode.karisreview.card.entity.Card;
+import top.kariscode.karisreview.common.util.DateUtils;
+
+import java.time.LocalTime;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+class SchedulingEngineTest {
+
+    private final SchedulingEngine engine = new SchedulingEngine();
+    private final LocalTime refreshTime = LocalTime.of(4, 0);
+
+    @Test
+    void familiarOnNewCardMovesToStageOneTomorrow() {
+        Card card = new Card();
+        card.setStage(0);
+
+        SchedulingEngine.RatingResult result = engine.rateFamiliar(card, refreshTime);
+
+        assertEquals(0, result.getStageBefore());
+        assertEquals(1, result.getStageAfter());
+        assertFalse(result.isLearningMode());
+        assertEquals(DateUtils.calculateToday(refreshTime).plusDays(1), result.getNextReviewDate());
+        assertEquals(1, card.getStage());
+    }
+
+    @Test
+    void familiarAdvancesThroughStagesWithCorrectIntervals() {
+        Card card = new Card();
+        card.setStage(3);
+
+        SchedulingEngine.RatingResult result = engine.rateFamiliar(card, refreshTime);
+
+        assertEquals(4, result.getStageAfter());
+        assertEquals(DateUtils.calculateToday(refreshTime).plusDays(7), result.getNextReviewDate());
+    }
+
+    @Test
+    void forgetEntersRelearningModeAndResetsToStageZero() {
+        Card card = new Card();
+        card.setStage(4);
+        card.setNextReviewDate(DateUtils.calculateToday(refreshTime).plusDays(7));
+
+        SchedulingEngine.RatingResult result = engine.rateForget(card, refreshTime);
+
+        assertEquals(0, result.getStageAfter());
+        assertTrue(result.isLearningMode());
+        assertTrue(card.isLearningMode());
+        assertEquals(0, card.getConsecutiveFamiliar());
+        assertEquals(0, card.getLearningStep());
+        assertEquals(DateUtils.calculateToday(refreshTime), result.getNextReviewDate());
+    }
+
+    @Test
+    void vagueStepsBackAndRequiresThreeFamiliarRatings() {
+        Card card = new Card();
+        card.setStage(4);
+
+        SchedulingEngine.RatingResult vagueResult = engine.rateVague(card, refreshTime);
+
+        assertEquals(3, vagueResult.getStageAfter());
+        assertTrue(vagueResult.isLearningMode());
+        assertEquals(4, card.getReentryStage());
+
+        engine.rateFamiliar(card, refreshTime);
+        engine.rateFamiliar(card, refreshTime);
+        SchedulingEngine.RatingResult finalResult = engine.rateFamiliar(card, refreshTime);
+
+        assertFalse(finalResult.isLearningMode());
+        assertEquals(4, finalResult.getStageAfter());
+        // Stage 4 interval (7) - Stage 3 interval (4) = 3 days
+        assertEquals(DateUtils.calculateToday(refreshTime).plusDays(3), finalResult.getNextReviewDate());
+        assertEquals(0, card.getConsecutiveFamiliar());
+    }
+
+    @Test
+    void forgetRelearningRequiresFiveFamiliarRatingsThenEntersStageOne() {
+        Card card = new Card();
+        card.setStage(6);
+        engine.rateForget(card, refreshTime);
+
+        for (int i = 0; i < 4; i++) {
+            SchedulingEngine.RatingResult result = engine.rateFamiliar(card, refreshTime);
+            assertTrue(result.isLearningMode(), "still relearning before fifth familiar");
+            assertEquals(i + 1, result.getConsecutiveFamiliar());
+        }
+
+        SchedulingEngine.RatingResult finalResult = engine.rateFamiliar(card, refreshTime);
+        assertFalse(finalResult.isLearningMode());
+        assertEquals(1, finalResult.getStageAfter());
+        assertEquals(DateUtils.calculateToday(refreshTime).plusDays(1), finalResult.getNextReviewDate());
+    }
+
+    @Test
+    void nonFamiliarRatingDuringRelearningResetsCounterWithoutDowngrading() {
+        Card card = new Card();
+        card.setStage(5);
+        engine.rateVague(card, refreshTime);
+        engine.rateFamiliar(card, refreshTime);
+
+        SchedulingEngine.RatingResult resetResult = engine.rateForget(card, refreshTime);
+        assertEquals(0, resetResult.getConsecutiveFamiliar());
+        assertEquals(0, card.getConsecutiveFamiliar());
+        assertEquals(0, card.getStage());
+    }
+
+    @Test
+    void vagueOnStageOneBehavesLikeForget() {
+        Card card = new Card();
+        card.setStage(1);
+
+        SchedulingEngine.RatingResult result = engine.rateVague(card, refreshTime);
+
+        assertEquals(0, result.getStageAfter());
+        assertTrue(result.isLearningMode());
+        assertNull(card.getReentryStage());
+    }
+}
