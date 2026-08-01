@@ -69,7 +69,8 @@ top.kariscode.karisreview
 ├── config/
 │   ├── SecurityConfig.java              # Spring Security 配置
 │   ├── CorsConfig.java                  # 跨域配置
-│   └── JacksonConfig.java               # JSON 序列化配置
+│   ├── JacksonConfig.java               # JSON 序列化配置
+│   └── OpenApiConfig.java               # OpenAPI 3 + JWT Bearer 配置
 │
 ├── common/
 │   ├── exception/
@@ -230,12 +231,19 @@ lib/
 | ORM | Spring Data JPA + Hibernate | — | 与 Spring Boot 深度集成 |
 | 数据库迁移 | Flyway | 10.x | Schema 版本管理 |
 | 认证 | Spring Security + JWT | 6.x | 安全框架 |
-| 构建工具 | Maven | 3.9.x | — |
+| API 文档 | Springdoc OpenAPI | 2.8.x | OpenAPI 3 + Swagger UI |
 | 数据库 | PostgreSQL | 16.x | 关系型数据库 |
 | 数据库名 | karis_review | — | — |
 
-## 5. 模块间依赖关系
+## 5. API 文档
 
+- 使用 `springdoc-openapi-starter-webmvc-ui` 自动生成 OpenAPI 3 文档。
+- 默认地址：`/v3/api-docs`、`/swagger-ui.html`。
+- 受保护 Controller 用 `@SecurityRequirement` 声明 `bearerAuth` JWT 安全方案；登录/注册接口不要求。
+- `SecurityConfig` 放行 `/v3/api-docs/**`、`/swagger-ui/**`、`/swagger-ui.html`。
+- 生产环境使用 `prod` profile 时关闭文档。
+
+## 6. 模块间依赖关系
 ```
 auth ──────► common
 deck ──────► common
