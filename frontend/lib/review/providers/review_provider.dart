@@ -118,6 +118,8 @@ class ReviewNotifier extends StateNotifier<ReviewSessionState> {
   final SyncRepository? _sync;
   final SyncService? _syncService;
   bool _ratingInFlight = false;
+  Timer? _syncDebounce;
+  static const Duration _syncDelay = Duration(milliseconds: 800);
 
   ReviewNotifier(
     this._repository, {
@@ -375,7 +377,11 @@ class ReviewNotifier extends StateNotifier<ReviewSessionState> {
         isRating: false,
       );
       _ratingInFlight = false;
-      unawaited(_syncPending(userId));
+      if (state.isComplete) {
+        unawaited(_flushSync(userId));
+      } else {
+        _scheduleSync(userId);
+      }
       unawaited(_maybeLoadMore());
       return outcome.result;
     } catch (e) {
@@ -406,7 +412,15 @@ class ReviewNotifier extends StateNotifier<ReviewSessionState> {
     }
   }
 
-  Future<void> _syncPending(String userId) async {
+  void _scheduleSync(String userId) {
+    _syncDebounce?.cancel();
+    _syncDebounce = Timer(_syncDelay, () async {
+      _syncDebounce = null;
+      await _flushSync(userId);
+    });
+  }
+
+  Future<void> _flushSync(String userId) async {
     try {
       await _syncService!.syncPending(userId: userId);
     } catch (_) {}
@@ -439,9 +453,16 @@ class ReviewNotifier extends StateNotifier<ReviewSessionState> {
     );
   }
 
+  @override
+  void dispose() {
+    _syncDebounce?.cancel();
+    super.dispose();
+  }
+
   void reset() {
     state = const ReviewSessionState();
   }
+
 
   List<ReviewCard> _parseCards(dynamic value) {
     return (value as List? ?? const [])

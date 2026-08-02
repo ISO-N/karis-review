@@ -12,8 +12,13 @@ class SyncOutcome {
 }
 
 class SyncService {
+  static const Duration _refreshCooldown = Duration(seconds: 15);
+
   final SyncRepository _repository;
   final OfflineRepository _offline;
+  Future<void>? _inflightRefresh;
+  Future<SyncOutcome>? _inflightSync;
+  DateTime? _lastRefreshAt;
 
   SyncService(this._repository, this._offline);
 
@@ -29,6 +34,51 @@ class SyncService {
     return user;
   }
 
+  Future<void> refresh({bool force = false}) async {
+    if (_inflightRefresh != null) {
+      return _inflightRefresh!;
+    }
+    if (!force &&
+        _lastRefreshAt != null &&
+        DateTime.now().difference(_lastRefreshAt!) < _refreshCooldown) {
+      return;
+    }
+
+    final future = _doRefresh(force: force);
+    _inflightRefresh = future;
+    try {
+      await future;
+    } finally {
+      _inflightRefresh = null;
+      _lastRefreshAt = DateTime.now();
+    }
+  }
+
+  Future<void> _doRefresh({required bool force}) async {
+    final meta = await _offline.getActiveSyncMeta();
+    if (meta == null || force || meta.lastEventCursor.toInt() <= 0) {
+      final data = await _repository.fetchBootstrap();
+      final user = data['user'] as Map<String, dynamic>;
+      await _saveBootstrap(data, user['id'] as String);
+      return;
+    }
+
+    var cursor = meta.lastEventCursor.toInt();
+    while (true) {
+      final data = await _repository.fetchBootstrap(eventCursor: cursor);
+      if (data['reset_required'] == true) {
+        final full = await _repository.fetchBootstrap();
+        await _saveBootstrap(full, meta.userId);
+        return;
+      }
+      await _offline.applyDelta(userId: meta.userId, data: data);
+      cursor = (data['event_cursor'] as num?)?.toInt() ?? cursor;
+      if (data['has_more'] != true) {
+        break;
+      }
+    }
+  }
+
   Future<void> _saveBootstrap(Map<String, dynamic> data, String userId) async {
     final user = data['user'] as Map<String, dynamic>;
     await _offline.saveBootstrap(
@@ -39,10 +89,22 @@ class SyncService {
       decks: (data['decks'] as List? ?? const []).cast<Map<String, dynamic>>(),
       reviewLogs: (data['review_logs'] as List? ?? const [])
           .cast<Map<String, dynamic>>(),
+      eventCursor: (data['event_cursor'] as num?)?.toInt() ?? 0,
     );
   }
 
   Future<SyncOutcome> syncPending({required String userId}) async {
+    if (_inflightSync != null) return _inflightSync!;
+    final future = _syncPendingNow(userId: userId);
+    _inflightSync = future;
+    try {
+      return await future;
+    } finally {
+      _inflightSync = null;
+    }
+  }
+
+  Future<SyncOutcome> _syncPendingNow({required String userId}) async {
     final pending = await _offline.getPendingRatings(userId);
     if (pending.isEmpty) return const SyncOutcome();
 

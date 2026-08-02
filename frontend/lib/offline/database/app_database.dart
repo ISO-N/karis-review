@@ -77,6 +77,7 @@ class SyncMeta extends Table {
   TextColumn get refreshTime => text().withDefault(const Constant('04:00:00'))();
   DateTimeColumn get lastBootstrapAt => dateTime().nullable()();
   IntColumn get clockOffsetMs => integer().withDefault(const Constant(0))();
+  Int64Column get lastEventCursor => int64().withDefault(Constant(BigInt.zero))();
 
   @override
   Set<Column<Object>> get primaryKey => {userId};
@@ -95,7 +96,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor]) : super(executor ?? driftDatabase(name: 'karis_review'));
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -108,6 +109,9 @@ class AppDatabase extends _$AppDatabase {
         await customStatement(
           "UPDATE local_review_logs SET is_new_card = 1 WHERE sync_status = 'PENDING' AND rating = 'FAMILIAR' AND stage_before = 0 AND is_new_card = 0",
         );
+      }
+      if (from < 4) {
+        await m.addColumn(syncMeta, syncMeta.lastEventCursor);
       }
     },
   );

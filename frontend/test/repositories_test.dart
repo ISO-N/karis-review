@@ -6,6 +6,7 @@ import 'package:karisreview/deck/repositories/deck_repository.dart';
 import 'package:karisreview/review/repositories/review_repository.dart';
 import 'package:karisreview/settings/repositories/settings_repository.dart';
 import 'package:karisreview/shared/api/api_client.dart';
+import 'package:karisreview/shared/proto/karis_review.pb.dart' as proto;
 import 'package:karisreview/stats/repositories/stats_repository.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -146,20 +147,34 @@ void main() {
   group('ReviewRepository', () {
     test('gets due and new queues', () async {
       final client = FakeApiClient();
-      client.onGet = (path, query) async {
+      client.onGetProto = (path, query) async {
         expect(path, apiPath('/review/due'));
         expect(query, {'limit': 500, 'deck_id': 'deck-1'});
-        return okResponse([reviewCardJson()]);
+        return proto.ReviewCardListResponse(cards: [
+          proto.ReviewCard(
+            id: 'card-1',
+            deckId: 'deck-1',
+            front: '正面',
+            back: '反面',
+          ),
+        ]).writeToBuffer();
       };
       final repository = ReviewRepository(client: client);
 
       final due = await repository.getDueCards(deckId: 'deck-1');
       expect(due.single.id, 'card-1');
 
-      client.onGet = (path, query) async {
+      client.onGetProto = (path, query) async {
         expect(path, apiPath('/review/new'));
         expect(query, {'limit': 10, 'deck_id': 'deck-1'});
-        return okResponse([reviewCardJson()]);
+        return proto.ReviewCardListResponse(cards: [
+          proto.ReviewCard(
+            id: 'card-2',
+            deckId: 'deck-1',
+            front: '正面',
+            back: '反面',
+          ),
+        ]).writeToBuffer();
       };
       final news = await repository.getNewCards(deckId: 'deck-1');
       expect(news.single.front, '正面');

@@ -257,6 +257,7 @@ class OfflineRepository {
     required DateTime serverTime,
     required List<Map<String, dynamic>> decks,
     required List<Map<String, dynamic>> reviewLogs,
+    int eventCursor = 0,
   }) async {
     final localTime = DateTime.now().toUtc();
     final clockOffset = serverTime.difference(localTime).inMilliseconds;
@@ -334,6 +335,7 @@ class OfflineRepository {
               refreshTime: Value(refreshTime),
               lastBootstrapAt: Value(serverTime),
               clockOffsetMs: Value(clockOffset),
+              lastEventCursor: Value(BigInt.from(eventCursor)),
             ),
           );
       await db.into(db.localSettings).insertOnConflictUpdate(
@@ -345,6 +347,148 @@ class OfflineRepository {
             ),
           );
     });
+  }
+
+  Future<void> applyDelta({
+    required String userId,
+    required Map<String, dynamic> data,
+  }) async {
+    await db.transaction(() async {
+      final decks = (data['decks'] as List? ?? const [])
+          .cast<Map<String, dynamic>>();
+      for (final deckJson in decks) {
+        final deckId = deckJson['id'] as String;
+        await db.into(db.localDecks).insertOnConflictUpdate(
+              LocalDecksCompanion.insert(
+                id: deckId,
+                userId: userId,
+                name: deckJson['name'] as String? ?? '',
+                createdAt: Value(_dateTime(deckJson['created_at'])),
+                updatedAt: Value(_dateTime(deckJson['updated_at'])),
+              ),
+            );
+        for (final cardJson in (deckJson['cards'] as List? ?? const [])) {
+          final map = cardJson as Map<String, dynamic>;
+          await _upsertCardFromServer(userId, map);
+        }
+      }
+
+      final changedCards = (data['changed_cards'] as List? ?? const [])
+          .cast<Map<String, dynamic>>();
+      for (final map in changedCards) {
+        await _upsertCardFromServer(userId, map);
+      }
+
+      for (final logJson in (data['review_logs'] as List? ?? const [])) {
+        final map = logJson as Map<String, dynamic>;
+        final rating = map['rating'] as String? ?? 'FAMILIAR';
+        final isNewCard = (map['is_new_card'] as bool?) ??
+            (map['new_card'] as bool?) ??
+            (rating == 'FAMILIAR' && _int(map['stage_before']) == 0);
+        await db.into(db.localReviewLogs).insertOnConflictUpdate(
+              LocalReviewLogsCompanion.insert(
+                id: map['id'] as String,
+                userId: userId,
+                cardId: map['card_id'] as String,
+                rating: rating,
+                stageBefore: _int(map['stage_before']),
+                stageAfter: _int(map['stage_after']),
+                isNewCard: Value(isNewCard),
+                reviewedAt: _dateTime(map['reviewed_at']) ??
+                    DateTime.now().toUtc(),
+                syncStatus: const Value('SYNCED'),
+              ),
+            );
+      }
+
+      final deletedDeckIds = (data['deleted_deck_ids'] as List? ?? const [])
+          .cast<String>();
+      if (deletedDeckIds.isNotEmpty) {
+        await (db.delete(db.localDecks)
+              ..where(
+                (t) =>
+                    t.userId.equals(userId) & t.id.isIn(deletedDeckIds),
+              ))
+            .go();
+        for (final deckId in deletedDeckIds) {
+          await (db.delete(db.localCards)
+                ..where(
+                  (t) => t.userId.equals(userId) & t.deckId.equals(deckId),
+                ))
+              .go();
+        }
+      }
+
+      final deletedCardIds = (data['deleted_card_ids'] as List? ?? const [])
+          .cast<String>();
+      if (deletedCardIds.isNotEmpty) {
+        await (db.delete(db.localCards)
+              ..where(
+                (t) => t.userId.equals(userId) & t.id.isIn(deletedCardIds),
+              ))
+            .go();
+      }
+
+      final deletedLogIds = (data['deleted_review_log_ids'] as List? ?? const [])
+          .cast<String>();
+      if (deletedLogIds.isNotEmpty) {
+        await (db.delete(db.localReviewLogs)
+              ..where(
+                (t) => t.userId.equals(userId) & t.id.isIn(deletedLogIds),
+              ))
+            .go();
+      }
+
+      final eventCursor = (data['event_cursor'] as num?)?.toInt() ?? 0;
+      await (db.update(db.syncMeta)
+            ..where((t) => t.userId.equals(userId)))
+          .write(SyncMetaCompanion(
+            lastEventCursor: Value(BigInt.from(eventCursor)),
+            lastBootstrapAt: Value(DateTime.now().toUtc()),
+          ));
+    });
+  }
+
+  Future<void> _upsertCardFromServer(
+    String userId,
+    Map<String, dynamic> map,
+  ) async {
+    final cardId = map['id'] as String;
+    final pending = await (db.select(db.localReviewLogs)
+          ..where(
+            (t) =>
+                t.userId.equals(userId) &
+                t.cardId.equals(cardId) &
+                t.syncStatus.equals('PENDING'),
+          ))
+        .get();
+    final existing = await getLocalCard(userId, cardId);
+    final serverVersion = BigInt.from(_int(map['review_version']));
+    if (pending.isNotEmpty &&
+        existing != null &&
+        existing.reviewVersion.compareTo(serverVersion) >= 0) {
+      return;
+    }
+
+    final deckId = map['deck_id'] as String? ?? existing?.deckId ?? '';
+    await db.into(db.localCards).insertOnConflictUpdate(
+          LocalCardsCompanion.insert(
+            id: cardId,
+            deckId: deckId,
+            userId: userId,
+            front: map['front'] as String? ?? '',
+            back: map['back'] as String? ?? '',
+            stage: Value(_int(map['stage'])),
+            consecutiveFamiliar: Value(_int(map['consecutive_familiar'])),
+            nextReviewDate: Value(map['next_review_date'] as String?),
+            learningMode: Value(map['learning_mode'] as bool? ?? false),
+            reentryStage: Value(_intOrNull(map['reentry_stage'])),
+            learningStep: Value(_int(map['learning_step'])),
+            reviewVersion: Value(serverVersion),
+            createdAt: Value(existing?.createdAt ?? _dateTime(map['created_at'])),
+            updatedAt: Value(_dateTime(map['updated_at']) ?? DateTime.now().toUtc()),
+          ),
+        );
   }
 
   Future<LocalCard?> getLocalCard(String userId, String cardId) async {
@@ -552,19 +696,8 @@ class OfflineRepository {
       learningMode: card.learningMode,
       consecutiveFamiliar: card.consecutiveFamiliar,
       learningStep: card.learningStep,
-      learningGoal: card.learningMode
-          ? (card.reentryStage != null && card.reentryStage! > 0 ? 3 : 5)
-          : 5,
       reentryStage: card.reentryStage,
       nextReviewDate: card.nextReviewDate,
-      currentIntervalDays: LocalSchedulingEngine.stageInterval(card.stage),
-      familiarIntervalDays: LocalSchedulingEngine.familiarIntervalAfterRating(
-        stage: card.stage,
-        learningMode: card.learningMode,
-        consecutiveFamiliar: card.consecutiveFamiliar,
-        reentryStage: card.reentryStage,
-      ),
-      vagueIntervalDays: LocalSchedulingEngine.vagueIntervalAfterRating(card.stage),
       reviewVersion: card.reviewVersion.toInt(),
     );
   }
