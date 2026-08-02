@@ -61,7 +61,7 @@
         <dependency>
             <groupId>com.google.protobuf</groupId>
             <artifactId>protobuf-java</artifactId>
-            <version>4.29.3</version>
+            <version>4.35.1</version>
         </dependency>
 
         <!-- PostgreSQL -->
