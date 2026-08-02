@@ -19,9 +19,6 @@ class UserInfo {
   UserInfo({required this.id, required this.email});
 
   factory UserInfo.fromJson(Map<String, dynamic> json) {
-    return UserInfo(
-      id: json['id'] as String,
-      email: json['email'] as String,
-    );
+    return UserInfo(id: json['id'] as String, email: json['email'] as String);
   }
 }

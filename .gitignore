@@ -10,6 +10,9 @@ frontend/.flutter-plugins
 frontend/.flutter-plugins-dependencies
 frontend/.packages
 
+# 前端设计截图产出
+docs/frontend-design/screenshots/
+
 
 # IDE
 .idea/

@@ -1,188 +1,430 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:fl_chart/fl_chart.dart';
-import '../../shared/widgets/loading_widget.dart';
-import '../../shared/widgets/error_widget.dart';
-import '../providers/stats_provider.dart';
-import '../models/stats.dart';
 
-class StatsPage extends ConsumerWidget {
+import '../../app/theme.dart';
+import '../../shared/widgets/adaptive_scaffold.dart';
+import '../../shared/widgets/metric_tile.dart';
+import '../../shared/widgets/section_widgets.dart';
+import '../models/stats.dart';
+import '../providers/stats_provider.dart';
+
+class StatsPage extends ConsumerStatefulWidget {
   const StatsPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<StatsPage> createState() => _StatsPageState();
+}
+
+class _StatsPageState extends ConsumerState<StatsPage> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(statsProvider.notifier).loadOverview();
+      ref.invalidate(trendProvider(30));
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final statsAsync = ref.watch(statsProvider);
     final trendAsync = ref.watch(trendProvider(30));
+    final isTablet = MediaQuery.sizeOf(context).width >= 600;
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('学习统计')),
-      body: statsAsync.when(
-        loading: () => const LoadingWidget(message: '加载统计中...'),
-        error: (e, _) => AppErrorWidget(
-          message: '加载失败: $e',
-          onRetry: () => ref.read(statsProvider.notifier).loadOverview(),
-        ),
-        data: (stats) {
-          if (stats == null) {
-            return const Center(child: Text('暂无统计数据'));
-          }
-          return RefreshIndicator(
-            onRefresh: () => ref.read(statsProvider.notifier).loadOverview(),
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
+    return AdaptiveAppScaffold(
+      current: KarisNavItem.stats,
+      onSelect: (item) => _go(item, context),
+      body: RefreshIndicator(
+        onRefresh: () async {
+          await Future.wait([ref.read(statsProvider.notifier).loadOverview()]);
+          ref.invalidate(trendProvider(30));
+        },
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1080),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildOverviewGrid(context, stats),
-                  const SizedBox(height: 24),
-                  const Text('复习趋势',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    height: 200,
-                    child: trendAsync.when(
-                      loading: () => const Center(child: CircularProgressIndicator()),
-                      error: (e, _) => Center(child: Text('加载趋势失败: $e')),
-                      data: (trend) {
-                        if (trend.isEmpty) {
-                          return const Center(child: Text('暂无趋势数据'));
-                        }
-                        return _buildTrendChart(context, trend);
-                      },
+                  _StatsHeader(),
+                  const SizedBox(height: 20),
+                  statsAsync.when(
+                    loading: () => const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 60),
+                      child: Center(
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
                     ),
+                    error: (error, _) => EmptyState(
+                      icon: Icons.error_outline,
+                      title: '统计加载失败',
+                      message: '$error',
+                    ),
+                    data: (value) {
+                      if (value == null) {
+                        return const EmptyState(
+                          icon: Icons.bar_chart_outlined,
+                          title: '暂无统计数据',
+                          message: '开始复习后会在这里出现趋势',
+                        );
+                      }
+                      final main = Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _MetricGrid(stats: value),
+                          const SizedBox(height: 20),
+                          _TrendPanel(trendAsync: trendAsync),
+                        ],
+                      );
+                      final side = _DistributionPanel(stats: value);
+                      if (!isTablet) {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [main, const SizedBox(height: 24), side],
+                        );
+                      }
+                      return Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(flex: 12, child: main),
+                          const SizedBox(width: 28),
+                          Expanded(flex: 8, child: side),
+                        ],
+                      );
+                    },
                   ),
                 ],
               ),
             ),
-          );
-        },
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: 2,
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.book), label: '牌组'),
-          BottomNavigationBarItem(icon: Icon(Icons.replay), label: '复习'),
-          BottomNavigationBarItem(icon: Icon(Icons.bar_chart), label: '统计'),
-        ],
-        onTap: (index) {
-          switch (index) {
-            case 0: context.go('/decks');
-            case 1: context.go('/review');
-            case 2: break;
-          }
-        },
+          ),
+        ),
       ),
     );
   }
 
-  Widget _buildOverviewGrid(BuildContext context, OverviewStats stats) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+  void _go(KarisNavItem item, BuildContext context) {
+    switch (item) {
+      case KarisNavItem.home:
+        context.go('/home');
+      case KarisNavItem.decks:
+        context.go('/decks');
+      case KarisNavItem.stats:
+        context.go('/stats');
+      case KarisNavItem.settings:
+        context.go('/settings');
+    }
+  }
+}
+
+class _StatsHeader extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Row(
       children: [
-        const Text('学习概览',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            _buildStatCard(context, '总卡片', '${stats.totalCards}', Icons.credit_card, Colors.blue),
-            const SizedBox(width: 12),
-            _buildStatCard(context, '牌组', '${stats.totalDecks}', Icons.book, Colors.purple),
-          ],
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Kicker('PROGRESS'),
+              const SizedBox(height: 7),
+              Text('学习统计', style: karisDisplay(fontSize: 27)),
+            ],
+          ),
         ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            _buildStatCard(context, '待复习', '${stats.dueToday}', Icons.replay, Colors.orange),
-            const SizedBox(width: 12),
-            _buildStatCard(context, '今日复习', '${stats.reviewedToday}', Icons.check_circle, Colors.green),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            _buildStatCard(context, '已掌握', '${stats.masteredCards}', Icons.emoji_events, Colors.amber),
-            const SizedBox(width: 12),
-            _buildStatCard(context, '学习中', '${stats.learningCards}', Icons.trending_up, Colors.teal),
-          ],
+        Container(
+          width: 38,
+          height: 38,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: KarisColors.surface,
+            border: Border.all(color: KarisColors.hairline),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: const Icon(Icons.bar_chart, size: 18, color: KarisColors.jade),
         ),
       ],
     );
   }
+}
 
-  Widget _buildStatCard(BuildContext context, String label, String value, IconData icon, Color color) {
-    return Expanded(
-      child: Card(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            children: [
-              Icon(icon, color: color, size: 28),
-              const SizedBox(height: 8),
-              Text(value,
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: color,
-                  )),
-              const SizedBox(height: 4),
-              Text(label, style: const TextStyle(color: Colors.grey, fontSize: 12)),
-            ],
-          ),
-        ),
+class _MetricGrid extends StatelessWidget {
+  final OverviewStats stats;
+
+  const _MetricGrid({required this.stats});
+
+  @override
+  Widget build(BuildContext context) {
+    final metrics = [
+      MetricTile(
+        label: '总卡片',
+        value: '${stats.totalCards}',
+        icon: Icons.credit_card_outlined,
       ),
+      MetricTile(
+        label: '牌组',
+        value: '${stats.totalDecks}',
+        icon: Icons.layers_outlined,
+      ),
+      MetricTile(
+        label: '待复习',
+        value: '${stats.dueToday}',
+        valueColor: KarisColors.cinnabar,
+        icon: Icons.schedule_outlined,
+      ),
+      MetricTile(
+        label: '今日复习',
+        value: '${stats.reviewedToday}',
+        valueColor: KarisColors.jade,
+        icon: Icons.check_circle_outline,
+      ),
+      MetricTile(
+        label: '今日新学',
+        value: '${stats.learnedToday}',
+        valueColor: KarisColors.jade,
+        icon: Icons.auto_stories_outlined,
+      ),
+      MetricTile(
+        label: '已掌握',
+        value: '${stats.masteredCards}',
+        valueColor: KarisColors.jade,
+        icon: Icons.done_all_outlined,
+      ),
+    ];
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final columns = constraints.maxWidth >= 720 ? 3 : 2;
+        final spacing = 10.0;
+        final itemWidth =
+            (constraints.maxWidth - spacing * (columns - 1)) / columns;
+        return Wrap(
+          spacing: spacing,
+          runSpacing: spacing,
+          children: [
+            for (final metric in metrics)
+              SizedBox(width: itemWidth, child: metric),
+          ],
+        );
+      },
     );
   }
+}
 
-  Widget _buildTrendChart(BuildContext context, List<TrendPoint> trend) {
-    final maxY = trend.fold<int>(0, (max, p) => p.reviewed > max ? p.reviewed : max);
-    final maxVal = maxY < 5 ? 5 : maxY;
+class _TrendPanel extends StatelessWidget {
+  final AsyncValue<List<TrendPoint>> trendAsync;
 
-    return LineChart(
-      LineChartData(
-        gridData: FlGridData(
-          show: true,
-          drawVerticalLine: false,
-          horizontalInterval: (maxVal / 4).ceilToDouble().clamp(1, double.infinity),
-        ),
-        titlesData: FlTitlesData(
-          leftTitles: AxisTitles(
-            sideTitles: SideTitles(showTitles: true, reservedSize: 32),
+  const _TrendPanel({required this.trendAsync});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SectionHeader(title: '复习趋势', trailing: '最近 30 天'),
+        const SizedBox(height: 12),
+        trendAsync.when(
+          loading: () => const SizedBox(
+            height: 180,
+            child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
           ),
-          bottomTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              interval: (trend.length / 5).ceilToDouble().clamp(1, double.infinity),
-              getTitlesWidget: (value, meta) {
-                final index = value.toInt();
-                if (index < 0 || index >= trend.length) return const Text('');
-                return Text(trend[index].date.substring(5),
-                    style: const TextStyle(fontSize: 10));
-              },
+          error: (error, _) => const SizedBox(
+            height: 140,
+            child: Center(
+              child: Text(
+                '趋势加载失败',
+                style: TextStyle(color: KarisColors.cinnabar),
+              ),
             ),
           ),
-          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          data: (trend) {
+            if (trend.isEmpty) {
+              return const SizedBox(
+                height: 140,
+                child: Center(
+                  child: Text(
+                    '暂无趋势数据',
+                    style: TextStyle(color: KarisColors.stone),
+                  ),
+                ),
+              );
+            }
+            return AspectRatio(
+              aspectRatio: 3.2,
+              child: CustomPaint(painter: TrendChartPainter(points: trend)),
+            );
+          },
         ),
-        borderData: FlBorderData(show: false),
-        minX: 0,
-        maxX: (trend.length - 1).toDouble(),
-        minY: 0,
-        maxY: maxVal.toDouble(),
-        lineBarsData: [
-          LineChartBarData(
-            spots: List.generate(trend.length, (i) => FlSpot(i.toDouble(), trend[i].reviewed.toDouble())),
-            isCurved: true,
-            color: Theme.of(context).colorScheme.primary,
-            barWidth: 2,
-            dotData: const FlDotData(show: false),
-            belowBarData: BarAreaData(
-              show: true,
-              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
-            ),
-          ),
-        ],
-      ),
+      ],
     );
+  }
+}
+
+class _DistributionPanel extends StatelessWidget {
+  final OverviewStats stats;
+
+  const _DistributionPanel({required this.stats});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SectionHeader(title: '阶段分布', trailing: '${stats.masteredCards} 已掌握'),
+        const SizedBox(height: 16),
+        SizedBox(
+          height: 132,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: List.generate(9, (index) {
+              final value = index < stats.stageDistribution.length
+                  ? stats.stageDistribution[index]
+                  : 0;
+              final max = stats.stageDistribution.fold<int>(
+                1,
+                (current, item) => item > current ? item : current,
+              );
+              final height = max == 0 ? 4.0 : 4.0 + (value / max) * 118;
+              return Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 450),
+                      curve: Curves.easeOutCubic,
+                      height: height,
+                      decoration: const BoxDecoration(
+                        color: KarisColors.jade,
+                        borderRadius: BorderRadius.vertical(
+                          top: Radius.circular(3),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      KarisTheme.stageLabels[index],
+                      style: karisMono(fontSize: 8, color: KarisColors.stone),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ),
+        ),
+        const SizedBox(height: 12),
+        const Text(
+          '阶段越高，复习间隔越长。已掌握卡片集中在 15 天以上。',
+          style: TextStyle(
+            color: KarisColors.stone,
+            fontSize: 12,
+            height: 1.6,
+            letterSpacing: 0,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class TrendChartPainter extends CustomPainter {
+  final List<TrendPoint> points;
+
+  TrendChartPainter({required this.points});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (points.isEmpty) return;
+    final maxY = points.fold<int>(
+      5,
+      (current, point) => point.reviewed > current ? point.reviewed : current,
+    );
+    final left = 8.0;
+    final right = 8.0;
+    final top = 18.0;
+    final bottom = 24.0;
+    final chartWidth = size.width - left - right;
+    final chartHeight = size.height - top - bottom;
+    final stepX = points.length == 1 ? 0.0 : chartWidth / (points.length - 1);
+
+    Offset pointAt(int index) {
+      final x = left + stepX * index;
+      final y =
+          top + chartHeight - (points[index].reviewed / maxY) * chartHeight;
+      return Offset(x, y);
+    }
+
+    final linePath = Path();
+    final areaPath = Path();
+    for (var i = 0; i < points.length; i++) {
+      final offset = pointAt(i);
+      if (i == 0) {
+        linePath.moveTo(offset.dx, offset.dy);
+        areaPath.moveTo(offset.dx, top + chartHeight);
+        areaPath.lineTo(offset.dx, offset.dy);
+      } else {
+        linePath.lineTo(offset.dx, offset.dy);
+        areaPath.lineTo(offset.dx, offset.dy);
+      }
+    }
+    areaPath.lineTo(left + chartWidth, top + chartHeight);
+    areaPath.close();
+
+    final areaPaint = Paint()
+      ..color = KarisColors.jade.withValues(alpha: 0.10)
+      ..style = PaintingStyle.fill;
+    final linePaint = Paint()
+      ..color = KarisColors.jade
+      ..strokeWidth = 2
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+
+    canvas.drawPath(areaPath, areaPaint);
+    canvas.drawPath(linePath, linePaint);
+
+    final dotPaint = Paint()
+      ..color = KarisColors.surface
+      ..strokeWidth = 1.6
+      ..style = PaintingStyle.fill;
+    final dotBorder = Paint()
+      ..color = KarisColors.jade
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.6;
+    final step = math.max(1, (points.length / 5).floor());
+    for (var i = 0; i < points.length; i += step) {
+      final offset = pointAt(i);
+      canvas.drawCircle(offset, 3, dotBorder);
+      canvas.drawCircle(offset, 3, dotPaint);
+    }
+
+    final labelStyle = karisMono(fontSize: 9, color: KarisColors.stone);
+    for (var i = 0; i < points.length; i += step) {
+      final offset = pointAt(i);
+      final text = points[i].date.length >= 10
+          ? points[i].date.substring(5)
+          : points[i].date;
+      final textPainter = TextPainter(
+        text: TextSpan(text: text, style: labelStyle),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      textPainter.paint(
+        canvas,
+        Offset(
+          (offset.dx - textPainter.width / 2)
+              .clamp(0, size.width - textPainter.width)
+              .toDouble(),
+          size.height - 16,
+        ),
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant TrendChartPainter oldDelegate) {
+    return oldDelegate.points != points;
   }
 }

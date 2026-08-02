@@ -1,5 +1,7 @@
 package top.kariscode.karisreview.stats.dto;
 
+import java.util.Map;
+
 public class OverviewStatsResponse {
 
     private long totalCards;
@@ -9,6 +11,8 @@ public class OverviewStatsResponse {
     private long learnedToday;
     private long masteredCards;
     private long learningCards;
+    private Map<String, Long> stageDistribution;
+    private Map<String, Long> dueStageDistribution;
 
     public long getTotalCards() { return totalCards; }
     public void setTotalCards(long totalCards) { this.totalCards = totalCards; }
@@ -24,4 +28,8 @@ public class OverviewStatsResponse {
     public void setMasteredCards(long masteredCards) { this.masteredCards = masteredCards; }
     public long getLearningCards() { return learningCards; }
     public void setLearningCards(long learningCards) { this.learningCards = learningCards; }
+    public Map<String, Long> getStageDistribution() { return stageDistribution; }
+    public void setStageDistribution(Map<String, Long> stageDistribution) { this.stageDistribution = stageDistribution; }
+    public Map<String, Long> getDueStageDistribution() { return dueStageDistribution; }
+    public void setDueStageDistribution(Map<String, Long> dueStageDistribution) { this.dueStageDistribution = dueStageDistribution; }
 }

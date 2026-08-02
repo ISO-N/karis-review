@@ -20,12 +20,16 @@ class StatsNotifier extends StateNotifier<AsyncValue<OverviewStats?>> {
   }
 }
 
-final statsProvider = StateNotifierProvider<StatsNotifier, AsyncValue<OverviewStats?>>((ref) {
-  return StatsNotifier(StatsRepository());
-});
+final statsProvider =
+    StateNotifierProvider<StatsNotifier, AsyncValue<OverviewStats?>>((ref) {
+      return StatsNotifier(StatsRepository());
+    });
 
 // Trend provider
-final trendProvider = FutureProvider.family<List<TrendPoint>, int>((ref, days) async {
+final trendProvider = FutureProvider.family<List<TrendPoint>, int>((
+  ref,
+  days,
+) async {
   final repo = StatsRepository();
   return repo.getTrend(days: days);
 });

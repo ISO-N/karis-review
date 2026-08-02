@@ -16,8 +16,11 @@ import top.kariscode.karisreview.auth.repository.UserRepository;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.util.*;
-import java.util.stream.Collectors;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 @Service
 public class StatsService {
@@ -41,7 +44,6 @@ public class StatsService {
         LocalTime refreshTime = getRefreshTime(userId);
         LocalDate today = DateUtils.calculateToday(refreshTime);
 
-        // Calculate the refresh boundary times
         LocalDateTime refreshStart = today.atTime(refreshTime);
         LocalDateTime refreshEnd = today.plusDays(1).atTime(refreshTime);
 
@@ -53,7 +55,10 @@ public class StatsService {
         stats.setLearnedToday(reviewLogRepository.countLearnedToday(userId, refreshStart, refreshEnd));
         stats.setMasteredCards(cardRepository.countByUserIdAndStageGreaterThanEqual(userId, 5));
         stats.setLearningCards(cardRepository.countByUserIdAndStageLessThan(userId, 5)
-                - cardRepository.countByUserIdAndStageLessThan(userId, 0)); // Should be 0
+                - cardRepository.countByUserIdAndStageLessThan(userId, 0));
+        stats.setStageDistribution(distributionFromRows(cardRepository.countByStageGrouped(userId)));
+        stats.setDueStageDistribution(distributionFromRows(
+                cardRepository.countDueByStageGrouped(userId, today)));
         return stats;
     }
 
@@ -72,20 +77,13 @@ public class StatsService {
         stats.setTotalCards(cardRepository.countByDeckId(deckId));
         stats.setDueToday(cardRepository.countDueByDeckId(deckId, today));
         stats.setReviewedToday(reviewLogRepository.countReviewedTodayForDeck(userId, deckId, refreshStart, refreshEnd));
-
-        // Stage distribution
-        Map<String, Long> distribution = new HashMap<>();
-        for (int i = 0; i <= 8; i++) {
-            distribution.put(String.valueOf(i), 0L);
-        }
-        // We need to query actual stage distribution
-        // This could be done with a custom query, but for now we'll use a simpler approach
-        List<top.kariscode.karisreview.card.entity.Card> cards = cardRepository.findByDeckIdOrderByCreatedAtAsc(deckId);
-        for (var card : cards) {
-            String stageKey = String.valueOf(card.getStage());
-            distribution.merge(stageKey, 1L, Long::sum);
-        }
-        stats.setStageDistribution(distribution);
+        stats.setNewCards(cardRepository.countByDeckIdAndStageAndLearningModeFalse(deckId, 0));
+        stats.setLearningCards(cardRepository.countByDeckIdAndLearningModeTrue(deckId));
+        stats.setMasteredCards(cardRepository.countByDeckIdAndStageGreaterThanEqual(deckId, 5));
+        stats.setStageDistribution(distributionFromRows(
+                cardRepository.countByStageGroupedByDeck(deckId)));
+        stats.setDueStageDistribution(distributionFromRows(
+                cardRepository.countDueByStageGroupedByDeck(deckId, today)));
         return stats;
     }
 
@@ -97,13 +95,11 @@ public class StatsService {
         List<Object[]> rows = reviewLogRepository.findDailyTrend(userId, start);
         Map<LocalDate, TrendStatsResponse> trendMap = new LinkedHashMap<>();
 
-        // Fill in all days with zeros
         for (int i = days - 1; i >= 0; i--) {
             LocalDate date = today.minusDays(i);
             trendMap.put(date, new TrendStatsResponse(date, 0, 0));
         }
 
-        // Fill in actual data
         for (Object[] row : rows) {
             LocalDate date = row[0] instanceof java.sql.Date
                     ? ((java.sql.Date) row[0]).toLocalDate()
@@ -119,6 +115,19 @@ public class StatsService {
 
         return new ArrayList<>(trendMap.values());
     }
+
+    private Map<String, Long> distributionFromRows(List<Object[]> rows) {
+        Map<String, Long> distribution = new LinkedHashMap<>();
+        for (int i = 0; i <= 8; i++) {
+            distribution.put(String.valueOf(i), 0L);
+        }
+        for (Object[] row : rows) {
+            String stage = String.valueOf(((Number) row[0]).intValue());
+            distribution.merge(stage, ((Number) row[1]).longValue(), Long::sum);
+        }
+        return distribution;
+    }
+
     private LocalTime getRefreshTime(UUID userId) {
         return userRepository.findById(userId)
                 .map(User::getRefreshTime)

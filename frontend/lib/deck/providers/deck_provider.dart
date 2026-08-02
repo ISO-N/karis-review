@@ -47,6 +47,7 @@ class DeckListNotifier extends StateNotifier<AsyncValue<List<Deck>>> {
   }
 }
 
-final deckListProvider = StateNotifierProvider<DeckListNotifier, AsyncValue<List<Deck>>>((ref) {
-  return DeckListNotifier(DeckRepository());
-});
+final deckListProvider =
+    StateNotifierProvider<DeckListNotifier, AsyncValue<List<Deck>>>((ref) {
+      return DeckListNotifier(DeckRepository());
+    });

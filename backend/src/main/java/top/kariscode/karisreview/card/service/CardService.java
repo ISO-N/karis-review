@@ -10,9 +10,14 @@ import top.kariscode.karisreview.card.dto.CardUpdateRequest;
 import top.kariscode.karisreview.card.entity.Card;
 import top.kariscode.karisreview.card.repository.CardRepository;
 import top.kariscode.karisreview.common.exception.BusinessException;
+import top.kariscode.karisreview.common.util.DateUtils;
 import top.kariscode.karisreview.deck.entity.Deck;
 import top.kariscode.karisreview.deck.repository.DeckRepository;
+import top.kariscode.karisreview.auth.entity.User;
+import top.kariscode.karisreview.auth.repository.UserRepository;
 
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.UUID;
 
 @Service
@@ -20,20 +25,32 @@ public class CardService {
 
     private final CardRepository cardRepository;
     private final DeckRepository deckRepository;
+    private final UserRepository userRepository;
 
-    public CardService(CardRepository cardRepository, DeckRepository deckRepository) {
+    public CardService(CardRepository cardRepository,
+                       DeckRepository deckRepository,
+                       UserRepository userRepository) {
         this.cardRepository = cardRepository;
         this.deckRepository = deckRepository;
+        this.userRepository = userRepository;
     }
 
-    public Page<CardResponse> getDeckCards(UUID userId, UUID deckId, int page, int size) {
-        // Verify deck belongs to user
+    public Page<CardResponse> getDeckCards(UUID userId, UUID deckId, int page, int size, String filter) {
         if (!deckRepository.existsByIdAndUserId(deckId, userId)) {
             throw new BusinessException(404, "牌组不存在");
         }
 
-        return cardRepository.findByDeckIdOrderByCreatedAtAsc(deckId, PageRequest.of(page, size))
-                .map(this::toCardResponse);
+        PageRequest pageRequest = PageRequest.of(page, size);
+        LocalDate today = todayFor(userId);
+        Page<Card> cards = switch (filter == null ? "all" : filter) {
+            case "due" -> cardRepository
+                    .findByDeckIdAndNextReviewDateNotNullAndNextReviewDateLessThanEqualOrderByNextReviewDateAsc(
+                            deckId, today, pageRequest);
+            case "learning" -> cardRepository
+                    .findByDeckIdAndLearningModeTrueOrderByCreatedAtAsc(deckId, pageRequest);
+            default -> cardRepository.findByDeckIdOrderByCreatedAtAsc(deckId, pageRequest);
+        };
+        return cards.map(card -> toCardResponse(card, today));
     }
 
     @Transactional
@@ -46,9 +63,8 @@ public class CardService {
         card.setUserId(userId);
         card.setFront(request.getFront());
         card.setBack(request.getBack());
-        // Stage 0 by default, no next_review_date (learning mode)
         card = cardRepository.save(card);
-        return toCardResponse(card);
+        return toCardResponse(card, todayFor(userId));
     }
 
     @Transactional
@@ -58,10 +74,11 @@ public class CardService {
         card.setFront(request.getFront());
         card.setBack(request.getBack());
         card = cardRepository.save(card);
-        return toCardResponse(card);
+        return toCardResponse(card, todayFor(userId));
     }
+
     public CardResponse getCard(UUID userId, UUID cardId) {
-        return toCardResponse(getCardForUser(userId, cardId));
+        return toCardResponse(getCardForUser(userId, cardId), todayFor(userId));
     }
 
     @Transactional
@@ -76,10 +93,22 @@ public class CardService {
                 .orElseThrow(() -> new BusinessException(404, "卡片不存在"));
     }
 
-    private CardResponse toCardResponse(Card card) {
+    private CardResponse toCardResponse(Card card, LocalDate today) {
+        Integer learningGoal = card.isLearningMode()
+                ? (card.getReentryStage() != null && card.getReentryStage() > 0 ? 3 : 5)
+                : null;
+        boolean due = card.getNextReviewDate() != null && !card.getNextReviewDate().isAfter(today);
         return new CardResponse(
-                card.getId(), card.getFront(), card.getBack(),
-                card.getStage(), card.getNextReviewDate(),
-                card.isLearningMode(), card.getCreatedAt());
+                card.getId(), card.getDeckId(), card.getFront(), card.getBack(),
+                card.getStage(), card.getNextReviewDate(), card.isLearningMode(),
+                card.getConsecutiveFamiliar(), card.getLearningStep(),
+                card.getReentryStage(), learningGoal, due, card.getCreatedAt());
+    }
+
+    private LocalDate todayFor(UUID userId) {
+        LocalTime refreshTime = userRepository.findById(userId)
+                .map(User::getRefreshTime)
+                .orElse(LocalTime.of(4, 0));
+        return DateUtils.calculateToday(refreshTime);
     }
 }

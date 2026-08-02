@@ -165,7 +165,7 @@ public class SchedulingEngine {
      * Formula: current stage interval - previous stage interval
      * Example: Stage 4 (7 days) - Stage 3 (4 days) = 3 days
      */
-    private int calculateVagueReviewInterval(int targetStage) {
+    public static int calculateVagueReviewInterval(int targetStage) {
         if (targetStage <= 1) return 1;
         return STAGE_INTERVALS[targetStage] - STAGE_INTERVALS[targetStage - 1];
     }
@@ -174,7 +174,7 @@ public class SchedulingEngine {
      * Determine the consecutive Familiar threshold for exiting relearning.
      * FORGET path: 5, VAGUE path: 3
      */
-    private int getRelearningThreshold(Card card) {
+    public static int getRelearningThreshold(Card card) {
         return card.getReentryStage() != null && card.getReentryStage() > 0
                 ? VAGUE_CONSECUTIVE_FAMILIAR_THRESHOLD
                 : FORGET_CONSECUTIVE_FAMILIAR_THRESHOLD;
@@ -186,6 +186,27 @@ public class SchedulingEngine {
     public static int getStageInterval(int stage) {
         if (stage < 0 || stage > MAX_STAGE) return STAGE_INTERVALS[MAX_STAGE];
         return STAGE_INTERVALS[stage];
+    }
+
+    public static int getFamiliarIntervalAfterRating(Card card) {
+        if (card.isLearningMode()) {
+            int threshold = getRelearningThreshold(card);
+            if (card.getConsecutiveFamiliar() + 1 >= threshold) {
+                Integer targetStage = card.getReentryStage();
+                if (targetStage != null && targetStage > 0) {
+                    return calculateVagueReviewInterval(targetStage);
+                }
+                return STAGE_INTERVALS[1];
+            }
+            return 0;
+        }
+        if (card.getStage() >= MAX_STAGE) return STAGE_INTERVALS[MAX_STAGE];
+        return STAGE_INTERVALS[card.getStage() + 1];
+    }
+
+    public static int getVagueIntervalAfterRating(Card card) {
+        if (card.getStage() <= 1) return 0;
+        return STAGE_INTERVALS[card.getStage()];
     }
 
     /**

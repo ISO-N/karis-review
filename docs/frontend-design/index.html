@@ -1,0 +1,485 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Karis Review 前端设计原型</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=Noto+Sans+SC:wght@400;500;600;700&amp;family=Noto+Serif+SC:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="index.html" aria-label="Karis Review 界面原型">
+    <span class="brand-mark" aria-hidden="true"></span>
+    <span>Karis Review 界面原型</span>
+  </a>
+  <div class="top-actions">
+    <a class="doc-link" href="../frontend-design.md">设计说明</a>
+    <span class="viewport-label" id="viewportLabel">手机 390×844</span>
+    <button class="device-toggle" id="deviceToggle" type="button" aria-pressed="false">切换平板</button>
+  </div>
+</header>
+
+<main class="workspace">
+  <aside class="design-panel">
+    <section class="panel-section">
+      <p class="eyebrow">设计主题</p>
+      <h1>记忆刻度</h1>
+      <p class="panel-copy">极简不是删掉信息，而是把一条信息放在最前面：评分之后，这张卡下次什么时候回来。九段间隔刻度来自真实排期算法，是界面唯一被反复使用的视觉符号。</p>
+    </section>
+
+    <section class="panel-section">
+      <p class="eyebrow">色彩</p>
+      <div class="token-list">
+        <div class="token"><span class="swatch" style="--swatch:#EEF2EE"></span><span>雾纸 <code>#EEF2EE</code></span></div>
+        <div class="token"><span class="swatch" style="--swatch:#F9FBF7"></span><span>纸面 <code>#F9FBF7</code></span></div>
+        <div class="token"><span class="swatch" style="--swatch:#202B27"></span><span>墨 <code>#202B27</code></span></div>
+        <div class="token"><span class="swatch" style="--swatch:#66716B"></span><span>石 <code>#66716B</code></span></div>
+        <div class="token"><span class="swatch" style="--swatch:#2F6B5C"></span><span>青 <code>#2F6B5C</code></span></div>
+        <div class="token"><span class="swatch" style="--swatch:#C45B43"></span><span>朱 <code>#C45B43</code></span></div>
+        <div class="token"><span class="swatch" style="--swatch:#B98A2F"></span><span>金 <code>#B98A2F</code></span></div>
+        <div class="token"><span class="swatch" style="--swatch:#DCE3DB"></span><span>发丝线 <code>#DCE3DB</code></span></div>
+      </div>
+    </section>
+
+    <section class="panel-section">
+      <p class="eyebrow">字体</p>
+      <div class="type-row display"><span class="sample">今日</span><span class="type-name">Noto Serif SC</span></div>
+      <div class="type-row"><span class="sample">开始复习</span><span class="type-name">Noto Sans SC</span></div>
+      <div class="type-row mono"><span class="sample">18 / 256</span><span class="type-name">IBM Plex Mono</span></div>
+    </section>
+
+    <section class="panel-section">
+      <p class="eyebrow">签名元素</p>
+      <div class="signature-note">
+        <strong>记忆刻度</strong>：0、1、2、4、7、15、30、90、180 天。它同时承担进度、状态和评分后的下一步提示，不使用与业务无关的编号装饰。
+      </div>
+    </section>
+
+    <p class="panel-note" id="designModeNote">手机布局：底部导航，单栏信息。</p>
+  </aside>
+
+  <section class="device-stage" id="deviceStage" aria-label="Karis Review 设备原型">
+    <div class="device" id="device">
+      <div class="device-phone-ui" aria-hidden="true"></div>
+      <div class="app" id="app">
+        <div class="status-bar">
+          <span class="status-time mono" id="statusTime">09:41</span>
+          <span class="status-brand">KARIS REVIEW</span>
+          <span class="status-symbols" aria-hidden="true">5G ▮▮▮</span>
+        </div>
+
+        <main class="app-scroll" id="appScroll">
+          <section class="screen screen-home active" data-screen="home">
+            <div class="screen-inner home-inner">
+              <div class="home-main">
+                <header class="page-head">
+                  <div>
+                    <p class="kicker">KARIS REVIEW · 今日</p>
+                    <h1 id="todayTitle">11月12日 周四</h1>
+                  </div>
+                  <div class="avatar" aria-label="当前用户">K</div>
+                </header>
+
+                <section class="focus-band" aria-label="今日复习概览">
+                  <div class="focus-copy">
+                    <p class="section-label">今日待复习</p>
+                    <p class="focus-number"><span id="focusNumber">18</span><span class="unit">张</span></p>
+                    <p class="focus-note" id="focusNote">已复习 12 · 还剩 6</p>
+                  </div>
+                  <button class="primary-button" type="button" data-action="start-review">
+                    <svg aria-hidden="true"><use href="#icon-rotate-cw"></use></svg>
+                    <span>开始</span>
+                  </button>
+                </section>
+
+                <section class="ruler-section" aria-label="间隔阶段">
+                  <div class="section-line"><span>记忆刻度</span><span class="muted mono">0-180 天</span></div>
+                  <div class="stage-ruler" id="homeRuler"></div>
+                  <p class="ruler-caption muted" id="homeRulerCaption">今日到期集中在 4 天阶段</p>
+                </section>
+              </div>
+
+              <div class="home-side">
+                <section class="deck-section">
+                  <div class="section-line"><span>牌组</span><button class="text-button" type="button" data-action="new-deck">新建</button></div>
+                  <div class="deck-list" id="deckList"></div>
+                </section>
+              </div>
+            </div>
+          </section>
+
+          <section class="screen screen-cards" data-screen="cards">
+            <div class="screen-inner">
+              <header class="subpage-head">
+                <button class="icon-button" type="button" data-action="back-home" aria-label="返回">
+                  <svg aria-hidden="true"><use href="#icon-arrow-left"></use></svg>
+                </button>
+                <div class="subpage-title">
+                  <p class="kicker">牌组</p>
+                  <h1 id="deckTitle">日语 N5</h1>
+                </div>
+                <button class="icon-button" type="button" data-action="open-review" aria-label="复习当前牌组">
+                  <svg aria-hidden="true"><use href="#icon-rotate-cw"></use></svg>
+                </button>
+              </header>
+
+              <div class="deck-overview">
+                <div>
+                  <p class="section-label">卡片</p>
+                  <p class="deck-overview-value mono" id="deckCardCount">64</p>
+                </div>
+                <div>
+                  <p class="section-label">今日待复习</p>
+                  <p class="deck-overview-value mono due" id="deckDueCount">8</p>
+                </div>
+                <div>
+                  <p class="section-label">已掌握</p>
+                  <p class="deck-overview-value mono">36</p>
+                </div>
+              </div>
+
+              <div class="filter-row" id="filterRow">
+                <button class="chip active" type="button" data-filter="all">全部 <span id="filterAllCount">64</span></button>
+                <button class="chip" type="button" data-filter="due">待复习 <span id="filterDueCount">8</span></button>
+                <button class="chip" type="button" data-filter="learning">重学 <span id="filterLearningCount">3</span></button>
+              </div>
+
+              <div class="card-list" id="cardList"></div>
+
+              <button class="fab" type="button" data-action="new-card">
+                <svg aria-hidden="true"><use href="#icon-plus"></use></svg>
+                <span>新卡片</span>
+              </button>
+            </div>
+          </section>
+
+          <section class="screen screen-decks" data-screen="decks">
+            <div class="screen-inner">
+              <header class="page-head">
+                <div>
+                  <p class="kicker">DECKS</p>
+                  <h1>牌组</h1>
+                </div>
+                <button class="icon-button" type="button" data-action="new-deck" aria-label="新建牌组">
+                  <svg aria-hidden="true"><use href="#icon-plus"></use></svg>
+                </button>
+              </header>
+              <section class="deck-page-section">
+                <div class="section-line"><span>全部牌组</span><span class="muted mono" id="deckPageCount">4 个牌组</span></div>
+                <div class="deck-list" id="deckListPage"></div>
+              </section>
+            </div>
+          </section>
+
+          <section class="screen screen-review" data-screen="review">
+            <div class="review-layout">
+              <aside class="queue-panel tablet-only">
+                <p class="queue-title">今日队列</p>
+                <div class="queue-list" id="queueList"></div>
+              </aside>
+
+              <div class="review-stage">
+                <header class="review-head">
+                  <button class="icon-button" type="button" data-action="back-home" aria-label="返回">
+                    <svg aria-hidden="true"><use href="#icon-arrow-left"></use></svg>
+                  </button>
+                  <div class="subpage-title">
+                    <p class="kicker">复习模式</p>
+                    <h1 id="reviewModeTitle">今日复习</h1>
+                  </div>
+                  <span class="review-count mono" id="reviewCount">1 / 3</span>
+                </header>
+
+                <div class="review-progress" aria-hidden="true">
+                  <div class="progress-track"><i id="reviewProgress"></i></div>
+                  <span class="progress-caption mono" id="progressCaption">1 / 3</span>
+                </div>
+
+                <div class="card-stack" id="cardStack">
+                  <button class="flash-card" id="flashCard" type="button" role="button" aria-label="闪卡，点击翻面">
+                    <div class="card-inner">
+                      <div class="card-face front">
+                        <span class="card-index mono" id="cardIndex">1 / 3</span>
+                        <span class="stage-chip mono" id="frontStage">Stage 3 · 4 天</span>
+                        <span class="card-question" id="cardQuestion">ありがとう</span>
+                        <span class="flip-hint">点按翻面</span>
+                      </div>
+                      <div class="card-face back">
+                        <span class="card-index mono">答案</span>
+                        <span class="card-answer" id="cardAnswer">谢谢（礼貌形）</span>
+                        <span class="learning-chip mono" id="learningChip" hidden>重学中 · 2/3</span>
+                        <div class="next-line">
+                          <span id="currentInterval">当前间隔 4 天</span>
+                          <span class="jade" id="nextInterval">熟悉后 7 天</span>
+                        </div>
+                        <div class="stage-ruler compact" id="reviewRuler"></div>
+                        <span class="flip-hint">查看评分</span>
+                      </div>
+                    </div>
+                  </button>
+                </div>
+
+                <div class="rating-panel" id="ratingPanel" hidden>
+                  <p class="rating-caption">本次回忆</p>
+                  <div class="rating-grid">
+                    <button class="rating-button rating-forget" type="button" data-rating="FORGET">
+                      <svg aria-hidden="true"><use href="#icon-x"></use></svg>
+                      <span>忘记</span>
+                      <span class="sub mono" id="forgetSub">重学</span>
+                    </button>
+                    <button class="rating-button rating-vague" type="button" data-rating="VAGUE">
+                      <svg aria-hidden="true"><use href="#icon-help-circle"></use></svg>
+                      <span>模糊</span>
+                      <span class="sub mono" id="vagueSub">4 天</span>
+                    </button>
+                    <button class="rating-button rating-familiar" type="button" data-rating="FAMILIAR">
+                      <svg aria-hidden="true"><use href="#icon-check"></use></svg>
+                      <span>熟悉</span>
+                      <span class="sub mono" id="familiarSub">7 天</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div class="complete-panel" id="completePanel" hidden>
+                  <div class="complete-mark">
+                    <svg aria-hidden="true"><use href="#icon-check"></use></svg>
+                  </div>
+                  <h2>今日复习完成</h2>
+                  <p id="completeSummary">本次 3 张 · 已复习 15 / 18</p>
+                  <div class="complete-actions">
+                    <button class="primary-button" type="button" data-action="restart-review">再来一轮</button>
+                    <button class="secondary-button" type="button" data-action="back-home">返回今日</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="screen screen-stats" data-screen="stats">
+            <div class="screen-inner">
+              <header class="page-head">
+                <div>
+                  <p class="kicker">PROGRESS</p>
+                  <h1>学习统计</h1>
+                </div>
+                <div class="avatar" aria-label="统计视图">K</div>
+              </header>
+
+              <div class="stats-layout">
+                <div class="stats-main">
+                  <div class="metric-grid">
+                    <div class="metric">
+                      <p class="metric-label">总卡片</p>
+                      <p class="metric-value">256</p>
+                    </div>
+                    <div class="metric">
+                      <p class="metric-label">牌组</p>
+                      <p class="metric-value" id="totalDecksMetric">4</p>
+                    </div>
+                    <div class="metric due">
+                      <p class="metric-label">待复习</p>
+                      <p class="metric-value" id="dueTodayMetric">18</p>
+                    </div>
+                    <div class="metric jade">
+                      <p class="metric-label">今日复习</p>
+                      <p class="metric-value" id="reviewedTodayMetric">12</p>
+                    </div>
+                    <div class="metric jade">
+                      <p class="metric-label">今日新学</p>
+                      <p class="metric-value">3</p>
+                    </div>
+                    <div class="metric">
+                      <p class="metric-label">已掌握</p>
+                      <p class="metric-value">120</p>
+                    </div>
+                  </div>
+
+                  <section class="chart-panel" aria-label="复习趋势">
+                    <div class="section-line"><span>复习趋势</span><span class="muted mono">最近 30 天</span></div>
+                    <svg class="trend-svg" viewBox="0 0 720 220" role="img" aria-label="最近三十天复习趋势折线图">
+                      <path class="trend-area" d="M0,170 L48,145 L96,160 L144,118 L192,132 L240,90 L288,104 L336,76 L384,88 L432,48 L480,60 L528,34 L576,52 L624,26 L672,42 L720,22 L720,220 L0,220 Z"></path>
+                      <polyline class="trend-line" points="0,170 48,145 96,160 144,118 192,132 240,90 288,104 336,76 384,88 432,48 480,60 528,34 576,52 624,26 672,42 720,22"></polyline>
+                      <g class="trend-dots">
+                        <circle cx="0" cy="170" r="3"></circle>
+                        <circle cx="96" cy="160" r="3"></circle>
+                        <circle cx="192" cy="132" r="3"></circle>
+                        <circle cx="288" cy="104" r="3"></circle>
+                        <circle cx="384" cy="88" r="3"></circle>
+                        <circle cx="480" cy="60" r="3"></circle>
+                        <circle cx="576" cy="52" r="3"></circle>
+                        <circle cx="672" cy="42" r="3"></circle>
+                        <circle cx="720" cy="22" r="3"></circle>
+                      </g>
+                      <g class="axis-labels">
+                        <text x="0" y="212">10-13</text>
+                        <text x="240" y="212">10-20</text>
+                        <text x="480" y="212">10-27</text>
+                        <text x="648" y="212">11-10</text>
+                      </g>
+                    </svg>
+                  </section>
+                </div>
+
+                <section class="distribution-panel" aria-label="阶段分布">
+                  <div class="section-line"><span>阶段分布</span><span class="muted mono">120 已掌握</span></div>
+                  <div class="stage-bars" id="stageBars"></div>
+                  <p class="distribution-note">阶段越高，复习间隔越长。已掌握卡片集中在 15 天以上。</p>
+                </section>
+              </div>
+            </div>
+          </section>
+
+          <section class="screen screen-settings" data-screen="settings">
+            <div class="screen-inner">
+              <header class="page-head">
+                <div>
+                  <p class="kicker">SETTINGS</p>
+                  <h1>设置</h1>
+                </div>
+                <div class="avatar" aria-label="设置视图">K</div>
+              </header>
+
+              <div class="settings-blocks">
+                <div class="settings-column">
+                  <section class="settings-block">
+                    <div class="section-line"><span>账号</span></div>
+                    <div class="settings-row">
+                      <span class="setting-icon"><svg aria-hidden="true"><use href="#icon-mail"></use></svg></span>
+                      <span class="settings-copy"><strong>邮箱</strong><small>learner@example.com</small></span>
+                    </div>
+                  </section>
+
+                  <section class="settings-block">
+                    <div class="section-line"><span>复习设置</span></div>
+                    <div class="settings-row">
+                      <span class="setting-icon"><svg aria-hidden="true"><use href="#icon-clock"></use></svg></span>
+                      <span class="settings-copy"><strong>每日刷新时间</strong><small>过此时间后计入新的一天</small></span>
+                      <input type="time" id="refreshTime" value="04:00" aria-label="每日刷新时间">
+                    </div>
+                  </section>
+                </div>
+
+                <div class="settings-column">
+                  <section class="settings-block">
+                    <div class="section-line"><span>数据管理</span></div>
+                    <button class="settings-row" type="button" data-action="export-data">
+                      <span class="setting-icon"><svg aria-hidden="true"><use href="#icon-download"></use></svg></span>
+                      <span class="settings-copy"><strong>导出数据</strong><small>保存全部牌组、卡片与复习记录</small></span>
+                    </button>
+                    <button class="settings-row settings-row-danger" type="button" data-action="import-data">
+                      <span class="setting-icon"><svg aria-hidden="true"><use href="#icon-upload"></use></svg></span>
+                      <span class="settings-copy"><strong>导入数据</strong><small>从备份文件覆盖恢复</small></span>
+                    </button>
+                  </section>
+
+                  <button class="logout-button" type="button" data-action="logout">退出登录</button>
+                </div>
+              </div>
+            </div>
+          </section>
+        </main>
+
+        <div class="nav-glass" aria-hidden="true"></div>
+        <nav class="app-nav" aria-label="主导航">
+          <div class="nav-brand">K</div>
+          <button class="nav-item active" type="button" data-nav="home" aria-label="今日">
+            <svg aria-hidden="true"><use href="#icon-home"></use></svg>
+            <span>今日</span>
+          </button>
+          <button class="nav-item" type="button" data-nav="decks" aria-label="卡组">
+            <svg aria-hidden="true"><use href="#icon-layers"></use></svg>
+            <span>卡组</span>
+          </button>
+          <button class="nav-item" type="button" data-nav="stats" aria-label="统计">
+            <svg aria-hidden="true"><use href="#icon-chart"></use></svg>
+            <span>统计</span>
+          </button>
+          <button class="nav-item" type="button" data-nav="settings" aria-label="设置">
+            <svg aria-hidden="true"><use href="#icon-settings"></use></svg>
+            <span>设置</span>
+          </button>
+        </nav>
+
+        <section class="start-panel" id="startPanel" hidden>
+          <div class="start-panel-inner">
+            <header class="subpage-head">
+              <button class="icon-button" type="button" data-action="close-start" aria-label="返回">
+                <svg aria-hidden="true"><use href="#icon-arrow-left"></use></svg>
+              </button>
+              <div class="subpage-title">
+                <p class="kicker">开始</p>
+                <h1 id="startTitle">开始复习</h1>
+              </div>
+            </header>
+
+            <section class="start-block">
+              <div class="section-line"><span>学习方式</span><span class="muted mono" id="modeCountSummary">18 张</span></div>
+              <div class="mode-switch" role="group" aria-label="选择学习方式">
+                <button class="mode-option active" type="button" data-mode="review">复习到期</button>
+                <button class="mode-option" type="button" data-mode="learn">学习新卡</button>
+              </div>
+            </section>
+
+            <section class="start-block">
+              <div class="section-line"><span>范围</span><span class="muted mono" id="deckScopeSummary">全部卡组</span></div>
+              <div class="deck-options" id="deckOptions"></div>
+            </section>
+
+            <button class="primary-button start-cta" id="startCta" type="button" data-action="start-confirm">开始复习</button>
+          </div>
+        </section>
+
+        <div class="modal-backdrop" id="modalBackdrop" hidden>
+          <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+            <h2 id="modalTitle">新建牌组</h2>
+            <p class="modal-hint" id="modalHint" hidden></p>
+            <div class="field">
+              <label id="fieldOneLabel" for="fieldOne">牌组名称</label>
+              <input id="fieldOne" type="text" autocomplete="off">
+            </div>
+            <div class="field" id="fieldTwoWrap" hidden>
+              <label id="fieldTwoLabel" for="fieldTwo">正面</label>
+              <textarea id="fieldTwo" rows="2"></textarea>
+            </div>
+            <div class="field" id="fieldThreeWrap" hidden>
+              <label id="fieldThreeLabel" for="fieldThree">反面</label>
+              <textarea id="fieldThree" rows="2"></textarea>
+            </div>
+            <div class="modal-actions">
+              <button class="modal-button" id="modalCancel" type="button">取消</button>
+              <button class="modal-button primary" id="modalSave" type="button">创建</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<svg class="svg-sprite" aria-hidden="true">
+  <symbol id="icon-home" viewBox="0 0 24 24"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></symbol>
+  <symbol id="icon-layers" viewBox="0 0 24 24"><path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/></symbol>
+  <symbol id="icon-rotate-cw" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></symbol>
+  <symbol id="icon-chart" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></symbol>
+  <symbol id="icon-settings" viewBox="0 0 24 24"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="icon-chevron-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+  <symbol id="icon-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></symbol>
+  <symbol id="icon-plus" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M12 5v14"/></symbol>
+  <symbol id="icon-x" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
+  <symbol id="icon-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+  <symbol id="icon-help-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></symbol>
+  <symbol id="icon-mail" viewBox="0 0 24 24"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></symbol>
+  <symbol id="icon-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></symbol>
+  <symbol id="icon-download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></symbol>
+  <symbol id="icon-upload" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5"/><path d="M12 3v12"/></symbol>
+  <symbol id="icon-log-out" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></symbol>
+</svg>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="app.js" defer></script>
+</body>
+</html>

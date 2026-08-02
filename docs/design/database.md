@@ -120,6 +120,7 @@ CREATE INDEX idx_decks_user_id ON decks(user_id);
 | next_review_date | DATE | NULL | 下次复习日期（NULL 表示学习中） |
 | learning_mode | BOOLEAN | NOT NULL, DEFAULT FALSE | 是否处于重学模式 |
 | reentry_stage | INTEGER | NULL | VAGUE 重学完成后需回到的 Stage |
+| learning_step | INTEGER | NOT NULL, DEFAULT 0 | 重学队列插入间距步数（2^n） |
 | created_at | TIMESTAMP | NOT NULL, DEFAULT NOW() | 创建时间 |
 | updated_at | TIMESTAMP | NOT NULL, DEFAULT NOW() | 更新时间 |
 
@@ -135,6 +136,7 @@ CREATE TABLE cards (
     next_review_date DATE NULL,
     learning_mode BOOLEAN NOT NULL DEFAULT FALSE,
     reentry_stage INTEGER NULL,
+    learning_step INTEGER NOT NULL DEFAULT 0,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
@@ -202,7 +204,7 @@ src/main/resources/db/migration/
 ├── V3__create_cards_table.sql
 ├── V4__create_review_logs_table.sql
 ├── V5__create_backup_snapshots_table.sql
-└── V6__add_indexes.sql
+└── V6__add_learning_step_to_cards.sql
 ```
 
 ## 5. 关键查询说明

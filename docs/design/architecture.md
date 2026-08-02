@@ -160,6 +160,11 @@ lib/
 │   │   ├── api_client.dart              # Dio HTTP 客户端
 │   │   └── api_endpoints.dart           # API 端点常量
 │   ├── widgets/
+│   │   ├── adaptive_scaffold.dart       # 手机/平板悬浮导航
+│   │   ├── stage_ruler.dart             # 九段记忆刻度
+│   │   ├── metric_tile.dart
+│   │   ├── settings_action_tile.dart
+│   │   ├── section_widgets.dart
 │   │   ├── loading_widget.dart
 │   │   └── error_widget.dart
 │   └── utils/
@@ -180,6 +185,8 @@ lib/
 │   ├── deck_repository.dart
 │   ├── pages/
 │   │   └── deck_list_page.dart
+│   ├── widgets/
+│   │   └── deck_row.dart
 │   └── models/
 │       └── deck.dart
 │
@@ -188,7 +195,8 @@ lib/
 │   ├── card_repository.dart
 │   ├── pages/
 │   │   └── card_list_page.dart
-│   │   └── card_edit_page.dart
+│   ├── widgets/
+│   │   └── card_editor_sheet.dart
 │   └── models/
 │       └── card.dart
 │
@@ -196,9 +204,16 @@ lib/
 │   ├── review_provider.dart
 │   ├── review_repository.dart
 │   ├── pages/
-│   │   └── review_page.dart
+│   │   ├── review_page.dart
+│   │   └── start_flow_page.dart
+│   ├── widgets/
+│   │   └── review_flip_card.dart
 │   └── models/
 │       └── review_card.dart
+│
+├── home/
+│   └── pages/
+│       └── home_page.dart
 │
 ├── stats/
 │   ├── stats_provider.dart
@@ -246,13 +261,12 @@ lib/
 ## 6. 模块间依赖关系
 ```
 auth ──────► common
-deck ──────► common
-card ──────► deck, common
-review ────► card, deck, common  (依赖 SchedulingEngine)
-stats ─────► review, deck, common
-backup ────► deck, card, review, common  (全量导出)
-settings ──► common
-```
+deck ──────► auth, common
+card ──────► deck, auth, common
+review ────► card, deck, auth, common  (依赖 SchedulingEngine)
+stats ─────► review, deck, auth, common
+backup ────► deck, card, review, auth, common  (全量导出)
+settings ──► auth, common
 
 - 每个模块内部按 `controller → service → repository` 单向依赖
 - 模块间**严禁循环依赖**（review 可调用 card 的 Service，但 card 不可反向调用 review）

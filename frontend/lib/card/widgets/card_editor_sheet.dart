@@ -3,92 +3,74 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_quill/flutter_quill.dart' as quill;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
+
+import '../../app/theme.dart';
+import '../../shared/widgets/adaptive_scaffold.dart';
 import '../../shared/widgets/rich_card_content.dart';
+import '../../shared/widgets/section_widgets.dart';
 import '../providers/card_provider.dart';
-import '../repositories/card_repository.dart';
 
-class CardEditPage extends ConsumerStatefulWidget {
-  final String? deckId;
+class CardEditorSheet extends ConsumerStatefulWidget {
+  final String deckId;
   final String? cardId;
+  final String? initialFront;
+  final String? initialBack;
+  final ValueChanged<bool>? onSaved;
 
-  const CardEditPage({super.key, this.deckId, this.cardId});
+  const CardEditorSheet({
+    super.key,
+    required this.deckId,
+    this.cardId,
+    this.initialFront,
+    this.initialBack,
+    this.onSaved,
+  });
 
   @override
-  ConsumerState<CardEditPage> createState() => _CardEditPageState();
+  ConsumerState<CardEditorSheet> createState() => _CardEditorSheetState();
 }
 
-class _CardEditPageState extends ConsumerState<CardEditPage> {
+class _CardEditorSheetState extends ConsumerState<CardEditorSheet> {
   late quill.QuillController _frontController;
   late quill.QuillController _backController;
   late FocusNode _frontFocusNode;
   late FocusNode _backFocusNode;
   late ScrollController _frontScrollController;
   late ScrollController _backScrollController;
-  bool _isLoading = false;
   bool _isSaving = false;
 
   @override
   void initState() {
     super.initState();
-    _frontController = quill.QuillController(
-      document: quill.Document(),
-      selection: const TextSelection.collapsed(offset: 0),
-    );
-    _backController = quill.QuillController(
-      document: quill.Document(),
-      selection: const TextSelection.collapsed(offset: 0),
-    );
+    _frontController = _buildController(widget.initialFront ?? '');
+    _backController = _buildController(widget.initialBack ?? '');
     _frontFocusNode = FocusNode();
     _backFocusNode = FocusNode();
     _frontScrollController = ScrollController();
     _backScrollController = ScrollController();
-    if (widget.cardId != null) _loadCard();
   }
 
-  Future<void> _loadCard() async {
-    setState(() => _isLoading = true);
-    try {
-      final card = await CardRepository().getCard(widget.cardId!);
-      if (mounted) {
-        _setControllerContent(_frontController, card.front);
-        _setControllerContent(_backController, card.back);
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('加载卡片失败: $e')),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
-
-  void _setControllerContent(quill.QuillController controller, String content) {
+  quill.QuillController _buildController(String content) {
+    final controller = quill.QuillController(
+      document: quill.Document(),
+      selection: const TextSelection.collapsed(offset: 0),
+    );
     final trimmed = content.trim();
     if (trimmed.startsWith('[')) {
       try {
-        final doc = quill.Document.fromJson(jsonDecode(trimmed) as List<dynamic>);
-        if (identical(controller, _frontController)) {
-          _frontController.dispose();
-          _frontController = quill.QuillController(
-            document: doc,
-            selection: const TextSelection.collapsed(offset: 0),
-          );
-        } else {
-          _backController.dispose();
-          _backController = quill.QuillController(
-            document: doc,
-            selection: const TextSelection.collapsed(offset: 0),
-          );
-        }
-        return;
+        final doc = quill.Document.fromJson(
+          jsonDecode(trimmed) as List<dynamic>,
+        );
+        return quill.QuillController(
+          document: doc,
+          selection: const TextSelection.collapsed(offset: 0),
+        );
       } catch (_) {}
     }
     if (content.isNotEmpty) {
       controller.document.insert(0, content);
     }
+    return controller;
   }
 
   @override
@@ -111,34 +93,29 @@ class _CardEditPageState extends ConsumerState<CardEditPage> {
     final back = _serialize(_backController);
     if (_frontController.document.toPlainText().trim().isEmpty ||
         _backController.document.toPlainText().trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('正面和反面内容不能为空')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('正面和反面内容不能为空')));
       return;
     }
 
     setState(() => _isSaving = true);
     try {
-      final repo = CardRepository();
-      if (widget.cardId != null) {
-        await repo.updateCard(widget.cardId!, front, back);
+      final notifier = ref.read(
+        cardListProvider(CardListArgs(widget.deckId, 'all')).notifier,
+      );
+      if (widget.cardId == null) {
+        await notifier.createCard(front, back);
       } else {
-        await repo.createCard(widget.deckId!, front, back);
+        await notifier.updateCard(widget.cardId!, front, back);
       }
-
-      if (mounted) {
-        if (widget.deckId != null) {
-          ref.read(cardListProvider(widget.deckId!).notifier).loadCards();
-          context.go('/decks/${widget.deckId}/cards');
-        } else {
-          context.pop();
-        }
-      }
+      widget.onSaved?.call(true);
+      if (mounted) Navigator.pop(context, true);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('保存失败: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('保存失败: $e')));
       }
     } finally {
       if (mounted) setState(() => _isSaving = false);
@@ -161,8 +138,11 @@ class _CardEditPageState extends ConsumerState<CardEditPage> {
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
-            ElevatedButton(
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('取消'),
+            ),
+            FilledButton(
               onPressed: () => Navigator.pop(ctx, textController.text),
               child: const Text('插入'),
             ),
@@ -189,7 +169,10 @@ class _CardEditPageState extends ConsumerState<CardEditPage> {
             children: [
               TextField(
                 controller: languageController,
-                decoration: const InputDecoration(labelText: '语言', hintText: 'dart, java, python...'),
+                decoration: const InputDecoration(
+                  labelText: '语言',
+                  hintText: 'dart, java, python...',
+                ),
               ),
               const SizedBox(height: 12),
               TextField(
@@ -197,19 +180,21 @@ class _CardEditPageState extends ConsumerState<CardEditPage> {
                 maxLines: 6,
                 decoration: const InputDecoration(
                   labelText: '代码',
-                  border: OutlineInputBorder(),
                   hintText: '粘贴代码...',
                 ),
               ),
             ],
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(
-                ctx,
-                (languageController.text.trim(), codeController.text),
-              ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, (
+                languageController.text.trim(),
+                codeController.text,
+              )),
               child: const Text('插入'),
             ),
           ],
@@ -218,7 +203,10 @@ class _CardEditPageState extends ConsumerState<CardEditPage> {
     );
     if (result == null || result.$2.trim().isEmpty) return;
     final index = controller.selection.baseOffset;
-    controller.document.insert(index, CodeEmbed(result.$1.isEmpty ? 'text' : result.$1, result.$2));
+    controller.document.insert(
+      index,
+      CodeEmbed(result.$1.isEmpty ? 'text' : result.$1, result.$2),
+    );
     _advanceAfterEmbed(controller, index);
   }
 
@@ -235,64 +223,101 @@ class _CardEditPageState extends ConsumerState<CardEditPage> {
 
   @override
   Widget build(BuildContext context) {
+    final height = MediaQuery.sizeOf(context).height;
+    final isTablet = MediaQuery.sizeOf(context).width >= 600;
     final embedBuilders = const [LatexEmbedBuilder(), CodeEmbedBuilder()];
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.cardId != null ? '编辑卡片' : '新建卡片'),
-        actions: [
-          TextButton(
-            onPressed: _isSaving ? null : _save,
-            child: _isSaving
-                ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                : const Text('保存'),
-          ),
-        ],
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const Text('正面', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 8),
-                  _buildEditor(
-                    controller: _frontController,
-                    focusNode: _frontFocusNode,
-                    scrollController: _frontScrollController,
-                    embedBuilders: embedBuilders,
-                    onLatex: () => _insertLatex(_frontController),
-                    onCode: () => _insertCode(_frontController),
-                  ),
-                  const SizedBox(height: 24),
-                  const Text('反面', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 8),
-                  _buildEditor(
-                    controller: _backController,
-                    focusNode: _backFocusNode,
-                    scrollController: _backScrollController,
-                    embedBuilders: embedBuilders,
-                    onLatex: () => _insertLatex(_backController),
-                    onCode: () => _insertCode(_backController),
-                  ),
-                  const SizedBox(height: 16),
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(8),
+    return SafeArea(
+      top: false,
+      child: Center(
+        child: Container(
+          width: isTablet ? 720 : double.infinity,
+          height: height * (isTablet ? 0.82 : 0.92),
+          decoration: const BoxDecoration(color: KarisColors.paper),
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 12, 10),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Kicker('卡片'),
+                          const SizedBox(height: 4),
+                          Text(
+                            widget.cardId == null ? '新建卡片' : '编辑卡片',
+                            style: karisDisplay(fontSize: 22),
+                          ),
+                        ],
+                      ),
                     ),
-                    child: const Text(
-                      '工具栏支持粗体、斜体、标题、列表、代码块。\n'
-                      '点击 ∑ 插入 LaTeX 数学公式，点击 </> 插入带语法高亮的代码块。',
-                      style: TextStyle(fontSize: 13, color: Colors.grey),
+                    KarisIconButton(
+                      icon: Icons.close,
+                      tooltip: '关闭',
+                      onPressed: () => Navigator.pop(context),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const Text(
+                        '正面',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: KarisColors.ink,
+                          letterSpacing: 0,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      _buildEditor(
+                        controller: _frontController,
+                        focusNode: _frontFocusNode,
+                        scrollController: _frontScrollController,
+                        embedBuilders: embedBuilders,
+                        onLatex: () => _insertLatex(_frontController),
+                        onCode: () => _insertCode(_frontController),
+                      ),
+                      const SizedBox(height: 18),
+                      const Text(
+                        '反面',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: KarisColors.ink,
+                          letterSpacing: 0,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      _buildEditor(
+                        controller: _backController,
+                        focusNode: _backFocusNode,
+                        scrollController: _backScrollController,
+                        embedBuilders: embedBuilders,
+                        onLatex: () => _insertLatex(_backController),
+                        onCode: () => _insertCode(_backController),
+                      ),
+                      const SizedBox(height: 16),
+                      KarisPrimaryButton(
+                        label: _isSaving ? '保存中...' : '保存',
+                        icon: Icons.save_outlined,
+                        onPressed: _isSaving ? null : _save,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -306,8 +331,9 @@ class _CardEditPageState extends ConsumerState<CardEditPage> {
   }) {
     return Container(
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.black12),
-        borderRadius: BorderRadius.circular(12),
+        color: KarisColors.surface,
+        border: Border.all(color: KarisColors.hairline),
+        borderRadius: BorderRadius.circular(8),
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(
@@ -344,9 +370,8 @@ class _CardEditPageState extends ConsumerState<CardEditPage> {
             ),
           ),
           const Divider(height: 1),
-          Container(
-            constraints: const BoxConstraints(minHeight: 140),
-            padding: const EdgeInsets.symmetric(horizontal: 8),
+          ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 130),
             child: quill.QuillEditor.basic(
               controller: controller,
               focusNode: focusNode,

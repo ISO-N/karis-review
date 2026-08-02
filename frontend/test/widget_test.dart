@@ -5,6 +5,9 @@ import 'package:karisreview/app/app.dart';
 void main() {
   testWidgets('App starts and shows login page', (WidgetTester tester) async {
     await tester.pumpWidget(const ProviderScope(child: KarisReviewApp()));
-    expect(find.text('Karis Review'), findsOneWidget);
+    await tester.pump();
+
+    expect(find.text('回到记忆刻度'), findsOneWidget);
+    expect(find.text('登录'), findsOneWidget);
   });
 }

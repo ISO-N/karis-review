@@ -5,10 +5,15 @@ import '../models/card.dart';
 class CardRepository {
   final ApiClient _client = ApiClient();
 
-  Future<Map<String, dynamic>> getDeckCards(String deckId, {int page = 0, int size = 20}) async {
+  Future<Map<String, dynamic>> getDeckCards(
+    String deckId, {
+    int page = 0,
+    int size = 500,
+    String filter = 'all',
+  }) async {
     final response = await _client.get(
       ApiEndpoints.deckCards(deckId),
-      queryParameters: {'page': page, 'size': size},
+      queryParameters: {'page': page, 'size': size, 'filter': filter},
     );
     return response.data['data'] as Map<String, dynamic>;
   }

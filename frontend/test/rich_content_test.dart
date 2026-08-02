@@ -7,7 +7,8 @@ import 'package:karisreview/shared/widgets/rich_card_content.dart';
 void main() {
   test('CodeEmbed.tryDecode handles direct and outer formats', () {
     const direct = '{"language":"dart","code":"void main() {}"}';
-    const outer = '{"code":"{\\"language\\":\\"dart\\",\\"code\\":\\"void main() {}\\"}"}';
+    const outer =
+        '{"code":"{\\"language\\":\\"dart\\",\\"code\\":\\"void main() {}\\"}"}';
     final directResult = CodeEmbed.tryDecode(direct);
     final outerResult = CodeEmbed.tryDecode(outer);
     expect(directResult, isNotNull);

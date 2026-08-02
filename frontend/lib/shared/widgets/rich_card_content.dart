@@ -6,7 +6,6 @@ import 'package:flutter_quill/flutter_quill.dart' as quill;
 import 'package:flutter_highlight/flutter_highlight.dart';
 import 'package:flutter_highlight/themes/github.dart';
 
-
 /// Renders card content as rich text.
 ///
 /// Supports both Quill Delta JSON (created by the card editor) and plain text
@@ -90,7 +89,10 @@ class _RichCardContentState extends State<RichCardContent> {
 
   @override
   Widget build(BuildContext context) {
-    if (_isDelta && _quillController != null && _focusNode != null && _scrollController != null) {
+    if (_isDelta &&
+        _quillController != null &&
+        _focusNode != null &&
+        _scrollController != null) {
       return quill.QuillEditor.basic(
         controller: _quillController!,
         focusNode: _focusNode,
@@ -123,7 +125,9 @@ class LatexEmbed extends quill.CustomBlockEmbed {
     try {
       final decoded = jsonDecode(data);
       if (decoded is Map<String, dynamic>) {
-        if (decoded.containsKey(latexType)) return LatexEmbed(decoded[latexType] as String);
+        if (decoded.containsKey(latexType)) {
+          return LatexEmbed(decoded[latexType] as String);
+        }
       } else if (decoded is String) {
         return LatexEmbed(decoded);
       }
@@ -174,29 +178,40 @@ class LatexEmbedBuilder extends quill.EmbedBuilder {
 }
 
 class CodeEmbed extends quill.CustomBlockEmbed {
-  CodeEmbed(String language, String code) : super('code', jsonEncode({'language': language, 'code': code}));
+  CodeEmbed(String language, String code)
+    : super('code', jsonEncode({'language': language, 'code': code}));
 
   static String get codeType => 'code';
 
-  static String encode(String language, String code) =>
-      jsonEncode({codeType: {'language': language, 'code': code}});
+  static String encode(String language, String code) => jsonEncode({
+    codeType: {'language': language, 'code': code},
+  });
 
   static (String, String)? tryDecode(String data) {
     try {
       final decoded = jsonDecode(data);
       if (decoded is Map<String, dynamic>) {
         if (decoded.containsKey('language')) {
-          return (decoded['language'] as String? ?? '', decoded['code'] as String? ?? '');
+          return (
+            decoded['language'] as String? ?? '',
+            decoded['code'] as String? ?? '',
+          );
         }
         final raw = decoded[codeType];
         if (raw is Map<String, dynamic>) {
-          return (raw['language'] as String? ?? '', raw['code'] as String? ?? '');
+          return (
+            raw['language'] as String? ?? '',
+            raw['code'] as String? ?? '',
+          );
         }
         if (raw is String) {
           try {
             final inner = jsonDecode(raw);
             if (inner is Map<String, dynamic>) {
-              return (inner['language'] as String? ?? '', inner['code'] as String? ?? '');
+              return (
+                inner['language'] as String? ?? '',
+                inner['code'] as String? ?? '',
+              );
             }
           } catch (_) {}
           return ('', raw);
@@ -255,8 +270,14 @@ class CodeEmbedBuilder extends quill.EmbedBuilder {
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
               color: Colors.black.withValues(alpha: 0.04),
-              child: Text(language,
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.black54)),
+              child: Text(
+                language,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black54,
+                ),
+              ),
             ),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
@@ -311,39 +332,53 @@ class _MarkdownContent extends StatelessWidget {
 
     for (final segment in segments) {
       if (segment.isCode) {
-        children.add(Container(
-          width: double.infinity,
-          margin: const EdgeInsets.symmetric(vertical: 6),
-          decoration: BoxDecoration(
-            color: const Color(0xFFF6F8FA),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.black12),
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (segment.language.isNotEmpty)
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                  color: Colors.black.withValues(alpha: 0.04),
-                  child: Text(segment.language,
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.black54)),
+        children.add(
+          Container(
+            width: double.infinity,
+            margin: const EdgeInsets.symmetric(vertical: 6),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF6F8FA),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.black12),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (segment.language.isNotEmpty)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 4,
+                    ),
+                    color: Colors.black.withValues(alpha: 0.04),
+                    child: Text(
+                      segment.language,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black54,
+                      ),
+                    ),
+                  ),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: HighlightView(
+                    segment.text,
+                    language: _languageName(segment.language) ?? 'plaintext',
+                    theme: githubTheme,
+                    padding: const EdgeInsets.all(12),
+                    textStyle: const TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 13,
+                    ),
+                  ),
                 ),
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: HighlightView(
-                  segment.text,
-                  language: _languageName(segment.language) ?? 'plaintext',
-                  theme: githubTheme,
-                  padding: const EdgeInsets.all(12),
-                  textStyle: const TextStyle(fontFamily: 'monospace', fontSize: 13),
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ));
+        );
       } else {
         final lines = segment.text.split('\n');
         for (final line in lines) {
@@ -353,49 +388,57 @@ class _MarkdownContent extends StatelessWidget {
             while (level < trimmed.length && trimmed[level] == '#') {
               level++;
             }
-            children.add(Padding(
-              padding: const EdgeInsets.symmetric(vertical: 6),
-              child: Text(
-                trimmed.substring(level).trim(),
-                style: effectiveStyle.copyWith(
-                  fontSize: (effectiveStyle.fontSize ?? 16) + (4 - level.clamp(1, 4)) * 2,
-                  fontWeight: FontWeight.bold,
+            children.add(
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Text(
+                  trimmed.substring(level).trim(),
+                  style: effectiveStyle.copyWith(
+                    fontSize:
+                        (effectiveStyle.fontSize ?? 16) +
+                        (4 - level.clamp(1, 4)) * 2,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  maxLines: maxLines,
+                  overflow: maxLines != null ? TextOverflow.ellipsis : null,
                 ),
-                maxLines: maxLines,
-                overflow: maxLines != null ? TextOverflow.ellipsis : null,
               ),
-            ));
+            );
           } else if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
-            children.add(Padding(
-              padding: const EdgeInsets.symmetric(vertical: 2),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Padding(
-                    padding: EdgeInsets.only(right: 8),
-                    child: Text('•'),
-                  ),
-                  Expanded(
-                    child: _InlineRichText(
-                      text: trimmed.substring(2),
-                      style: effectiveStyle,
-                      textAlign: textAlign,
-                      maxLines: maxLines,
+            children.add(
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Padding(
+                      padding: EdgeInsets.only(right: 8),
+                      child: Text('•'),
                     ),
-                  ),
-                ],
+                    Expanded(
+                      child: _InlineRichText(
+                        text: trimmed.substring(2),
+                        style: effectiveStyle,
+                        textAlign: textAlign,
+                        maxLines: maxLines,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ));
+            );
           } else {
-            children.add(Padding(
-              padding: const EdgeInsets.symmetric(vertical: 2),
-              child: _InlineRichText(
-                text: line,
-                style: effectiveStyle,
-                textAlign: textAlign,
-                maxLines: maxLines,
+            children.add(
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                child: _InlineRichText(
+                  text: line,
+                  style: effectiveStyle,
+                  textAlign: textAlign,
+                  maxLines: maxLines,
+                ),
               ),
-            ));
+            );
           }
         }
       }
@@ -435,13 +478,20 @@ List<_CodeSegment> _splitCodeFences(String content) {
   var lastEnd = 0;
   for (final match in regex.allMatches(content)) {
     if (match.start > lastEnd) {
-      result.add(_CodeSegment(isCode: false, text: content.substring(lastEnd, match.start)));
+      result.add(
+        _CodeSegment(
+          isCode: false,
+          text: content.substring(lastEnd, match.start),
+        ),
+      );
     }
-    result.add(_CodeSegment(
-      isCode: true,
-      text: match.group(2) ?? '',
-      language: match.group(1) ?? '',
-    ));
+    result.add(
+      _CodeSegment(
+        isCode: true,
+        text: match.group(2) ?? '',
+        language: match.group(1) ?? '',
+      ),
+    );
     lastEnd = match.end;
   }
   if (lastEnd < content.length) {
@@ -482,24 +532,43 @@ class _InlineRichText extends StatelessWidget {
     var index = 0;
     for (final match in displayMath.allMatches(text)) {
       if (match.start > index) {
-        _parseInlineMathAndFormat(text.substring(index, match.start), baseStyle, out, isMathDisplay: false);
+        _parseInlineMathAndFormat(
+          text.substring(index, match.start),
+          baseStyle,
+          out,
+          isMathDisplay: false,
+        );
       }
-      out.add(WidgetSpan(
-        alignment: PlaceholderAlignment.middle,
-        child: Math.tex(
-          match.group(1)!,
-          mathStyle: MathStyle.display,
-          textStyle: baseStyle.copyWith(fontSize: (baseStyle.fontSize ?? 16) + 2),
+      out.add(
+        WidgetSpan(
+          alignment: PlaceholderAlignment.middle,
+          child: Math.tex(
+            match.group(1)!,
+            mathStyle: MathStyle.display,
+            textStyle: baseStyle.copyWith(
+              fontSize: (baseStyle.fontSize ?? 16) + 2,
+            ),
+          ),
         ),
-      ));
+      );
       index = match.end;
     }
     if (index < text.length) {
-      _parseInlineMathAndFormat(text.substring(index), baseStyle, out, isMathDisplay: false);
+      _parseInlineMathAndFormat(
+        text.substring(index),
+        baseStyle,
+        out,
+        isMathDisplay: false,
+      );
     }
   }
 
-  void _parseInlineMathAndFormat(String text, TextStyle baseStyle, List<InlineSpan> out, {required bool isMathDisplay}) {
+  void _parseInlineMathAndFormat(
+    String text,
+    TextStyle baseStyle,
+    List<InlineSpan> out, {
+    required bool isMathDisplay,
+  }) {
     // Inline math: $...$
     final inlineMath = RegExp(r'\$([^$\n]+?)\$');
     var index = 0;
@@ -507,14 +576,18 @@ class _InlineRichText extends StatelessWidget {
       if (match.start > index) {
         _parseFormatting(text.substring(index, match.start), baseStyle, out);
       }
-      out.add(WidgetSpan(
-        alignment: PlaceholderAlignment.middle,
-        child: Math.tex(
-          match.group(1)!,
-          mathStyle: MathStyle.text,
-          textStyle: baseStyle.copyWith(fontSize: (baseStyle.fontSize ?? 16) - 1),
+      out.add(
+        WidgetSpan(
+          alignment: PlaceholderAlignment.middle,
+          child: Math.tex(
+            match.group(1)!,
+            mathStyle: MathStyle.text,
+            textStyle: baseStyle.copyWith(
+              fontSize: (baseStyle.fontSize ?? 16) - 1,
+            ),
+          ),
         ),
-      ));
+      );
       index = match.end;
     }
     if (index < text.length) {
@@ -522,7 +595,11 @@ class _InlineRichText extends StatelessWidget {
     }
   }
 
-  void _parseFormatting(String text, TextStyle baseStyle, List<InlineSpan> out) {
+  void _parseFormatting(
+    String text,
+    TextStyle baseStyle,
+    List<InlineSpan> out,
+  ) {
     // Bold
     final bold = RegExp(r'\*\*(.+?)\*\*');
     var index = 0;
@@ -530,10 +607,12 @@ class _InlineRichText extends StatelessWidget {
       if (match.start > index) {
         _parseItalicAndCode(text.substring(index, match.start), baseStyle, out);
       }
-      out.add(TextSpan(
-        text: match.group(1),
-        style: baseStyle.copyWith(fontWeight: FontWeight.bold),
-      ));
+      out.add(
+        TextSpan(
+          text: match.group(1),
+          style: baseStyle.copyWith(fontWeight: FontWeight.bold),
+        ),
+      );
       index = match.end;
     }
     if (index < text.length) {
@@ -541,7 +620,11 @@ class _InlineRichText extends StatelessWidget {
     }
   }
 
-  void _parseItalicAndCode(String text, TextStyle baseStyle, List<InlineSpan> out) {
+  void _parseItalicAndCode(
+    String text,
+    TextStyle baseStyle,
+    List<InlineSpan> out,
+  ) {
     // Inline code
     final inlineCode = RegExp(r'`([^`]+)`');
     var index = 0;
@@ -549,13 +632,15 @@ class _InlineRichText extends StatelessWidget {
       if (match.start > index) {
         _parseItalic(text.substring(index, match.start), baseStyle, out);
       }
-      out.add(TextSpan(
-        text: match.group(1),
-        style: baseStyle.copyWith(
-          fontFamily: 'monospace',
-          backgroundColor: const Color(0xFFF0F0F0),
+      out.add(
+        TextSpan(
+          text: match.group(1),
+          style: baseStyle.copyWith(
+            fontFamily: 'monospace',
+            backgroundColor: const Color(0xFFF0F0F0),
+          ),
         ),
-      ));
+      );
       index = match.end;
     }
     if (index < text.length) {
@@ -570,10 +655,12 @@ class _InlineRichText extends StatelessWidget {
       if (match.start > index) {
         out.add(TextSpan(text: text.substring(index, match.start)));
       }
-      out.add(TextSpan(
-        text: match.group(1),
-        style: baseStyle.copyWith(fontStyle: FontStyle.italic),
-      ));
+      out.add(
+        TextSpan(
+          text: match.group(1),
+          style: baseStyle.copyWith(fontStyle: FontStyle.italic),
+        ),
+      );
       index = match.end;
     }
     if (index < text.length) {
