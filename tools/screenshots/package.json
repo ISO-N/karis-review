@@ -1,0 +1,11 @@
+{
+  "name": "karis-review-screenshots",
+  "private": true,
+  "description": "Capture Karis Review Flutter web screenshots for mobile and tablet layouts.",
+  "scripts": {
+    "capture": "node capture.cjs"
+  },
+  "dependencies": {
+    "playwright-core": "^1.47.2"
+  }
+}

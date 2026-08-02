@@ -168,4 +168,7 @@ const hairline = Color(0xFFDCE3DB);
 - `docs/frontend-design/styles.css`：原型样式，包含手机/平板断点、悬浮导航与动效。
 - `docs/frontend-design/app.js`：原型交互逻辑，包含页面切换、翻卡评分、弹层和设备切换。
 - `docs/frontend-design.md`：本设计说明。
+- `docs/frontend-design/screenshots/mobile/`：Flutter Web 手机布局页面与组件截图。
+- `docs/frontend-design/screenshots/tablet/`：Flutter Web 平板布局页面与组件截图。
+- `tools/screenshots/`：可重复运行的 Playwright 截图工具，自动注册演示账号并生成两组截图。
 - `docs/README.md`：文档索引新增本设计说明入口。
