@@ -14,9 +14,11 @@ import top.kariscode.karisreview.config.JwtAuthenticationFilter;
 import top.kariscode.karisreview.config.JwtProvider;
 import top.kariscode.karisreview.config.SecurityConfig;
 import top.kariscode.karisreview.sync.dto.BootstrapResponse;
+import top.kariscode.karisreview.sync.dto.BootstrapReviewLog;
 import top.kariscode.karisreview.sync.dto.BootstrapUser;
 import top.kariscode.karisreview.sync.service.SyncService;
 
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
@@ -43,17 +45,21 @@ class SyncControllerTest {
     @Test
     void bootstrapReturnsOfflineSnapshot() throws Exception {
         UUID userId = UUID.randomUUID();
+        BootstrapReviewLog log = new BootstrapReviewLog(
+                UUID.randomUUID(), UUID.randomUUID(), "FAMILIAR",
+                0, 1, LocalDateTime.of(2025, 8, 2, 12, 0), true);
         BootstrapResponse response = new BootstrapResponse(
                 OffsetDateTime.now(ZoneOffset.UTC),
                 new BootstrapUser(userId, "a@b.c", "04:00:00"),
                 List.of(),
-                List.of());
+                List.of(log));
         when(syncService.getBootstrap(userId)).thenReturn(response);
 
         mockMvc.perform(get("/api/sync/bootstrap").with(authentication(userId)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.user.email").value("a@b.c"))
-                .andExpect(jsonPath("$.data.decks.length()").value(0));
+                .andExpect(jsonPath("$.data.decks.length()").value(0))
+                .andExpect(jsonPath("$.data.review_logs[0].is_new_card").value(true));
     }
 
     private RequestPostProcessor authentication(UUID userId) {

@@ -1571,6 +1571,21 @@ class $LocalReviewLogsTable extends LocalReviewLogs
     type: DriftSqlType.int,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _isNewCardMeta = const VerificationMeta(
+    'isNewCard',
+  );
+  @override
+  late final GeneratedColumn<bool> isNewCard = GeneratedColumn<bool>(
+    'is_new_card',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_new_card" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   static const VerificationMeta _reviewedAtMeta = const VerificationMeta(
     'reviewedAt',
   );
@@ -1625,6 +1640,7 @@ class $LocalReviewLogsTable extends LocalReviewLogs
     rating,
     stageBefore,
     stageAfter,
+    isNewCard,
     reviewedAt,
     clientRequestId,
     reviewVersion,
@@ -1689,6 +1705,12 @@ class $LocalReviewLogsTable extends LocalReviewLogs
       );
     } else if (isInserting) {
       context.missing(_stageAfterMeta);
+    }
+    if (data.containsKey('is_new_card')) {
+      context.handle(
+        _isNewCardMeta,
+        isNewCard.isAcceptableOrUnknown(data['is_new_card']!, _isNewCardMeta),
+      );
     }
     if (data.containsKey('reviewed_at')) {
       context.handle(
@@ -1755,6 +1777,10 @@ class $LocalReviewLogsTable extends LocalReviewLogs
         DriftSqlType.int,
         data['${effectivePrefix}stage_after'],
       )!,
+      isNewCard: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_new_card'],
+      )!,
       reviewedAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}reviewed_at'],
@@ -1787,6 +1813,7 @@ class LocalReviewLog extends DataClass implements Insertable<LocalReviewLog> {
   final String rating;
   final int stageBefore;
   final int stageAfter;
+  final bool isNewCard;
   final DateTime reviewedAt;
   final String? clientRequestId;
   final BigInt reviewVersion;
@@ -1798,6 +1825,7 @@ class LocalReviewLog extends DataClass implements Insertable<LocalReviewLog> {
     required this.rating,
     required this.stageBefore,
     required this.stageAfter,
+    required this.isNewCard,
     required this.reviewedAt,
     this.clientRequestId,
     required this.reviewVersion,
@@ -1812,6 +1840,7 @@ class LocalReviewLog extends DataClass implements Insertable<LocalReviewLog> {
     map['rating'] = Variable<String>(rating);
     map['stage_before'] = Variable<int>(stageBefore);
     map['stage_after'] = Variable<int>(stageAfter);
+    map['is_new_card'] = Variable<bool>(isNewCard);
     map['reviewed_at'] = Variable<DateTime>(reviewedAt);
     if (!nullToAbsent || clientRequestId != null) {
       map['client_request_id'] = Variable<String>(clientRequestId);
@@ -1829,6 +1858,7 @@ class LocalReviewLog extends DataClass implements Insertable<LocalReviewLog> {
       rating: Value(rating),
       stageBefore: Value(stageBefore),
       stageAfter: Value(stageAfter),
+      isNewCard: Value(isNewCard),
       reviewedAt: Value(reviewedAt),
       clientRequestId: clientRequestId == null && nullToAbsent
           ? const Value.absent()
@@ -1850,6 +1880,7 @@ class LocalReviewLog extends DataClass implements Insertable<LocalReviewLog> {
       rating: serializer.fromJson<String>(json['rating']),
       stageBefore: serializer.fromJson<int>(json['stageBefore']),
       stageAfter: serializer.fromJson<int>(json['stageAfter']),
+      isNewCard: serializer.fromJson<bool>(json['isNewCard']),
       reviewedAt: serializer.fromJson<DateTime>(json['reviewedAt']),
       clientRequestId: serializer.fromJson<String?>(json['clientRequestId']),
       reviewVersion: serializer.fromJson<BigInt>(json['reviewVersion']),
@@ -1866,6 +1897,7 @@ class LocalReviewLog extends DataClass implements Insertable<LocalReviewLog> {
       'rating': serializer.toJson<String>(rating),
       'stageBefore': serializer.toJson<int>(stageBefore),
       'stageAfter': serializer.toJson<int>(stageAfter),
+      'isNewCard': serializer.toJson<bool>(isNewCard),
       'reviewedAt': serializer.toJson<DateTime>(reviewedAt),
       'clientRequestId': serializer.toJson<String?>(clientRequestId),
       'reviewVersion': serializer.toJson<BigInt>(reviewVersion),
@@ -1880,6 +1912,7 @@ class LocalReviewLog extends DataClass implements Insertable<LocalReviewLog> {
     String? rating,
     int? stageBefore,
     int? stageAfter,
+    bool? isNewCard,
     DateTime? reviewedAt,
     Value<String?> clientRequestId = const Value.absent(),
     BigInt? reviewVersion,
@@ -1891,6 +1924,7 @@ class LocalReviewLog extends DataClass implements Insertable<LocalReviewLog> {
     rating: rating ?? this.rating,
     stageBefore: stageBefore ?? this.stageBefore,
     stageAfter: stageAfter ?? this.stageAfter,
+    isNewCard: isNewCard ?? this.isNewCard,
     reviewedAt: reviewedAt ?? this.reviewedAt,
     clientRequestId: clientRequestId.present
         ? clientRequestId.value
@@ -1910,6 +1944,7 @@ class LocalReviewLog extends DataClass implements Insertable<LocalReviewLog> {
       stageAfter: data.stageAfter.present
           ? data.stageAfter.value
           : this.stageAfter,
+      isNewCard: data.isNewCard.present ? data.isNewCard.value : this.isNewCard,
       reviewedAt: data.reviewedAt.present
           ? data.reviewedAt.value
           : this.reviewedAt,
@@ -1934,6 +1969,7 @@ class LocalReviewLog extends DataClass implements Insertable<LocalReviewLog> {
           ..write('rating: $rating, ')
           ..write('stageBefore: $stageBefore, ')
           ..write('stageAfter: $stageAfter, ')
+          ..write('isNewCard: $isNewCard, ')
           ..write('reviewedAt: $reviewedAt, ')
           ..write('clientRequestId: $clientRequestId, ')
           ..write('reviewVersion: $reviewVersion, ')
@@ -1950,6 +1986,7 @@ class LocalReviewLog extends DataClass implements Insertable<LocalReviewLog> {
     rating,
     stageBefore,
     stageAfter,
+    isNewCard,
     reviewedAt,
     clientRequestId,
     reviewVersion,
@@ -1965,6 +2002,7 @@ class LocalReviewLog extends DataClass implements Insertable<LocalReviewLog> {
           other.rating == this.rating &&
           other.stageBefore == this.stageBefore &&
           other.stageAfter == this.stageAfter &&
+          other.isNewCard == this.isNewCard &&
           other.reviewedAt == this.reviewedAt &&
           other.clientRequestId == this.clientRequestId &&
           other.reviewVersion == this.reviewVersion &&
@@ -1978,6 +2016,7 @@ class LocalReviewLogsCompanion extends UpdateCompanion<LocalReviewLog> {
   final Value<String> rating;
   final Value<int> stageBefore;
   final Value<int> stageAfter;
+  final Value<bool> isNewCard;
   final Value<DateTime> reviewedAt;
   final Value<String?> clientRequestId;
   final Value<BigInt> reviewVersion;
@@ -1990,6 +2029,7 @@ class LocalReviewLogsCompanion extends UpdateCompanion<LocalReviewLog> {
     this.rating = const Value.absent(),
     this.stageBefore = const Value.absent(),
     this.stageAfter = const Value.absent(),
+    this.isNewCard = const Value.absent(),
     this.reviewedAt = const Value.absent(),
     this.clientRequestId = const Value.absent(),
     this.reviewVersion = const Value.absent(),
@@ -2003,6 +2043,7 @@ class LocalReviewLogsCompanion extends UpdateCompanion<LocalReviewLog> {
     required String rating,
     required int stageBefore,
     required int stageAfter,
+    this.isNewCard = const Value.absent(),
     required DateTime reviewedAt,
     this.clientRequestId = const Value.absent(),
     this.reviewVersion = const Value.absent(),
@@ -2022,6 +2063,7 @@ class LocalReviewLogsCompanion extends UpdateCompanion<LocalReviewLog> {
     Expression<String>? rating,
     Expression<int>? stageBefore,
     Expression<int>? stageAfter,
+    Expression<bool>? isNewCard,
     Expression<DateTime>? reviewedAt,
     Expression<String>? clientRequestId,
     Expression<BigInt>? reviewVersion,
@@ -2035,6 +2077,7 @@ class LocalReviewLogsCompanion extends UpdateCompanion<LocalReviewLog> {
       if (rating != null) 'rating': rating,
       if (stageBefore != null) 'stage_before': stageBefore,
       if (stageAfter != null) 'stage_after': stageAfter,
+      if (isNewCard != null) 'is_new_card': isNewCard,
       if (reviewedAt != null) 'reviewed_at': reviewedAt,
       if (clientRequestId != null) 'client_request_id': clientRequestId,
       if (reviewVersion != null) 'review_version': reviewVersion,
@@ -2050,6 +2093,7 @@ class LocalReviewLogsCompanion extends UpdateCompanion<LocalReviewLog> {
     Value<String>? rating,
     Value<int>? stageBefore,
     Value<int>? stageAfter,
+    Value<bool>? isNewCard,
     Value<DateTime>? reviewedAt,
     Value<String?>? clientRequestId,
     Value<BigInt>? reviewVersion,
@@ -2063,6 +2107,7 @@ class LocalReviewLogsCompanion extends UpdateCompanion<LocalReviewLog> {
       rating: rating ?? this.rating,
       stageBefore: stageBefore ?? this.stageBefore,
       stageAfter: stageAfter ?? this.stageAfter,
+      isNewCard: isNewCard ?? this.isNewCard,
       reviewedAt: reviewedAt ?? this.reviewedAt,
       clientRequestId: clientRequestId ?? this.clientRequestId,
       reviewVersion: reviewVersion ?? this.reviewVersion,
@@ -2092,6 +2137,9 @@ class LocalReviewLogsCompanion extends UpdateCompanion<LocalReviewLog> {
     if (stageAfter.present) {
       map['stage_after'] = Variable<int>(stageAfter.value);
     }
+    if (isNewCard.present) {
+      map['is_new_card'] = Variable<bool>(isNewCard.value);
+    }
     if (reviewedAt.present) {
       map['reviewed_at'] = Variable<DateTime>(reviewedAt.value);
     }
@@ -2119,6 +2167,7 @@ class LocalReviewLogsCompanion extends UpdateCompanion<LocalReviewLog> {
           ..write('rating: $rating, ')
           ..write('stageBefore: $stageBefore, ')
           ..write('stageAfter: $stageAfter, ')
+          ..write('isNewCard: $isNewCard, ')
           ..write('reviewedAt: $reviewedAt, ')
           ..write('clientRequestId: $clientRequestId, ')
           ..write('reviewVersion: $reviewVersion, ')
@@ -3300,6 +3349,7 @@ typedef $$LocalReviewLogsTableCreateCompanionBuilder =
       required String rating,
       required int stageBefore,
       required int stageAfter,
+      Value<bool> isNewCard,
       required DateTime reviewedAt,
       Value<String?> clientRequestId,
       Value<BigInt> reviewVersion,
@@ -3314,6 +3364,7 @@ typedef $$LocalReviewLogsTableUpdateCompanionBuilder =
       Value<String> rating,
       Value<int> stageBefore,
       Value<int> stageAfter,
+      Value<bool> isNewCard,
       Value<DateTime> reviewedAt,
       Value<String?> clientRequestId,
       Value<BigInt> reviewVersion,
@@ -3357,6 +3408,11 @@ class $$LocalReviewLogsTableFilterComposer
 
   ColumnFilters<int> get stageAfter => $composableBuilder(
     column: $table.stageAfter,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isNewCard => $composableBuilder(
+    column: $table.isNewCard,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -3420,6 +3476,11 @@ class $$LocalReviewLogsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get isNewCard => $composableBuilder(
+    column: $table.isNewCard,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get reviewedAt => $composableBuilder(
     column: $table.reviewedAt,
     builder: (column) => ColumnOrderings(column),
@@ -3471,6 +3532,9 @@ class $$LocalReviewLogsTableAnnotationComposer
     column: $table.stageAfter,
     builder: (column) => column,
   );
+
+  GeneratedColumn<bool> get isNewCard =>
+      $composableBuilder(column: $table.isNewCard, builder: (column) => column);
 
   GeneratedColumn<DateTime> get reviewedAt => $composableBuilder(
     column: $table.reviewedAt,
@@ -3536,6 +3600,7 @@ class $$LocalReviewLogsTableTableManager
                 Value<String> rating = const Value.absent(),
                 Value<int> stageBefore = const Value.absent(),
                 Value<int> stageAfter = const Value.absent(),
+                Value<bool> isNewCard = const Value.absent(),
                 Value<DateTime> reviewedAt = const Value.absent(),
                 Value<String?> clientRequestId = const Value.absent(),
                 Value<BigInt> reviewVersion = const Value.absent(),
@@ -3548,6 +3613,7 @@ class $$LocalReviewLogsTableTableManager
                 rating: rating,
                 stageBefore: stageBefore,
                 stageAfter: stageAfter,
+                isNewCard: isNewCard,
                 reviewedAt: reviewedAt,
                 clientRequestId: clientRequestId,
                 reviewVersion: reviewVersion,
@@ -3562,6 +3628,7 @@ class $$LocalReviewLogsTableTableManager
                 required String rating,
                 required int stageBefore,
                 required int stageAfter,
+                Value<bool> isNewCard = const Value.absent(),
                 required DateTime reviewedAt,
                 Value<String?> clientRequestId = const Value.absent(),
                 Value<BigInt> reviewVersion = const Value.absent(),
@@ -3574,6 +3641,7 @@ class $$LocalReviewLogsTableTableManager
                 rating: rating,
                 stageBefore: stageBefore,
                 stageAfter: stageAfter,
+                isNewCard: isNewCard,
                 reviewedAt: reviewedAt,
                 clientRequestId: clientRequestId,
                 reviewVersion: reviewVersion,

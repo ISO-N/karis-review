@@ -27,8 +27,9 @@ class _StatsPageState extends ConsumerState<StatsPage> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(statsProvider.notifier).loadOverview();
-      ref.invalidate(trendProvider(30));
+      ref.read(statsProvider.notifier).loadOverview().then((_) {
+        ref.invalidate(trendProvider(30));
+      });
     });
   }
 
@@ -367,14 +368,25 @@ class TrendChartPainter extends CustomPainter {
     final bottom = 24.0;
     final chartWidth = size.width - left - right;
     final chartHeight = size.height - top - bottom;
+    final baselineY = top + chartHeight;
     final stepX = points.length == 1 ? 0.0 : chartWidth / (points.length - 1);
 
     Offset pointAt(int index) {
       final x = left + stepX * index;
       final y =
-          top + chartHeight - (points[index].reviewed / maxY) * chartHeight;
+          baselineY - (points[index].reviewed / maxY) * chartHeight;
       return Offset(x, y);
     }
+
+    final axisPaint = Paint()
+      ..color = KarisColors.hairline
+      ..strokeWidth = 1;
+    canvas.drawLine(Offset(left, top), Offset(left, baselineY), axisPaint);
+    canvas.drawLine(
+      Offset(left, baselineY),
+      Offset(left + chartWidth, baselineY),
+      axisPaint,
+    );
 
     final linePath = Path();
     final areaPath = Path();
@@ -382,14 +394,14 @@ class TrendChartPainter extends CustomPainter {
       final offset = pointAt(i);
       if (i == 0) {
         linePath.moveTo(offset.dx, offset.dy);
-        areaPath.moveTo(offset.dx, top + chartHeight);
+        areaPath.moveTo(offset.dx, baselineY);
         areaPath.lineTo(offset.dx, offset.dy);
       } else {
         linePath.lineTo(offset.dx, offset.dy);
         areaPath.lineTo(offset.dx, offset.dy);
       }
     }
-    areaPath.lineTo(left + chartWidth, top + chartHeight);
+    areaPath.lineTo(left + chartWidth, baselineY);
     areaPath.close();
 
     final areaPaint = Paint()

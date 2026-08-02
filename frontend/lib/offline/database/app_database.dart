@@ -61,6 +61,7 @@ class LocalReviewLogs extends Table {
   TextColumn get rating => text()();
   IntColumn get stageBefore => integer()();
   IntColumn get stageAfter => integer()();
+  BoolColumn get isNewCard => boolean().withDefault(const Constant(false))();
   DateTimeColumn get reviewedAt => dateTime()();
   TextColumn get clientRequestId => text().nullable()();
   Int64Column get reviewVersion => int64().withDefault(Constant(BigInt.zero))();
@@ -94,10 +95,15 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor]) : super(executor ?? driftDatabase(name: 'karis_review'));
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onCreate: (m) => m.createAll(),
+    onUpgrade: (m, from, to) async {
+      if (from < 2) {
+        await m.addColumn(localReviewLogs, localReviewLogs.isNewCard);
+      }
+    },
   );
 }

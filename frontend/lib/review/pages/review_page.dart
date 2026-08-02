@@ -327,101 +327,63 @@ class _ReviewStage extends ConsumerWidget {
           ),
         ),
         if (isTablet)
-          _TabletRatingArea(state: state, card: card, onRate: onRate)
+          _RatingArea(
+            state: state,
+            card: card,
+            onRate: onRate,
+            maxWidth: 620,
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+          )
         else
-          _MobileRatingArea(state: state, card: card, onRate: onRate),
+          _RatingArea(
+            state: state,
+            card: card,
+            onRate: onRate,
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+          ),
       ],
     );
   }
 }
 
-class _TabletRatingArea extends StatelessWidget {
+class _RatingArea extends StatelessWidget {
   final ReviewSessionState state;
   final ReviewCard card;
   final ValueChanged<String> onRate;
+  final double? maxWidth;
+  final EdgeInsetsGeometry padding;
 
-  const _TabletRatingArea({
+  const _RatingArea({
     required this.state,
     required this.card,
     required this.onRate,
+    this.maxWidth,
+    required this.padding,
   });
 
   @override
   Widget build(BuildContext context) {
-    if (!state.isFlipped) return const SizedBox.shrink();
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+    final enabled = state.isFlipped && !state.isRating && !state.loadingMore;
+    return Container(
+      width: double.infinity,
+      padding: padding,
+      decoration: BoxDecoration(
+        color: KarisColors.surface.withValues(alpha: 0.96),
+        border: const Border(top: BorderSide(color: KarisColors.hairline)),
+      ),
       child: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 620),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Text(
-                '本次回忆',
-                style: TextStyle(
-                  color: KarisColors.stone,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
-                  letterSpacing: 0,
-                ),
-              ),
-              const SizedBox(height: 9),
-              _RatingRow(
-                card: card,
-                onRate: onRate,
-                enabled: !state.isRating && !state.loadingMore,
-              ),
-            ],
+          constraints: BoxConstraints(maxWidth: maxWidth ?? double.infinity),
+          child: _RatingRow(
+            card: card,
+            onRate: onRate,
+            enabled: enabled,
           ),
         ),
       ),
     );
   }
-}
 
-class _MobileRatingArea extends StatelessWidget {
-  final ReviewSessionState state;
-  final ReviewCard card;
-  final ValueChanged<String> onRate;
-
-  const _MobileRatingArea({
-    required this.state,
-    required this.card,
-    required this.onRate,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 104,
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-        decoration: BoxDecoration(
-          color: KarisColors.surface.withValues(alpha: 0.96),
-          border: const Border(top: BorderSide(color: KarisColors.hairline)),
-        ),
-        child: state.isFlipped
-            ? _RatingRow(
-                card: card,
-                onRate: onRate,
-                enabled: !state.isRating && !state.loadingMore,
-              )
-            : const Center(
-                child: Text(
-                  '点按翻面',
-                  style: TextStyle(
-                    color: KarisColors.stone,
-                    fontFamily: KarisTheme.monoFamily,
-                    fontSize: 10,
-                    letterSpacing: 0,
-                  ),
-                ),
-              ),
-      ),
-    );
-  }
 }
 
 class _RatingRow extends StatelessWidget {
@@ -798,40 +760,54 @@ class _RatingButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return KarisInteractive(
-      child: InkWell(
-        onTap: enabled ? onTap : null,
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          constraints: const BoxConstraints(minHeight: 74),
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-          decoration: BoxDecoration(
-            color: KarisColors.surface,
-            border: Border.all(color: color.withValues(alpha: 0.38)),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, color: color, size: 18),
-              const SizedBox(height: 3),
-              Text(
-                label,
-                style: TextStyle(
-                  color: color,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0,
+    final foreground = enabled ? color : KarisColors.stone.withValues(alpha: 0.55);
+    final borderColor = enabled
+        ? color.withValues(alpha: 0.38)
+        : KarisColors.hairline;
+    final background = enabled
+        ? KarisColors.surface
+        : KarisColors.surface.withValues(alpha: 0.72);
+    return Semantics(
+      button: true,
+      enabled: enabled,
+      label: label,
+      child: KarisInteractive(
+        child: InkWell(
+          onTap: enabled ? onTap : null,
+          borderRadius: BorderRadius.circular(8),
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 74),
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+            decoration: BoxDecoration(
+              color: background,
+              border: Border.all(color: borderColor),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, color: foreground, size: 18),
+                const SizedBox(height: 3),
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: foreground,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0,
+                  ),
                 ),
-              ),
-              Text(
-                sub,
-                style: karisMono(
-                  fontSize: 10,
-                  color: color.withValues(alpha: 0.75),
+                Text(
+                  sub,
+                  style: karisMono(
+                    fontSize: 10,
+                    color: enabled
+                        ? color.withValues(alpha: 0.75)
+                        : KarisColors.stone.withValues(alpha: 0.55),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -875,7 +851,9 @@ class _CompleteView extends ConsumerWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              '本次 ${state.totalCount} 张 · 已复习 ${state.reviewedCount}',
+              state.mode == 'new'
+                  ? '本次 ${state.totalCount} 张 · 已学习 ${state.reviewedCount}'
+                  : '本次 ${state.totalCount} 张 · 已复习 ${state.reviewedCount}',
               style: const TextStyle(
                 color: KarisColors.stone,
                 fontSize: 13,

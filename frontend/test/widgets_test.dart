@@ -364,12 +364,24 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: reviewOverrides(repo, const ReviewSessionState()),
+          child: MaterialApp.router(routerConfig: router),
+        ),
+      );
+      await tester.pumpAndSettle();
 
+      expect(find.text('正面'), findsWidgets);
+      expect(find.text('忘记'), findsOneWidget);
+      expect(find.text('熟悉'), findsOneWidget);
+
+      await tester.tap(find.text('熟悉'));
+      await tester.pumpAndSettle();
       expect(find.text('正面'), findsWidgets);
 
       await tester.tap(find.byType(ReviewFlipCard));
       await tester.pumpAndSettle();
-      expect(find.text('本次回忆'), findsOneWidget);
 
       await tester.tap(find.text('熟悉'));
       await tester.pumpAndSettle();
@@ -403,14 +415,21 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('忘记'), findsNothing);
+      expect(find.text('忘记'), findsOneWidget);
+      expect(find.text('模糊'), findsOneWidget);
+      expect(find.text('熟悉'), findsOneWidget);
+
+      await tester.tap(find.text('忘记'));
+      await tester.pumpAndSettle();
+      expect(find.text('正面'), findsWidgets);
+
       await tester.tap(find.byType(ReviewFlipCard));
       await tester.pumpAndSettle();
       expect(find.text('忘记'), findsOneWidget);
 
       await tester.tap(find.byType(ReviewFlipCard));
       await tester.pumpAndSettle();
-      expect(find.text('忘记'), findsNothing);
+      expect(find.text('忘记'), findsOneWidget);
       expect(find.text('正面'), findsWidgets);
       expect(tester.takeException(), isNull);
     });

@@ -85,6 +85,7 @@ public class SyncService {
     private BootstrapReviewLog toBootstrapLog(ReviewLog log) {
         return new BootstrapReviewLog(
                 log.getId(), log.getCardId(), log.getRating(),
-                log.getStageBefore(), log.getStageAfter(), log.getReviewedAt());
+                log.getStageBefore(), log.getStageAfter(), log.getReviewedAt(),
+                log.isNewCard());
     }
 }
