@@ -148,12 +148,21 @@ final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
       } catch (_) {}
     },
     restoreUser: () async {
-      final meta = await ref.read(offlineRepositoryProvider).getActiveSyncMeta();
-      if (meta == null) return null;
-      return UserInfo(id: meta.userId, email: meta.email ?? '');
+      final offline = ref.read(offlineRepositoryProvider);
+      final meta = await offline.getActiveSyncMeta();
+      if (meta != null) {
+        return UserInfo(id: meta.userId, email: meta.email ?? '');
+      }
+      try {
+        return await ref.read(syncServiceProvider).bootstrapFromServer();
+      } catch (_) {
+        return null;
+      }
     },
     onLoggedOut: () async {
-      final meta = await ref.read(offlineRepositoryProvider).getActiveSyncMeta();
+      final meta = await ref
+          .read(offlineRepositoryProvider)
+          .getActiveSyncMeta();
       if (meta != null) {
         await ref.read(offlineRepositoryProvider).clearUserData(meta.userId);
       }

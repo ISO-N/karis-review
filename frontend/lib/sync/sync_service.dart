@@ -1,3 +1,4 @@
+import '../auth/models/login_response.dart';
 import '../offline/offline_repository.dart';
 import '../review/models/review_card.dart';
 import 'repositories/sync_repository.dart';
@@ -7,11 +8,7 @@ class SyncOutcome {
   final int conflicts;
   final int missing;
 
-  const SyncOutcome({
-    this.synced = 0,
-    this.conflicts = 0,
-    this.missing = 0,
-  });
+  const SyncOutcome({this.synced = 0, this.conflicts = 0, this.missing = 0});
 }
 
 class SyncService {
@@ -22,6 +19,17 @@ class SyncService {
 
   Future<void> bootstrap({required String userId}) async {
     final data = await _repository.fetchBootstrap();
+    await _saveBootstrap(data, userId);
+  }
+
+  Future<UserInfo> bootstrapFromServer() async {
+    final data = await _repository.fetchBootstrap();
+    final user = UserInfo.fromJson(data['user'] as Map<String, dynamic>);
+    await _saveBootstrap(data, user.id);
+    return user;
+  }
+
+  Future<void> _saveBootstrap(Map<String, dynamic> data, String userId) async {
     final user = data['user'] as Map<String, dynamic>;
     await _offline.saveBootstrap(
       userId: userId,
@@ -29,8 +37,8 @@ class SyncService {
       refreshTime: user['refresh_time'] as String? ?? '04:00:00',
       serverTime: DateTime.parse(data['server_time'] as String),
       decks: (data['decks'] as List? ?? const []).cast<Map<String, dynamic>>(),
-      reviewLogs:
-          (data['review_logs'] as List? ?? const []).cast<Map<String, dynamic>>(),
+      reviewLogs: (data['review_logs'] as List? ?? const [])
+          .cast<Map<String, dynamic>>(),
     );
   }
 
