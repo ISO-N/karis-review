@@ -2,7 +2,7 @@
 
 ## 需求工程
 
-- [用户需求](requirements/user-requirements.md) — 27 条用户需求 + 6 条非功能需求
+- [用户需求](requirements/user-requirements.md) — 28 条用户需求 + 6 条非功能需求
 - [系统需求](requirements/system-requirements.md) — 排期算法、数据模型、API 定义、非功能需求
 
 ## 软件设计
