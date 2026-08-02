@@ -30,12 +30,8 @@ class CardListNotifier extends StateNotifier<AsyncValue<List<FlashCard>>> {
   final OfflineRepository? offline;
   final SyncService? sync;
 
-  CardListNotifier(
-    this._repository,
-    this.args, {
-    this.offline,
-    this.sync,
-  }) : super(const AsyncValue.loading()) {
+  CardListNotifier(this._repository, this.args, {this.offline, this.sync})
+    : super(const AsyncValue.loading()) {
     if (offline != null) {
       _loadLocalCards();
     } else {
@@ -51,11 +47,22 @@ class CardListNotifier extends StateNotifier<AsyncValue<List<FlashCard>>> {
       }
       try {
         final meta = await offline!.getActiveSyncMeta();
-        if (meta == null) throw StateError('no active local user');
+        if (meta == null) {
+          final result = await _repository.getDeckCards(
+            args.deckId,
+            size: 500,
+            filter: args.filter,
+          );
+          final content = result['content'] as List<dynamic>;
+          state = AsyncValue.data(
+            content
+                .map((c) => FlashCard.fromJson(c as Map<String, dynamic>))
+                .toList(),
+          );
+          return;
+        }
         await sync!.bootstrap(userId: meta.userId);
-        state = AsyncValue.data(
-          await _localCards(meta.userId),
-        );
+        state = AsyncValue.data(await _localCards(meta.userId));
       } catch (e, st) {
         if (previous == null) {
           state = AsyncValue.error(e, st);
@@ -134,9 +141,11 @@ final cardListProvider =
       CardListNotifier,
       AsyncValue<List<FlashCard>>,
       CardListArgs
-    >((ref, args) => CardListNotifier(
-          CardRepository(),
-          args,
-          offline: ref.watch(offlineRepositoryProvider),
-          sync: ref.watch(syncServiceProvider),
-        ));
+    >(
+      (ref, args) => CardListNotifier(
+        CardRepository(),
+        args,
+        offline: ref.watch(offlineRepositoryProvider),
+        sync: ref.watch(syncServiceProvider),
+      ),
+    );

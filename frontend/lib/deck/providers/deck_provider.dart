@@ -1,5 +1,4 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
 import '../../offline/offline_repository.dart';
 import '../../offline/providers.dart';
 import '../../sync/providers.dart';
@@ -12,11 +11,8 @@ class DeckListNotifier extends StateNotifier<AsyncValue<List<Deck>>> {
   final OfflineRepository? offline;
   final SyncService? sync;
 
-  DeckListNotifier(
-    this._repository, {
-    this.offline,
-    this.sync,
-  }) : super(const AsyncValue.loading()) {
+  DeckListNotifier(this._repository, {this.offline, this.sync})
+    : super(const AsyncValue.loading()) {
     if (offline != null) {
       _loadLocal();
     } else {
@@ -32,7 +28,10 @@ class DeckListNotifier extends StateNotifier<AsyncValue<List<Deck>>> {
       }
       try {
         final meta = await offline!.getActiveSyncMeta();
-        if (meta == null) throw StateError('no active local user');
+        if (meta == null) {
+          state = AsyncValue.data(await _repository.getDecks());
+          return;
+        }
         await sync!.bootstrap(userId: meta.userId);
         state = AsyncValue.data(await offline!.getDeckSummaries(meta.userId));
       } catch (e, st) {
