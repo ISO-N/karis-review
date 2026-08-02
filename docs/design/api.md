@@ -1066,9 +1066,8 @@
 
 ### GET /api/sync/bootstrap
 
-返回当前用户全量离线快照：`server_time`、用户设置、牌组及全部卡片、复习日志。卡片包含 `review_version`、`learning_step`、`created_at`、`updated_at`。
+返回当前用户全量离线快照：`server_time`、用户设置、牌组及全部卡片、复习日志。卡片包含 `review_version`、`learning_step`、`created_at`、`updated_at`；复习日志包含 `id`、`card_id`、`rating`、`stage_before`、`stage_after`、`is_new_card`、`reviewed_at`。
 
-### 评分锁规则
 
 - 所有复习队列和卡片响应都返回 `review_version`。
 - 单卡评分请求可携带 `client_request_id` 与 `review_version`；版本不一致返回 409。

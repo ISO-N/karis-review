@@ -1,5 +1,6 @@
 package top.kariscode.karisreview.sync.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -10,18 +11,22 @@ public class BootstrapReviewLog {
     private String rating;
     private int stageBefore;
     private int stageAfter;
+    @JsonProperty("is_new_card")
+    private boolean isNewCard;
     private LocalDateTime reviewedAt;
 
     public BootstrapReviewLog() {}
 
     public BootstrapReviewLog(UUID id, UUID cardId, String rating,
-                              int stageBefore, int stageAfter, LocalDateTime reviewedAt) {
+                              int stageBefore, int stageAfter, LocalDateTime reviewedAt,
+                              boolean isNewCard) {
         this.id = id;
         this.cardId = cardId;
         this.rating = rating;
         this.stageBefore = stageBefore;
         this.stageAfter = stageAfter;
         this.reviewedAt = reviewedAt;
+        this.isNewCard = isNewCard;
     }
 
     public UUID getId() { return id; }
@@ -34,6 +39,8 @@ public class BootstrapReviewLog {
     public void setStageBefore(int stageBefore) { this.stageBefore = stageBefore; }
     public int getStageAfter() { return stageAfter; }
     public void setStageAfter(int stageAfter) { this.stageAfter = stageAfter; }
+    public boolean isNewCard() { return isNewCard; }
+    public void setNewCard(boolean isNewCard) { this.isNewCard = isNewCard; }
     public LocalDateTime getReviewedAt() { return reviewedAt; }
     public void setReviewedAt(LocalDateTime reviewedAt) { this.reviewedAt = reviewedAt; }
 }
