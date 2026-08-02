@@ -363,6 +363,7 @@ class ReviewNotifier extends StateNotifier<ReviewSessionState> {
         clientRequestId: clientRequestId,
         ratedAt: DateTime.now().toUtc(),
         reviewVersionBefore: outcome.reviewVersionBefore,
+        isNewCard: outcome.wasNewCard,
       );
 
       state = state.copyWith(

@@ -151,18 +151,20 @@ class OfflineRepository {
     final cards = await getCards(userId);
     final logs = await _getLogs(userId);
     final meta = await getSyncMeta(userId);
+    final refreshTime = meta?.refreshTime ?? '04:00:00';
     final today = _formatDate(_today(meta));
-    final now = _serverNow(meta);
     final dueToday = cards
         .where((c) => c.nextReviewDate != null && c.nextReviewDate!.compareTo(today) <= 0)
         .length;
-    final reviewedToday = logs.where((l) => _sameDay(l.reviewedAt, now)).length;
+    final reviewedToday = logs
+        .where((l) => !l.isNewCard && _onRefreshDay(l.reviewedAt, refreshTime, today))
+        .length;
     final learnedToday = logs
         .where(
           (l) =>
+              l.isNewCard &&
               l.rating == 'FAMILIAR' &&
-              l.stageBefore == 0 &&
-              _sameDay(l.reviewedAt, now),
+              _onRefreshDay(l.reviewedAt, refreshTime, today),
         )
         .length;
     final stages = cards.map((c) => c.stage).toList();
@@ -189,13 +191,18 @@ class OfflineRepository {
     final decks = await getDecks(userId);
     final deck = decks.where((d) => d.id == deckId).firstOrNull;
     final meta = await getSyncMeta(userId);
+    final refreshTime = meta?.refreshTime ?? '04:00:00';
     final today = _formatDate(_today(meta));
-    final now = _serverNow(meta);
     final logs = await _getLogs(userId);
     final stages = cards.map((c) => c.stage).toList();
     final cardIds = cards.map((c) => c.id).toSet();
     final reviewedToday = logs
-        .where((l) => cardIds.contains(l.cardId) && _sameDay(l.reviewedAt, now))
+        .where(
+          (l) =>
+              cardIds.contains(l.cardId) &&
+              !l.isNewCard &&
+              _onRefreshDay(l.reviewedAt, refreshTime, today),
+        )
         .length;
     return DeckStats(
       deckId: deckId,
@@ -221,18 +228,22 @@ class OfflineRepository {
   Future<List<TrendPoint>> getTrend(String userId, {int days = 30}) async {
     final logs = await _getLogs(userId);
     final meta = await getSyncMeta(userId);
-    final now = _serverNow(meta);
+    final refreshTime = meta?.refreshTime ?? '04:00:00';
     final today = _today(meta);
     final points = <TrendPoint>[];
     for (var i = days - 1; i >= 0; i--) {
       final date = today.subtract(Duration(days: i));
-      final dayLogs = logs.where((l) => _sameDay(l.reviewedAt, now));
+      final dateKey = _formatDate(date);
+      final dayLogs = logs.where(
+        (l) => _onRefreshDay(l.reviewedAt, refreshTime, dateKey),
+      );
       points.add(
         TrendPoint(
-          date: _formatDate(date),
-          reviewed: dayLogs.length,
-          learned: dayLogs.where((l) =>
-              l.rating == 'FAMILIAR' && l.stageBefore == 0).length,
+          date: dateKey,
+          reviewed: dayLogs.where((l) => !l.isNewCard).length,
+          learned: dayLogs
+              .where((l) => l.isNewCard && l.rating == 'FAMILIAR')
+              .length,
         ),
       );
     }
@@ -297,14 +308,18 @@ class OfflineRepository {
 
       for (final logJson in reviewLogs) {
         final map = logJson;
+        final rating = map['rating'] as String? ?? 'FAMILIAR';
+        final isNewCard = map['is_new_card'] as bool? ??
+            (rating == 'FAMILIAR' && _int(map['stage_before']) == 0);
         await db.into(db.localReviewLogs).insertOnConflictUpdate(
               LocalReviewLogsCompanion.insert(
                 id: map['id'] as String,
                 userId: userId,
                 cardId: map['card_id'] as String,
-                rating: map['rating'] as String? ?? 'FAMILIAR',
+                rating: rating,
                 stageBefore: _int(map['stage_before']),
                 stageAfter: _int(map['stage_after']),
+                isNewCard: Value(isNewCard),
                 reviewedAt: _dateTime(map['reviewed_at']) ?? DateTime.now().toUtc(),
                 syncStatus: const Value('SYNCED'),
               ),
@@ -345,6 +360,7 @@ class OfflineRepository {
     required String clientRequestId,
     required DateTime ratedAt,
     required int reviewVersionBefore,
+    required bool isNewCard,
   }) async {
     await db.transaction(() async {
       await db.into(db.localCards).insertOnConflictUpdate(
@@ -373,6 +389,7 @@ class OfflineRepository {
               rating: result.rating,
               stageBefore: result.stageBefore,
               stageAfter: result.stageAfter,
+              isNewCard: Value(isNewCard),
               reviewedAt: ratedAt,
               clientRequestId: Value(clientRequestId),
               reviewVersion: Value(BigInt.from(reviewVersionBefore)),
@@ -566,8 +583,12 @@ class OfflineRepository {
     return '${date.year}-$month-$day';
   }
 
-  bool _sameDay(DateTime a, DateTime b) {
-    return a.year == b.year && a.month == b.month && a.day == b.day;
+  bool _onRefreshDay(DateTime reviewedAt, String refreshTime, String day) {
+    final refreshDay = LocalSchedulingEngine.calculateToday(
+      reviewedAt,
+      refreshTime,
+    );
+    return _formatDate(refreshDay) == day;
   }
 
   DateTime? _dateTime(dynamic value) {
