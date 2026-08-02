@@ -5,8 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../app/theme.dart';
 import '../../card/models/card.dart';
 import '../../card/providers/card_provider.dart';
-import '../../card/widgets/card_editor_sheet.dart';
-import '../../card/widgets/card_import_sheet.dart';
+import '../../card/pages/card_editor_page.dart';
 import '../../deck/providers/deck_provider.dart';
 import '../../shared/utils/date_utils.dart';
 import '../../shared/widgets/adaptive_scaffold.dart';
@@ -117,8 +116,7 @@ class _CardListPageState extends ConsumerState<CardListPage> {
                                         : '切换到“全部”查看牌组里的所有卡片',
                                     action: _filter == 'all'
                                         ? FilledButton.icon(
-                                            onPressed: () =>
-                                                _openEditor(context),
+                                            onPressed: () => _openEditor(),
                                             icon: const Icon(
                                               Icons.add,
                                               size: 17,
@@ -143,10 +141,8 @@ class _CardListPageState extends ConsumerState<CardListPage> {
                                               width: itemWidth,
                                               child: _CardTile(
                                                 card: card,
-                                                onTap: () => _openEditor(
-                                                  context,
-                                                  card: card,
-                                                ),
+                                                onTap: () =>
+                                                    _openEditor(card: card),
                                                 onDelete: () =>
                                                     _confirmDelete(card),
                                               ),
@@ -167,7 +163,7 @@ class _CardListPageState extends ConsumerState<CardListPage> {
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _openEditor(context),
+        onPressed: () => _openEditor(),
         backgroundColor: KarisColors.ink,
         foregroundColor: KarisColors.surface,
         elevation: 0,
@@ -203,7 +199,7 @@ class _CardListPageState extends ConsumerState<CardListPage> {
           KarisIconButton(
             icon: Icons.upload_file_outlined,
             tooltip: '导入卡片',
-            onPressed: () => _openImport(context),
+            onPressed: () => _openImport(),
           ),
           KarisIconButton(
             icon: Icons.replay,
@@ -281,46 +277,35 @@ class _CardListPageState extends ConsumerState<CardListPage> {
     );
   }
 
-  void _openEditor(BuildContext context, {FlashCard? card}) {
-    showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => CardEditorSheet(
+  Future<void> _openEditor({FlashCard? card}) async {
+    final result = await context.push<(String, String)>(
+      '/decks/${widget.deckId}/cards/editor',
+      extra: CardEditorArgs(
         deckId: widget.deckId,
         cardId: card?.id,
         initialFront: card?.front,
         initialBack: card?.back,
-        onSaved: (_) {
-          ref.invalidate(
-            cardListProvider(CardListArgs(widget.deckId, _filter)),
-          );
-          ref.invalidate(deckStatsProvider(widget.deckId));
-          ref.invalidate(deckListProvider);
-        },
       ),
     );
+    if (result == null || !mounted) return;
+    _refreshAfterChange();
   }
 
-  void _openImport(BuildContext context) {
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => CardImportSheet(
-        deckId: widget.deckId,
-        onImported: (count) {
-          ref.invalidate(
-            cardListProvider(CardListArgs(widget.deckId, _filter)),
-          );
-          ref.invalidate(deckStatsProvider(widget.deckId));
-          ref.invalidate(deckListProvider);
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('已导入 $count 张卡片')));
-        },
-      ),
+  Future<void> _openImport() async {
+    final count = await context.push<int>(
+      '/decks/${widget.deckId}/cards/import',
     );
+    if (count == null || !mounted) return;
+    _refreshAfterChange();
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('已导入 $count 张卡片')));
+  }
+
+  void _refreshAfterChange() {
+    ref.invalidate(cardListProvider(CardListArgs(widget.deckId, _filter)));
+    ref.invalidate(deckStatsProvider(widget.deckId));
+    ref.invalidate(deckListProvider);
   }
 
   void _confirmDelete(FlashCard card) {

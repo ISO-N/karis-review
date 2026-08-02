@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import '../auth/pages/login_page.dart';
 import '../auth/pages/register_page.dart';
 import '../auth/providers/auth_provider.dart';
+import '../card/pages/card_editor_page.dart';
+import '../card/pages/card_import_page.dart';
 import '../card/pages/card_list_page.dart';
 import '../deck/pages/deck_list_page.dart';
 import '../home/pages/home_page.dart';
@@ -13,8 +15,11 @@ import '../review/pages/start_flow_page.dart';
 import '../settings/pages/settings_page.dart';
 import '../stats/pages/stats_page.dart';
 
-CustomTransitionPage<void> _fadeSlidePage(GoRouterState state, Widget child) {
-  return CustomTransitionPage<void>(
+CustomTransitionPage<Object?> _fadeSlidePage(
+  GoRouterState state,
+  Widget child,
+) {
+  return CustomTransitionPage<Object?>(
     key: state.pageKey,
     transitionDuration: const Duration(milliseconds: 260),
     reverseTransitionDuration: const Duration(milliseconds: 220),
@@ -79,6 +84,31 @@ final routerProvider = Provider<GoRouter>((ref) {
         pageBuilder: (context, state) => _fadeSlidePage(
           state,
           CardListPage(deckId: state.pathParameters['deckId']!),
+        ),
+      ),
+      GoRoute(
+        path: '/decks/:deckId/cards/editor',
+        pageBuilder: (context, state) {
+          final deckId = state.pathParameters['deckId']!;
+          final extra = state.extra;
+          final args = extra is CardEditorArgs
+              ? CardEditorArgs(
+                  deckId: deckId,
+                  cardId: extra.cardId,
+                  initialFront: extra.initialFront,
+                  initialBack: extra.initialBack,
+                  title: extra.title,
+                  localOnly: extra.localOnly,
+                )
+              : CardEditorArgs(deckId: deckId);
+          return _fadeSlidePage(state, CardEditorPage(args: args));
+        },
+      ),
+      GoRoute(
+        path: '/decks/:deckId/cards/import',
+        pageBuilder: (context, state) => _fadeSlidePage(
+          state,
+          CardImportPage(deckId: state.pathParameters['deckId']!),
         ),
       ),
       GoRoute(

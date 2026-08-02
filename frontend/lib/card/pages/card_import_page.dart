@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../app/theme.dart';
 import '../../shared/widgets/adaptive_scaffold.dart';
@@ -10,14 +11,14 @@ import '../../shared/widgets/rich_card_content.dart';
 import '../../shared/widgets/section_widgets.dart';
 import '../models/card_import.dart';
 import '../repositories/card_repository.dart';
-import 'card_editor_sheet.dart';
+import 'card_editor_page.dart';
 
-class CardImportSheet extends StatefulWidget {
+class CardImportPage extends StatefulWidget {
   final String deckId;
   final CardRepository repository;
   final ValueChanged<int>? onImported;
 
-  CardImportSheet({
+  CardImportPage({
     super.key,
     required this.deckId,
     CardRepository? repository,
@@ -25,10 +26,10 @@ class CardImportSheet extends StatefulWidget {
   }) : repository = repository ?? CardRepository();
 
   @override
-  State<CardImportSheet> createState() => _CardImportSheetState();
+  State<CardImportPage> createState() => _CardImportPageState();
 }
 
-class _CardImportSheetState extends State<CardImportSheet> {
+class _CardImportPageState extends State<CardImportPage> {
   CardRepository get _repository => widget.repository;
   final TextEditingController _jsonController = TextEditingController();
   final List<CardImportPreviewItem> _items = [];
@@ -53,24 +54,21 @@ class _CardImportSheetState extends State<CardImportSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final height = MediaQuery.sizeOf(context).height;
-    final isTablet = MediaQuery.sizeOf(context).width >= 600;
-
-    return SafeArea(
-      top: false,
-      child: Center(
-        child: Container(
-          width: isTablet ? 760 : double.infinity,
-          height: height * (isTablet ? 0.9 : 0.96),
-          decoration: const BoxDecoration(color: KarisColors.paper),
-          child: Column(
-            children: [
-              _buildHeader(),
-              Expanded(
-                child: _showPreview ? _buildPreviewBody() : _buildInputBody(),
-              ),
-              if (_showPreview) _buildPreviewFooter(),
-            ],
+    return Scaffold(
+      backgroundColor: KarisColors.paper,
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 900),
+            child: Column(
+              children: [
+                _buildHeader(),
+                Expanded(
+                  child: _showPreview ? _buildPreviewBody() : _buildInputBody(),
+                ),
+                if (_showPreview) _buildPreviewFooter(),
+              ],
+            ),
           ),
         ),
       ),
@@ -79,17 +77,16 @@ class _CardImportSheetState extends State<CardImportSheet> {
 
   Widget _buildHeader() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 14, 12, 10),
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 10),
       child: Row(
         children: [
-          if (_showPreview)
-            KarisIconButton(
-              icon: Icons.arrow_back,
-              tooltip: '返回',
-              onPressed: _parsing || _importing ? null : () => _backToSource(),
-            )
-          else
-            const SizedBox(width: 40),
+          KarisIconButton(
+            icon: Icons.arrow_back,
+            tooltip: _showPreview ? '返回输入' : '返回',
+            onPressed: _parsing || _importing
+                ? null
+                : (_showPreview ? _backToSource : _closePage),
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -103,13 +100,6 @@ class _CardImportSheetState extends State<CardImportSheet> {
                 ),
               ],
             ),
-          ),
-          KarisIconButton(
-            icon: Icons.close,
-            tooltip: '关闭',
-            onPressed: _parsing || _importing
-                ? null
-                : () => Navigator.pop(context),
           ),
         ],
       ),
@@ -579,7 +569,7 @@ class _CardImportSheetState extends State<CardImportSheet> {
       final imported =
           (result['imported_cards'] as num?)?.toInt() ?? _validCount;
       widget.onImported?.call(imported);
-      if (mounted) Navigator.pop(context, true);
+      if (mounted) Navigator.pop(context, imported);
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -589,21 +579,19 @@ class _CardImportSheetState extends State<CardImportSheet> {
     }
   }
 
-  void _editItem(int index) {
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => CardEditorSheet(
+  Future<void> _editItem(int index) async {
+    final result = await context.push<(String, String)>(
+      '/decks/${widget.deckId}/cards/editor',
+      extra: CardEditorArgs(
         deckId: widget.deckId,
         initialFront: _items[index].front,
         initialBack: _items[index].back,
         title: '编辑导入卡片',
-        onLocalSave: (content) {
-          if (mounted) _applyEdit(index, content.$1, content.$2);
-        },
+        localOnly: true,
       ),
     );
+    if (result == null || !mounted) return;
+    _applyEdit(index, result.$1, result.$2);
   }
 
   void _applyEdit(int index, String front, String back) {
@@ -630,6 +618,14 @@ class _CardImportSheetState extends State<CardImportSheet> {
       _showPreview = false;
       _importError = null;
     });
+  }
+
+  void _closePage() {
+    if (Navigator.of(context).canPop()) {
+      Navigator.pop(context);
+    } else {
+      context.go('/decks/${widget.deckId}/cards');
+    }
   }
 
   String _errorMessage(Object error) {
