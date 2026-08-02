@@ -5,7 +5,7 @@ import '../models/card.dart';
 class CardRepository {
   final ApiClient _client;
 
-  CardRepository({ApiClient? client}) : _client = client ?? ApiClient();
+  CardRepository({ApiClient? client}) : _client = client ?? ApiClient.shared;
 
   Future<Map<String, dynamic>> getDeckCards(
     String deckId, {

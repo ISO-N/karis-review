@@ -28,7 +28,12 @@ class ApiEndpoints {
   static const String reviewDue = '$baseUrl/review/due';
   static const String reviewNew = '$baseUrl/review/new';
   static String rateCard(String cardId) => '$baseUrl/review/$cardId/rate';
+  static const String reviewSessions = '$baseUrl/review/sessions';
+  static String reviewSession(String sessionId) => '$baseUrl/review/sessions/$sessionId';
+  static const String reviewSync = '$baseUrl/review/sync';
 
+  // Offline sync
+  static const String syncBootstrap = '$baseUrl/sync/bootstrap';
   // Stats
   static const String statsOverview = '$baseUrl/stats/overview';
   static String statsDeck(String deckId) => '$baseUrl/stats/deck/$deckId';

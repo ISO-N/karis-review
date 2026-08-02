@@ -5,7 +5,7 @@ import '../models/deck.dart';
 class DeckRepository {
   final ApiClient _client;
 
-  DeckRepository({ApiClient? client}) : _client = client ?? ApiClient();
+  DeckRepository({ApiClient? client}) : _client = client ?? ApiClient.shared;
 
   Future<List<Deck>> getDecks() async {
     final response = await _client.get(ApiEndpoints.decks);

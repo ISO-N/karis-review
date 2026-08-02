@@ -4,7 +4,7 @@ import '../../shared/api/api_endpoints.dart';
 class SettingsRepository {
   final ApiClient _client;
 
-  SettingsRepository({ApiClient? client}) : _client = client ?? ApiClient();
+  SettingsRepository({ApiClient? client}) : _client = client ?? ApiClient.shared;
 
   Future<Map<String, dynamic>> getSettings() async {
     final response = await _client.get(ApiEndpoints.settings);

@@ -148,7 +148,7 @@ void main() {
       final client = FakeApiClient();
       client.onGet = (path, query) async {
         expect(path, apiPath('/review/due'));
-        expect(query, {'deck_id': 'deck-1'});
+        expect(query, {'limit': 500, 'deck_id': 'deck-1'});
         return okResponse([reviewCardJson()]);
       };
       final repository = ReviewRepository(client: client);
@@ -158,7 +158,7 @@ void main() {
 
       client.onGet = (path, query) async {
         expect(path, apiPath('/review/new'));
-        expect(query, {'deck_id': 'deck-1'});
+        expect(query, {'limit': 10, 'deck_id': 'deck-1'});
         return okResponse([reviewCardJson()]);
       };
       final news = await repository.getNewCards(deckId: 'deck-1');

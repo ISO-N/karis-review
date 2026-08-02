@@ -5,10 +5,10 @@ import '../models/review_card.dart';
 class ReviewRepository {
   final ApiClient _client;
 
-  ReviewRepository({ApiClient? client}) : _client = client ?? ApiClient();
+  ReviewRepository({ApiClient? client}) : _client = client ?? ApiClient.shared;
 
-  Future<List<ReviewCard>> getDueCards({String? deckId}) async {
-    final params = <String, dynamic>{};
+  Future<List<ReviewCard>> getDueCards({String? deckId, int limit = 500}) async {
+    final params = <String, dynamic>{'limit': limit};
     if (deckId != null) params['deck_id'] = deckId;
     final response = await _client.get(
       ApiEndpoints.reviewDue,
@@ -20,8 +20,8 @@ class ReviewRepository {
         .toList();
   }
 
-  Future<List<ReviewCard>> getNewCards({String? deckId}) async {
-    final params = <String, dynamic>{};
+  Future<List<ReviewCard>> getNewCards({String? deckId, int limit = 10}) async {
+    final params = <String, dynamic>{'limit': limit};
     if (deckId != null) params['deck_id'] = deckId;
     final response = await _client.get(
       ApiEndpoints.reviewNew,
