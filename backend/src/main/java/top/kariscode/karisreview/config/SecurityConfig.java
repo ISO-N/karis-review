@@ -8,6 +8,8 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import top.kariscode.karisreview.config.ProtobufHttpMessageConverter;
+import top.kariscode.karisreview.proto.KarisReviewProto.ApiError;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
@@ -39,9 +41,19 @@ public class SecurityConfig {
             )
             .exceptionHandling(ex -> ex.authenticationEntryPoint((request, response, authException) -> {
                 response.setStatus(401);
-                response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-                response.setCharacterEncoding("UTF-8");
-                response.getWriter().write("{\"code\":401,\"message\":\"未登录或Token已过期\",\"data\":null}");
+                String accept = request.getHeader("Accept");
+                if (accept != null && accept.contains(ProtobufHttpMessageConverter.APPLICATION_X_PROTOBUF_VALUE)) {
+                    response.setContentType(ProtobufHttpMessageConverter.APPLICATION_X_PROTOBUF_VALUE);
+                    ApiError.newBuilder()
+                            .setCode(401)
+                            .setMessage("未登录或Token已过期")
+                            .build()
+                            .writeTo(response.getOutputStream());
+                } else {
+                    response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                    response.setCharacterEncoding("UTF-8");
+                    response.getWriter().write("{\"code\":401,\"message\":\"未登录或Token已过期\",\"data\":null}");
+                }
             }))
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 

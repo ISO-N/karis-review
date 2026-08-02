@@ -179,11 +179,11 @@ public class ReviewService {
                 ReviewLog log = existing.get();
                 if (log.getCardId().equals(item.getCardId()) && log.getRating().equals(item.getRating())) {
                     results.add(new ReviewSyncItemResult(
-                            clientRequestId, "ALREADY_SYNCED", null, null));
+                            clientRequestId, "ALREADY_SYNCED", null));
                     continue;
                 }
                 results.add(new ReviewSyncItemResult(
-                        clientRequestId, "CONFLICT", null, null));
+                        clientRequestId, "CONFLICT", null));
                 conflicts++;
                 continue;
             }
@@ -192,23 +192,23 @@ public class ReviewService {
                     .orElse(null);
             if (card == null) {
                 results.add(new ReviewSyncItemResult(
-                        clientRequestId, "CARD_NOT_FOUND", null, null));
+                        clientRequestId, "CARD_NOT_FOUND", null));
                 missing++;
                 continue;
             }
 
             if (card.getReviewVersion() != item.getReviewVersion()) {
                 results.add(new ReviewSyncItemResult(
-                        clientRequestId, "CONFLICT", null, toReviewCardResponse(card)));
+                        clientRequestId, "CONFLICT", toReviewCardResponse(card)));
                 conflicts++;
                 continue;
             }
 
-            RateResponse response = applyRating(
+            applyRating(
                     userId, item.getCardId(), card, item.getRating(),
                     clientRequestId, item.getRatedAt());
             results.add(new ReviewSyncItemResult(
-                    clientRequestId, "SYNCED", response, null));
+                    clientRequestId, "SYNCED", null));
             synced++;
         }
 
@@ -358,12 +358,8 @@ public class ReviewService {
                 card.getFront(), card.getBack(),
                 card.getStage(), card.isLearningMode(),
                 card.getConsecutiveFamiliar(),
-                SchedulingEngine.getRelearningThreshold(card),
                 card.getReentryStage(),
                 card.getNextReviewDate(),
-                SchedulingEngine.getStageInterval(card.getStage()),
-                SchedulingEngine.getFamiliarIntervalAfterRating(card),
-                SchedulingEngine.getVagueIntervalAfterRating(card),
                 card.getLearningStep(),
                 card.getReviewVersion());
     }

@@ -84,8 +84,8 @@ class StatsServiceTest {
         assertEquals(1, stats.getLearnedToday());
         assertEquals(2, stats.getMasteredCards());
         assertEquals(8, stats.getLearningCards());
-        assertEquals(5L, stats.getStageDistribution().get("3"));
-        assertEquals(3L, stats.getDueStageDistribution().get("1"));
+        assertEquals(5L, stats.getStageDistribution().get(3));
+        assertEquals(3L, stats.getDueStageDistribution().get(1));
     }
 
     @Test
@@ -123,8 +123,8 @@ class StatsServiceTest {
         assertEquals(1, stats.getNewCards());
         assertEquals(2, stats.getLearningCards());
         assertEquals(1, stats.getMasteredCards());
-        assertEquals(1L, stats.getStageDistribution().get("0"));
-        assertEquals(2L, stats.getDueStageDistribution().get("2"));
+        assertEquals(1L, stats.getStageDistribution().get(0));
+        assertEquals(2L, stats.getDueStageDistribution().get(2));
     }
 
     @Test

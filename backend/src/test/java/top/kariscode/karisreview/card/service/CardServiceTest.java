@@ -102,7 +102,6 @@ class CardServiceTest {
 
         Page<CardResponse> page = service.getDeckCards(userId, deckId, 0, 20, "learning");
 
-        assertEquals(3, page.getContent().get(0).getLearningGoal());
         assertTrue(page.getContent().get(0).isLearningMode());
     }
 

@@ -94,15 +94,12 @@ public class CardService {
     }
 
     private CardResponse toCardResponse(Card card, LocalDate today) {
-        Integer learningGoal = card.isLearningMode()
-                ? (card.getReentryStage() != null && card.getReentryStage() > 0 ? 3 : 5)
-                : null;
         boolean due = card.getNextReviewDate() != null && !card.getNextReviewDate().isAfter(today);
         return new CardResponse(
                 card.getId(), card.getDeckId(), card.getFront(), card.getBack(),
                 card.getStage(), card.getNextReviewDate(), card.isLearningMode(),
                 card.getConsecutiveFamiliar(), card.getLearningStep(),
-                card.getReentryStage(), learningGoal, due, card.getCreatedAt(),
+                card.getReentryStage(), due, card.getCreatedAt(),
                 card.getReviewVersion());
     }
 

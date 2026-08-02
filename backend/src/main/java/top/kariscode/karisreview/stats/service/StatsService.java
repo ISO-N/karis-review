@@ -118,14 +118,13 @@ public class StatsService {
         return new ArrayList<>(trendMap.values());
     }
 
-    private Map<String, Long> distributionFromRows(List<Object[]> rows) {
-        Map<String, Long> distribution = new LinkedHashMap<>();
-        for (int i = 0; i <= 8; i++) {
-            distribution.put(String.valueOf(i), 0L);
-        }
+    private List<Long> distributionFromRows(List<Object[]> rows) {
+        List<Long> distribution = new ArrayList<>(List.of(0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L));
         for (Object[] row : rows) {
-            String stage = String.valueOf(((Number) row[0]).intValue());
-            distribution.merge(stage, ((Number) row[1]).longValue(), Long::sum);
+            int stage = ((Number) row[0]).intValue();
+            if (stage >= 0 && stage <= 8) {
+                distribution.set(stage, distribution.get(stage) + ((Number) row[1]).longValue());
+            }
         }
         return distribution;
     }
