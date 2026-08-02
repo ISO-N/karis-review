@@ -17,6 +17,7 @@ import 'package:karisreview/review/providers/review_provider.dart';
 import 'package:karisreview/review/widgets/review_flip_card.dart';
 import 'package:karisreview/review/pages/start_flow_page.dart';
 import 'package:karisreview/settings/pages/settings_page.dart';
+import 'package:karisreview/shared/widgets/adaptive_scaffold.dart';
 import 'package:karisreview/shared/widgets/metric_tile.dart';
 import 'package:karisreview/stats/pages/stats_page.dart';
 import 'package:karisreview/stats/models/stats.dart';
@@ -337,6 +338,43 @@ void main() {
       expect(find.text('今日'), findsOneWidget);
       expect(find.text('3'), findsOneWidget);
     });
+
+    testWidgets(
+      'adaptive scaffold respects system insets and keeps nav glass blur',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(390, 844));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+
+        await tester.pumpWidget(
+          MaterialApp(
+            builder: (context, child) => MediaQuery(
+              data: MediaQuery.of(
+                context,
+              ).copyWith(padding: const EdgeInsets.only(top: 24, bottom: 24)),
+              child: child!,
+            ),
+            home: const AdaptiveAppScaffold(
+              body: SizedBox(
+                key: Key('scaffold-body'),
+                width: 100,
+                height: 100,
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+
+        expect(find.byType(BackdropFilter), findsNWidgets(2));
+        expect(
+          tester.getTopLeft(find.byKey(const Key('scaffold-body'))).dy,
+          greaterThanOrEqualTo(24),
+        );
+        final navRect = tester.getRect(find.text('今日'));
+        expect(navRect.left, greaterThan(0));
+        expect(navRect.right, lessThan(390));
+        expect(navRect.bottom, lessThanOrEqualTo(820));
+      },
+    );
 
     testWidgets('review flip card renders front and flipped back', (
       tester,

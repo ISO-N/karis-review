@@ -27,19 +27,67 @@ class AdaptiveAppScaffold extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: KarisColors.paper,
-      body: Stack(
-        children: [
-          Positioned.fill(
-            child: Padding(
-              padding: EdgeInsets.only(
-                top: showNavigation && isTablet ? 132 : 0,
-                bottom: showNavigation && !isTablet ? 132 : 0,
+      body: SafeArea(
+        child: Stack(
+          children: [
+            Positioned.fill(child: body),
+            if (showNavigation) ...[
+              _buildNavigationGlass(context, isTablet),
+              _buildNavigation(context, isTablet),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNavigationGlass(BuildContext context, bool isTablet) {
+    return Positioned(
+      left: 0,
+      right: 0,
+      top: isTablet ? 0 : null,
+      bottom: isTablet ? null : 0,
+      height: isTablet ? 106 : 78,
+      child: IgnorePointer(
+        child: RepaintBoundary(
+          child: ClipRect(
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+              child: ShaderMask(
+                shaderCallback: (bounds) => LinearGradient(
+                  begin: isTablet
+                      ? Alignment.topCenter
+                      : Alignment.bottomCenter,
+                  end: isTablet ? Alignment.bottomCenter : Alignment.topCenter,
+                  colors: const [
+                    Colors.black,
+                    Colors.black,
+                    Colors.transparent,
+                  ],
+                  stops: const [0, 0.6, 1],
+                ).createShader(bounds),
+                blendMode: BlendMode.dstIn,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: isTablet
+                          ? Alignment.topCenter
+                          : Alignment.bottomCenter,
+                      end: isTablet
+                          ? Alignment.bottomCenter
+                          : Alignment.topCenter,
+                      colors: [
+                        KarisColors.surface.withValues(alpha: 0.55),
+                        KarisColors.surface.withValues(alpha: 0.24),
+                        KarisColors.surface.withValues(alpha: 0),
+                      ],
+                    ),
+                  ),
+                ),
               ),
-              child: body,
             ),
           ),
-          if (showNavigation) _buildNavigation(context, isTablet),
-        ],
+        ),
       ),
     );
   }
@@ -57,132 +105,114 @@ class AdaptiveAppScaffold extends StatelessWidget {
       (KarisNavItem.settings, Icons.settings_outlined, Icons.settings, '设置'),
     ];
 
-    final nav = Positioned(
+    return Positioned(
       left: 0,
       right: 0,
       top: isTablet ? 42 : null,
       bottom: isTablet ? null : 14,
       child: Align(
         alignment: isTablet ? Alignment.topCenter : Alignment.bottomCenter,
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(32),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-            child: Container(
-              width: navWidth,
-              height: 64,
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-              decoration: BoxDecoration(
-                color: KarisColors.surface.withValues(alpha: 0.86),
-                borderRadius: BorderRadius.circular(32),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.78)),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF161F1B).withValues(alpha: 0.12),
-                    blurRadius: 30,
-                    offset: const Offset(0, 10),
-                  ),
-                  BoxShadow(
-                    color: Colors.white.withValues(alpha: 0.78),
-                    blurRadius: 0,
-                    offset: const Offset(0, 1),
-                  ),
-                ],
+        child: Container(
+          width: navWidth,
+          height: 64,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(32),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF161F1B).withValues(alpha: 0.10),
+                blurRadius: 24,
+                offset: const Offset(0, 8),
               ),
-              child: Row(
-                children: items.map((item) {
-                  final active = item.$1 == current;
-                  final color = active ? KarisColors.ink : KarisColors.stone;
-                  return Expanded(
-                    child: Semantics(
-                      selected: active,
-                      button: true,
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(8),
-                        onTap: onSelect == null
-                            ? null
-                            : () => onSelect!(item.$1),
-                        child: Container(
-                          decoration: isTablet && active
-                              ? BoxDecoration(
-                                  color: KarisColors.jade.withValues(
-                                    alpha: 0.08,
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(32),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                decoration: BoxDecoration(
+                  color: KarisColors.surface.withValues(alpha: 0.82),
+                  borderRadius: BorderRadius.circular(32),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.78),
+                  ),
+                ),
+                foregroundDecoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(32),
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: const Alignment(0, 0.12),
+                    colors: [
+                      Colors.white.withValues(alpha: 0.30),
+                      Colors.white.withValues(alpha: 0),
+                    ],
+                  ),
+                ),
+                child: Row(
+                  children: items.map((item) {
+                    final active = item.$1 == current;
+                    final color = active ? KarisColors.ink : KarisColors.stone;
+                    return Expanded(
+                      child: Semantics(
+                        selected: active,
+                        button: true,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(8),
+                          onTap: onSelect == null
+                              ? null
+                              : () => onSelect!(item.$1),
+                          child: Container(
+                            decoration: isTablet && active
+                                ? BoxDecoration(
+                                    color: KarisColors.jade.withValues(
+                                      alpha: 0.08,
+                                    ),
+                                    borderRadius: BorderRadius.circular(8),
+                                  )
+                                : null,
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                if (!isTablet && active)
+                                  Container(
+                                    width: 24,
+                                    height: 2,
+                                    margin: const EdgeInsets.only(bottom: 4),
+                                    decoration: BoxDecoration(
+                                      color: KarisColors.jade,
+                                      borderRadius: BorderRadius.circular(2),
+                                    ),
                                   ),
-                                  borderRadius: BorderRadius.circular(8),
-                                )
-                              : null,
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              if (!isTablet && active)
-                                Container(
-                                  width: 24,
-                                  height: 2,
-                                  margin: const EdgeInsets.only(bottom: 4),
-                                  decoration: BoxDecoration(
-                                    color: KarisColors.jade,
-                                    borderRadius: BorderRadius.circular(2),
+                                Icon(
+                                  active ? item.$3 : item.$2,
+                                  size: 20,
+                                  color: active ? KarisColors.jade : color,
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  item.$4,
+                                  style: TextStyle(
+                                    color: color,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w500,
+                                    letterSpacing: 0,
                                   ),
                                 ),
-                              Icon(
-                                active ? item.$3 : item.$2,
-                                size: 20,
-                                color: active ? KarisColors.jade : color,
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                item.$4,
-                                style: TextStyle(
-                                  color: color,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w500,
-                                  letterSpacing: 0,
-                                ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  );
-                }).toList(),
+                    );
+                  }).toList(),
+                ),
               ),
             ),
           ),
         ),
       ),
     );
-
-    final glass = Positioned(
-      left: 0,
-      right: 0,
-      top: isTablet ? 36 : null,
-      bottom: isTablet ? null : 0,
-      height: isTablet ? 96 : 112,
-      child: IgnorePointer(
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: isTablet ? Alignment.topCenter : Alignment.bottomCenter,
-              end: isTablet ? Alignment.bottomCenter : Alignment.topCenter,
-              colors: isTablet
-                  ? [
-                      KarisColors.surface.withValues(alpha: 0.92),
-                      KarisColors.surface.withValues(alpha: 0.5),
-                      KarisColors.surface.withValues(alpha: 0),
-                    ]
-                  : [
-                      KarisColors.surface.withValues(alpha: 0.92),
-                      KarisColors.surface.withValues(alpha: 0.5),
-                      KarisColors.surface.withValues(alpha: 0),
-                    ],
-            ),
-          ),
-        ),
-      ),
-    );
-
-    return Stack(children: [glass, nav]);
   }
 }
 
