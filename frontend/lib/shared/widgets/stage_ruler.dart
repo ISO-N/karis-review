@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../app/theme.dart';
+import '../utils/motion.dart';
 
 class StageRuler extends StatelessWidget {
   final List<int>? distribution;
@@ -39,8 +40,10 @@ class StageRuler extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               AnimatedContainer(
-                duration: const Duration(milliseconds: 350),
-                curve: Curves.easeOutCubic,
+                duration: reducedDuration(
+                  context,
+                  const Duration(milliseconds: 350),
+                ),
                 width: 2,
                 height: height,
                 decoration: BoxDecoration(

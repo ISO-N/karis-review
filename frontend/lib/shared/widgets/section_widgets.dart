@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../app/theme.dart';
+import 'app_semantics.dart';
 
 class SectionHeader extends StatelessWidget {
   final String title;
@@ -19,13 +20,15 @@ class SectionHeader extends StatelessWidget {
     return Row(
       children: [
         Expanded(
-          child: Text(
-            title,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: KarisColors.ink,
-              letterSpacing: 0,
+          child: KarisHeading(
+            child: Text(
+              title,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: KarisColors.ink,
+                letterSpacing: 0,
+              ),
             ),
           ),
         ),
@@ -87,10 +90,12 @@ class EmptyState extends StatelessWidget {
               child: Icon(icon, color: KarisColors.jade, size: 26),
             ),
             const SizedBox(height: 16),
-            Text(
-              title,
-              style: karisDisplay(fontSize: 20),
-              textAlign: TextAlign.center,
+            KarisHeading(
+              child: Text(
+                title,
+                style: karisDisplay(fontSize: 20),
+                textAlign: TextAlign.center,
+              ),
             ),
             const SizedBox(height: 8),
             Text(

@@ -3,10 +3,11 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 
 import '../../app/theme.dart';
+import 'app_semantics.dart';
 
 enum KarisNavItem { home, decks, stats, settings }
 
-class AdaptiveAppScaffold extends StatelessWidget {
+class AdaptiveAppScaffold extends StatefulWidget {
   final Widget body;
   final KarisNavItem current;
   final bool showNavigation;
@@ -21,17 +22,41 @@ class AdaptiveAppScaffold extends StatelessWidget {
   });
 
   @override
+  State<AdaptiveAppScaffold> createState() => _AdaptiveAppScaffoldState();
+}
+
+class _AdaptiveAppScaffoldState extends State<AdaptiveAppScaffold> {
+  final FocusNode _mainFocusNode = FocusNode(debugLabel: '主内容');
+
+  @override
+  void dispose() {
+    _mainFocusNode.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
     final isTablet = size.width >= 600;
-
     return Scaffold(
       backgroundColor: KarisColors.paper,
       body: SafeArea(
         child: Stack(
           children: [
-            Positioned.fill(child: body),
-            if (showNavigation) ...[
+            Positioned(
+              left: 12,
+              top: 12,
+              child: KarisSkipLink(target: _mainFocusNode),
+            ),
+            Positioned.fill(
+              child: Focus(focusNode: _mainFocusNode, child: widget.body),
+            ),
+            Positioned(
+              left: 12,
+              top: 12,
+              child: KarisSkipLink(target: _mainFocusNode),
+            ),
+            if (widget.showNavigation) ...[
               _buildNavigationGlass(context, isTablet),
               _buildNavigation(context, isTablet),
             ],
@@ -151,7 +176,7 @@ class AdaptiveAppScaffold extends StatelessWidget {
                 ),
                 child: Row(
                   children: items.map((item) {
-                    final active = item.$1 == current;
+                    final active = item.$1 == widget.current;
                     final color = active ? KarisColors.ink : KarisColors.stone;
                     return Expanded(
                       child: Semantics(
@@ -159,9 +184,9 @@ class AdaptiveAppScaffold extends StatelessWidget {
                         button: true,
                         child: InkWell(
                           borderRadius: BorderRadius.circular(8),
-                          onTap: onSelect == null
+                          onTap: widget.onSelect == null
                               ? null
-                              : () => onSelect!(item.$1),
+                              : () => widget.onSelect!(item.$1),
                           child: Container(
                             decoration: isTablet && active
                                 ? BoxDecoration(
