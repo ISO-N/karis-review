@@ -17,7 +17,8 @@
 
 | 项目 | 内容 |
 |------|------|
-| 包名 | `top.kariscode.karisreview` |
+| Android release 包名 | `top.kariscode.karisreview` |
+| Android debug 包名 | `top.kariscode.karisreview.debug`（可与 release 共存） |
 | 前端 | Flutter 3.x + Riverpod + GoRouter |
 | 后端 | Spring Boot 3.x + Maven + Java 21 |
 | 数据库 | PostgreSQL 16 |

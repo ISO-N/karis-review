@@ -518,9 +518,8 @@ class OfflineRepository {
   }
 
   DateTime _today(SyncMetaData? meta) {
-    final now = _serverNow(meta);
     return LocalSchedulingEngine.calculateToday(
-      now,
+      _serverNow(meta),
       meta?.refreshTime ?? '04:00:00',
     );
   }

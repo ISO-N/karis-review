@@ -42,9 +42,11 @@ flutter analyze            # 静态分析
 flutter build web --release --dart-define=API_BASE_URL=https://review.kariscode.top/api
 ```
 
+Android release 包名为 `top.kariscode.karisreview`，debug 包名为 `top.kariscode.karisreview.debug`，两者可同一设备共存；debug 应用名带 `Debug` 后缀，并允许 HTTP 明文访问本地 API。
+
 ## 架构总览
 
-前后端分离：Flutter 客户端只做 UI 渲染，无本地业务数据存储；服务端无状态，认证靠 JWT（`Authorization: Bearer <token>`，7 天有效）。包名 `top.kariscode.karisreview`，生产环境 `https://review.kariscode.top/api`。详细设计文档见 `docs/`（architecture.md、api.md、database.md）。
+前后端分离：Flutter 客户端只做 UI 渲染，无本地业务数据存储；服务端无状态，认证靠 JWT（`Authorization: Bearer <token>`，7 天有效）。Android release 包名 `top.kariscode.karisreview`，debug 包名 `top.kariscode.karisreview.debug`，生产环境 `https://review.kariscode.top/api`。详细设计文档见 `docs/`（architecture.md、api.md、database.md）。
 
 ### 后端（backend/src/main/java/top/kariscode/karisreview/）
 

@@ -8,9 +8,13 @@ Karis Review 的 Flutter 客户端，面向 Windows、Android、iOS。应用采�
 flutter pub get
 dart run build_runner build
 flutter run -d windows
+flutter build apk --release --dart-define=API_BASE_URL=https://review.kariscode.top/api
+flutter build apk --debug --dart-define=API_BASE_URL=https://review.kariscode.top/api
 flutter test
 flutter analyze
 ```
+
+Android release/debug 使用不同包名：`top.kariscode.karisreview` 与 `top.kariscode.karisreview.debug`，可同机共存。
 
 ## 离线能力边界
 

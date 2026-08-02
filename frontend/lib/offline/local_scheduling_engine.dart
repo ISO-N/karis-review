@@ -176,14 +176,21 @@ class LocalSchedulingEngine {
   }
 
   static DateTime _calculateToday(DateTime nowUtc, String refreshTime) {
+    final localNow = nowUtc.toLocal();
     final parts = refreshTime.split(':');
     final hour = int.tryParse(parts.isNotEmpty ? parts[0] : '4') ?? 4;
     final minute = parts.length > 1 ? int.tryParse(parts[1]) ?? 0 : 0;
-    final boundary = DateTime.utc(nowUtc.year, nowUtc.month, nowUtc.day, hour, minute);
-    if (nowUtc.isBefore(boundary)) {
-      return DateTime.utc(nowUtc.year, nowUtc.month, nowUtc.day - 1);
+    final boundary = DateTime(
+      localNow.year,
+      localNow.month,
+      localNow.day,
+      hour,
+      minute,
+    );
+    if (localNow.isBefore(boundary)) {
+      return DateTime(localNow.year, localNow.month, localNow.day - 1);
     }
-    return DateTime.utc(nowUtc.year, nowUtc.month, nowUtc.day);
+    return DateTime(localNow.year, localNow.month, localNow.day);
   }
 
   static String _plusDays(DateTime date, int days) {
