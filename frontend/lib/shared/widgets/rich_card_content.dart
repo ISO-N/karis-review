@@ -49,13 +49,15 @@ class _RichCardContentState extends State<RichCardContent> {
       final decoded = jsonDecode(trimmed);
       if (decoded is! List) return false;
       _document = quill.Document.fromJson(decoded);
-      _quillController = quill.QuillController(
-        document: _document!,
-        selection: const TextSelection.collapsed(offset: 0),
-        readOnly: true,
-      );
-      _focusNode = FocusNode();
-      _scrollController = ScrollController();
+      if (widget.maxLines == null) {
+        _quillController = quill.QuillController(
+          document: _document!,
+          selection: const TextSelection.collapsed(offset: 0),
+          readOnly: true,
+        );
+        _focusNode = FocusNode();
+        _scrollController = ScrollController();
+      }
       return true;
     } catch (_) {
       return false;
@@ -65,7 +67,8 @@ class _RichCardContentState extends State<RichCardContent> {
   @override
   void didUpdateWidget(covariant RichCardContent oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.content != widget.content) {
+    if (oldWidget.content != widget.content ||
+        oldWidget.maxLines != widget.maxLines) {
       _disposeQuill();
       _isDelta = _tryParseDelta(widget.content);
     }
@@ -89,27 +92,67 @@ class _RichCardContentState extends State<RichCardContent> {
 
   @override
   Widget build(BuildContext context) {
-    if (_isDelta &&
-        _quillController != null &&
-        _focusNode != null &&
-        _scrollController != null) {
-      return quill.QuillEditor.basic(
-        controller: _quillController!,
-        focusNode: _focusNode,
-        scrollController: _scrollController,
-        config: quill.QuillEditorConfig(
-          autoFocus: false,
-          expands: false,
-          padding: EdgeInsets.zero,
-          embedBuilders: [LatexEmbedBuilder(), CodeEmbedBuilder()],
-        ),
-      );
+    if (_isDelta && _document != null) {
+      if (widget.maxLines != null) {
+        return _DeltaPreview(
+          document: _document!,
+          style: widget.style,
+          textAlign: widget.textAlign,
+          maxLines: widget.maxLines,
+        );
+      }
+      if (_quillController != null &&
+          _focusNode != null &&
+          _scrollController != null) {
+        return quill.QuillEditor.basic(
+          controller: _quillController!,
+          focusNode: _focusNode,
+          scrollController: _scrollController,
+          config: quill.QuillEditorConfig(
+            autoFocus: false,
+            scrollable: false,
+            expands: false,
+            padding: EdgeInsets.zero,
+            embedBuilders: [LatexEmbedBuilder(), CodeEmbedBuilder()],
+          ),
+        );
+      }
     }
     return _MarkdownContent(
       content: widget.content,
       style: widget.style,
       textAlign: widget.textAlign,
       maxLines: widget.maxLines,
+    );
+  }
+}
+
+class _DeltaPreview extends StatelessWidget {
+  final quill.Document document;
+  final TextStyle? style;
+  final TextAlign textAlign;
+  final int? maxLines;
+
+  const _DeltaPreview({
+    required this.document,
+    this.style,
+    this.textAlign = TextAlign.start,
+    this.maxLines,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final text = document.toPlainText([
+      LatexEmbedBuilder(),
+      CodeEmbedBuilder(),
+    ]);
+    final effectiveStyle = style ?? DefaultTextStyle.of(context).style;
+    return Text(
+      text,
+      style: effectiveStyle,
+      textAlign: textAlign,
+      maxLines: maxLines,
+      overflow: maxLines != null ? TextOverflow.ellipsis : null,
     );
   }
 }

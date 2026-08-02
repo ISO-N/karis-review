@@ -37,7 +37,7 @@ class _CardListPageState extends ConsumerState<CardListPage> {
       data: (stats) => stats.deckName,
       orElse: () => '卡片',
     );
-
+    final isTablet = MediaQuery.sizeOf(context).width >= 600;
     return Scaffold(
       backgroundColor: KarisColors.paper,
       body: SafeArea(
@@ -57,105 +57,173 @@ class _CardListPageState extends ConsumerState<CardListPage> {
                   ref.invalidate(deckStatsProvider(widget.deckId));
                   ref.invalidate(deckListProvider);
                 },
-                child: SingleChildScrollView(
+                child: CustomScrollView(
                   physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 96),
-                  child: Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 980),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _buildOverview(statsAsync),
-                          const SizedBox(height: 18),
-                          _buildFilters(statsAsync),
-                          cardsAsync.when(
-                            loading: () => const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 60),
-                              child: Center(
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              ),
+                  slivers: [
+                    SliverToBoxAdapter(
+                      child: Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 980),
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _buildOverview(statsAsync),
+                                const SizedBox(height: 18),
+                                _buildFilters(statsAsync),
+                              ],
                             ),
-                            error: (error, _) => Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 40),
-                              child: Column(
-                                children: [
-                                  const Text(
-                                    '加载卡片失败',
-                                    style: TextStyle(
-                                      color: KarisColors.cinnabar,
+                          ),
+                        ),
+                      ),
+                    ),
+                    SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 96),
+                      sliver: cardsAsync.when(
+                        loading: () => const SliverFillRemaining(
+                          hasScrollBody: false,
+                          child: Center(
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        ),
+                        error: (error, _) => SliverFillRemaining(
+                          hasScrollBody: false,
+                          child: Center(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Text(
+                                  '加载卡片失败',
+                                  style: TextStyle(color: KarisColors.cinnabar),
+                                ),
+                                const SizedBox(height: 10),
+                                TextButton(
+                                  onPressed: () => ref
+                                      .read(
+                                        cardListProvider(
+                                          CardListArgs(widget.deckId, _filter),
+                                        ).notifier,
+                                      )
+                                      .loadCards(),
+                                  child: const Text('重试'),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        data: (cards) => cards.isEmpty
+                            ? SliverFillRemaining(
+                                hasScrollBody: false,
+                                child: Center(
+                                  child: ConstrainedBox(
+                                    constraints: const BoxConstraints(
+                                      maxWidth: 980,
+                                    ),
+                                    child: EmptyState(
+                                      icon: Icons.credit_card_outlined,
+                                      title: _filter == 'all'
+                                          ? '还没有卡片'
+                                          : '当前筛选下没有卡片',
+                                      message: _filter == 'all'
+                                          ? '新建第一张卡片，开始积累你的记忆刻度'
+                                          : '切换到“全部”查看牌组里的所有卡片',
+                                      action: _filter == 'all'
+                                          ? FilledButton.icon(
+                                              onPressed: () => _openEditor(),
+                                              icon: const Icon(
+                                                Icons.add,
+                                                size: 17,
+                                              ),
+                                              label: const Text('新建卡片'),
+                                            )
+                                          : null,
                                     ),
                                   ),
-                                  const SizedBox(height: 10),
-                                  TextButton(
-                                    onPressed: () => ref
-                                        .read(
-                                          cardListProvider(
-                                            CardListArgs(
-                                              widget.deckId,
-                                              _filter,
-                                            ),
-                                          ).notifier,
-                                        )
-                                        .loadCards(),
-                                    child: const Text('重试'),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            data: (cards) => cards.isEmpty
-                                ? EmptyState(
-                                    icon: Icons.credit_card_outlined,
-                                    title: _filter == 'all'
-                                        ? '还没有卡片'
-                                        : '当前筛选下没有卡片',
-                                    message: _filter == 'all'
-                                        ? '新建第一张卡片，开始积累你的记忆刻度'
-                                        : '切换到“全部”查看牌组里的所有卡片',
-                                    action: _filter == 'all'
-                                        ? FilledButton.icon(
-                                            onPressed: () => _openEditor(),
-                                            icon: const Icon(
-                                              Icons.add,
-                                              size: 17,
-                                            ),
-                                            label: const Text('新建卡片'),
-                                          )
-                                        : null,
-                                  )
-                                : LayoutBuilder(
-                                    builder: (context, constraints) {
-                                      final isTablet =
-                                          constraints.maxWidth >= 640;
-                                      final itemWidth = isTablet
-                                          ? (constraints.maxWidth - 10) / 2
-                                          : constraints.maxWidth;
-                                      return Wrap(
-                                        spacing: 10,
-                                        runSpacing: 10,
+                                ),
+                              )
+                            : SliverList(
+                                delegate: SliverChildBuilderDelegate(
+                                  (context, index) {
+                                    final Widget item;
+                                    if (isTablet) {
+                                      final start = index * 2;
+                                      if (start >= cards.length) {
+                                        return const SizedBox.shrink();
+                                      }
+                                      final first = cards[start];
+                                      final second = start + 1 < cards.length
+                                          ? cards[start + 1]
+                                          : null;
+                                      item = Row(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
-                                          for (final card in cards)
-                                            SizedBox(
-                                              width: itemWidth,
+                                          Expanded(
+                                            child: RepaintBoundary(
+                                              key: ValueKey(first.id),
                                               child: _CardTile(
-                                                card: card,
+                                                card: first,
                                                 onTap: () =>
-                                                    _openEditor(card: card),
+                                                    _openEditor(card: first),
                                                 onDelete: () =>
-                                                    _confirmDelete(card),
+                                                    _confirmDelete(first),
                                               ),
+                                            ),
+                                          ),
+                                          if (second != null) ...[
+                                            const SizedBox(width: 10),
+                                            Expanded(
+                                              child: RepaintBoundary(
+                                                key: ValueKey(second.id),
+                                                child: _CardTile(
+                                                  card: second,
+                                                  onTap: () =>
+                                                      _openEditor(card: second),
+                                                  onDelete: () =>
+                                                      _confirmDelete(second),
+                                                ),
+                                              ),
+                                            ),
+                                          ] else
+                                            const Expanded(
+                                              child: SizedBox.shrink(),
                                             ),
                                         ],
                                       );
-                                    },
-                                  ),
-                          ),
-                        ],
+                                    } else {
+                                      final card = cards[index];
+                                      item = RepaintBoundary(
+                                        key: ValueKey(card.id),
+                                        child: _CardTile(
+                                          card: card,
+                                          onTap: () => _openEditor(card: card),
+                                          onDelete: () => _confirmDelete(card),
+                                        ),
+                                      );
+                                    }
+                                    return Padding(
+                                      padding: const EdgeInsets.only(
+                                        bottom: 10,
+                                      ),
+                                      child: Center(
+                                        child: ConstrainedBox(
+                                          constraints: const BoxConstraints(
+                                            maxWidth: 980,
+                                          ),
+                                          child: item,
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                  childCount: isTablet
+                                      ? (cards.length + 1) ~/ 2
+                                      : cards.length,
+                                ),
+                              ),
                       ),
                     ),
-                  ),
+                  ],
                 ),
               ),
             ),

@@ -258,7 +258,7 @@ class _CardEditorPageState extends ConsumerState<CardEditorPage> {
                 _buildHeader(),
                 _buildSideSwitch(),
                 Expanded(
-                  child: SingleChildScrollView(
+                  child: Padding(
                     padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
                     child: _side == _CardSide.front
                         ? _buildEditor(
@@ -371,48 +371,25 @@ class _CardEditorPageState extends ConsumerState<CardEditorPage> {
       clipBehavior: Clip.antiAlias,
       child: Column(
         children: [
-          quill.QuillSimpleToolbar(
+          _buildToolbar(
             controller: controller,
-            config: quill.QuillSimpleToolbarConfig(
-              multiRowsDisplay: false,
-              showFontFamily: false,
-              showFontSize: false,
-              showSearchButton: false,
-              showQuote: false,
-              showIndent: false,
-              showLink: false,
-              showSubscript: false,
-              showSuperscript: false,
-              showSmallButton: false,
-              showLineHeightButton: false,
-              showAlignmentButtons: false,
-              showDirection: false,
-              showListCheck: false,
-              customButtons: [
-                quill.QuillToolbarCustomButtonOptions(
-                  icon: const Icon(Icons.functions, size: 18),
-                  tooltip: '插入公式',
-                  onPressed: onLatex,
-                ),
-                quill.QuillToolbarCustomButtonOptions(
-                  icon: const Icon(Icons.code, size: 18),
-                  tooltip: '插入代码',
-                  onPressed: onCode,
-                ),
-              ],
-            ),
+            onLatex: onLatex,
+            onCode: onCode,
           ),
           const Divider(height: 1),
-          ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 130),
-            child: quill.QuillEditor.basic(
-              controller: controller,
-              focusNode: focusNode,
-              scrollController: scrollController,
-              config: quill.QuillEditorConfig(
-                placeholder: '输入内容...',
-                padding: const EdgeInsets.all(12),
-                embedBuilders: embedBuilders,
+          Expanded(
+            child: RepaintBoundary(
+              child: quill.QuillEditor.basic(
+                controller: controller,
+                focusNode: focusNode,
+                scrollController: scrollController,
+                config: quill.QuillEditorConfig(
+                  scrollable: true,
+                  expands: true,
+                  placeholder: '输入内容...',
+                  padding: const EdgeInsets.all(12),
+                  embedBuilders: embedBuilders,
+                ),
               ),
             ),
           ),
@@ -420,4 +397,286 @@ class _CardEditorPageState extends ConsumerState<CardEditorPage> {
       ),
     );
   }
+
+  Widget _buildToolbar({
+    required quill.QuillController controller,
+    required VoidCallback onLatex,
+    required VoidCallback onCode,
+  }) {
+    return RepaintBoundary(
+      child: Container(
+        height: 52,
+        color: KarisColors.surface,
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+          child: Row(
+            children: [
+              _toolbarIconButton(
+                icon: Icons.undo,
+                tooltip: '撤销',
+                onPressed: controller.undo,
+              ),
+              _toolbarIconButton(
+                icon: Icons.redo,
+                tooltip: '重做',
+                onPressed: controller.redo,
+              ),
+              _toolbarIconButton(
+                icon: Icons.format_bold,
+                tooltip: '加粗',
+                onPressed: () =>
+                    _toggleAttribute(controller, quill.Attribute.bold),
+              ),
+              _toolbarIconButton(
+                icon: Icons.format_italic,
+                tooltip: '斜体',
+                onPressed: () =>
+                    _toggleAttribute(controller, quill.Attribute.italic),
+              ),
+              _toolbarIconButton(
+                icon: Icons.format_underline,
+                tooltip: '下划线',
+                onPressed: () =>
+                    _toggleAttribute(controller, quill.Attribute.underline),
+              ),
+              _toolbarIconButton(
+                icon: Icons.format_strikethrough,
+                tooltip: '删除线',
+                onPressed: () =>
+                    _toggleAttribute(controller, quill.Attribute.strikeThrough),
+              ),
+              _toolbarIconButton(
+                icon: Icons.code,
+                tooltip: '行内代码',
+                onPressed: () =>
+                    _toggleAttribute(controller, quill.Attribute.inlineCode),
+              ),
+              _toolbarIconButton(
+                icon: Icons.title,
+                tooltip: '标题',
+                onPressed: () => _pickHeader(controller),
+              ),
+              _toolbarIconButton(
+                icon: Icons.format_list_numbered,
+                tooltip: '有序列表',
+                onPressed: () => _toggleAttribute(
+                  controller,
+                  quill.Attribute.ol,
+                  expectedValue: 'ordered',
+                ),
+              ),
+              _toolbarIconButton(
+                icon: Icons.format_list_bulleted,
+                tooltip: '无序列表',
+                onPressed: () => _toggleAttribute(
+                  controller,
+                  quill.Attribute.ul,
+                  expectedValue: 'bullet',
+                ),
+              ),
+              _toolbarIconButton(
+                icon: Icons.terminal,
+                tooltip: '代码块',
+                onPressed: () =>
+                    _toggleAttribute(controller, quill.Attribute.codeBlock),
+              ),
+              _toolbarIconButton(
+                icon: Icons.format_clear,
+                tooltip: '清除格式',
+                onPressed: () => _clearFormat(controller),
+              ),
+              _toolbarIconButton(
+                icon: Icons.color_lens,
+                tooltip: '文字颜色',
+                onPressed: () => _pickColor(controller, background: false),
+              ),
+              _toolbarIconButton(
+                icon: Icons.format_color_fill,
+                tooltip: '背景颜色',
+                onPressed: () => _pickColor(controller, background: true),
+              ),
+              _toolbarIconButton(
+                icon: Icons.functions,
+                tooltip: '插入公式',
+                onPressed: onLatex,
+              ),
+              _toolbarIconButton(
+                icon: Icons.code,
+                tooltip: '插入代码',
+                onPressed: onCode,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _toolbarIconButton({
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback? onPressed,
+  }) {
+    return IconButton(
+      onPressed: onPressed,
+      icon: Icon(icon, size: 18),
+      tooltip: tooltip,
+      style: IconButton.styleFrom(
+        minimumSize: const Size(40, 40),
+        padding: const EdgeInsets.all(8),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+    );
+  }
+
+  void _toggleAttribute(
+    quill.QuillController controller,
+    quill.Attribute attribute, {
+    Object? expectedValue,
+  }) {
+    final current = controller.getSelectionStyle().attributes[attribute.key];
+    final active =
+        current != null &&
+        (expectedValue == null || current.value == expectedValue);
+    controller.formatSelection(
+      active ? quill.Attribute.clone(attribute, null) : attribute,
+    );
+  }
+
+  void _clearFormat(quill.QuillController controller) {
+    final attributes = <quill.Attribute>{};
+    for (final style in controller.getAllSelectionStyles()) {
+      attributes.addAll(style.values);
+    }
+    for (final attribute in attributes) {
+      controller.formatSelection(quill.Attribute.clone(attribute, null));
+    }
+  }
+
+  Future<void> _pickHeader(quill.QuillController controller) async {
+    final choice = await showDialog<int>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: const Text('标题'),
+        children: [
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(ctx, 0),
+            child: const Text('正文'),
+          ),
+          for (var level = 1; level <= 4; level++)
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(ctx, level),
+              child: Text('H$level'),
+            ),
+        ],
+      ),
+    );
+    if (!mounted || choice == null) return;
+    if (choice == 0) {
+      controller.formatSelection(quill.Attribute.header);
+    } else if (choice == 1) {
+      controller.formatSelection(quill.Attribute.h1);
+    } else if (choice == 2) {
+      controller.formatSelection(quill.Attribute.h2);
+    } else if (choice == 3) {
+      controller.formatSelection(quill.Attribute.h3);
+    } else {
+      controller.formatSelection(quill.Attribute.h4);
+    }
+  }
+
+  Future<void> _pickColor(
+    quill.QuillController controller, {
+    required bool background,
+  }) async {
+    final result = await showDialog<_EditorColorResult>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(background ? '背景颜色' : '文字颜色'),
+        content: Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            for (final color in _editorColorPresets)
+              InkWell(
+                onTap: () => Navigator.pop(ctx, _EditorColorResult(color)),
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: color,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: KarisColors.hairline),
+                  ),
+                ),
+              ),
+            Tooltip(
+              message: '清除颜色',
+              child: InkWell(
+                onTap: () =>
+                    Navigator.pop(ctx, const _EditorColorResult.clear()),
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: KarisColors.paper,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: KarisColors.hairline),
+                  ),
+                  child: const Icon(
+                    Icons.format_color_reset,
+                    size: 18,
+                    color: KarisColors.stone,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('取消'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted || result == null) return;
+    final attribute = background
+        ? quill.Attribute.background
+        : quill.Attribute.color;
+    controller.formatSelection(
+      result.clear
+          ? quill.Attribute.clone(attribute, null)
+          : quill.Attribute.clone(attribute, _colorHex(result.color!)),
+    );
+  }
+
+  String _colorHex(Color color) {
+    final value = color.toARGB32() & 0xFFFFFF;
+    return '#${value.toRadixString(16).padLeft(6, '0')}';
+  }
 }
+
+class _EditorColorResult {
+  const _EditorColorResult(this.color) : clear = false;
+
+  const _EditorColorResult.clear() : color = null, clear = true;
+
+  final Color? color;
+  final bool clear;
+}
+
+const List<Color> _editorColorPresets = [
+  Color(0xFF202B27),
+  Color(0xFFC45B43),
+  Color(0xFF2F6B5C),
+  Color(0xFFB98A2F),
+  Color(0xFF3B6EA5),
+  Color(0xFF8A4F9D),
+  Color(0xFF66716B),
+];
