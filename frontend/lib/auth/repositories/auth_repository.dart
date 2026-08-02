@@ -7,7 +7,10 @@ class AuthRepository {
   final ApiClient _client = ApiClient();
 
   Future<LoginResponse> register(LoginRequest request) async {
-    final response = await _client.post(ApiEndpoints.register, data: request.toJson());
+    final response = await _client.post(
+      ApiEndpoints.register,
+      data: request.toJson(),
+    );
     final data = response.data['data'] as Map<String, dynamic>;
     final loginResponse = LoginResponse.fromJson(data);
     await ApiClient.saveToken(loginResponse.token);
@@ -15,7 +18,10 @@ class AuthRepository {
   }
 
   Future<LoginResponse> login(LoginRequest request) async {
-    final response = await _client.post(ApiEndpoints.login, data: request.toJson());
+    final response = await _client.post(
+      ApiEndpoints.login,
+      data: request.toJson(),
+    );
     final data = response.data['data'] as Map<String, dynamic>;
     final loginResponse = LoginResponse.fromJson(data);
     await ApiClient.saveToken(loginResponse.token);

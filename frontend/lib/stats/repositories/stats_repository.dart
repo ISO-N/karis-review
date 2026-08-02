@@ -23,6 +23,8 @@ class StatsRepository {
       queryParameters: {'days': days},
     );
     final data = response.data['data'] as List<dynamic>;
-    return data.map((d) => TrendPoint.fromJson(d as Map<String, dynamic>)).toList();
+    return data
+        .map((d) => TrendPoint.fromJson(d as Map<String, dynamic>))
+        .toList();
   }
 }

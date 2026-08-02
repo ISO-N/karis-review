@@ -3,6 +3,8 @@ import '../repositories/review_repository.dart';
 import '../models/review_card.dart';
 
 class ReviewSessionState {
+  final String mode;
+  final String? deckId;
   final List<ReviewCard> cards;
   final int currentIndex;
   final bool isFlipped;
@@ -10,8 +12,11 @@ class ReviewSessionState {
   final String? error;
   final int reviewedCount;
   final int totalCount;
+  final ReviewResult? lastResult;
 
   const ReviewSessionState({
+    this.mode = 'due',
+    this.deckId,
     this.cards = const [],
     this.currentIndex = 0,
     this.isFlipped = false,
@@ -19,6 +24,7 @@ class ReviewSessionState {
     this.error,
     this.reviewedCount = 0,
     this.totalCount = 0,
+    this.lastResult,
   });
 
   ReviewCard? get currentCard =>
@@ -27,6 +33,8 @@ class ReviewSessionState {
   bool get isComplete => currentIndex >= cards.length && cards.isNotEmpty;
 
   ReviewSessionState copyWith({
+    String? mode,
+    String? deckId,
     List<ReviewCard>? cards,
     int? currentIndex,
     bool? isFlipped,
@@ -34,8 +42,12 @@ class ReviewSessionState {
     String? error,
     int? reviewedCount,
     int? totalCount,
+    ReviewResult? lastResult,
+    bool clearLastResult = false,
   }) {
     return ReviewSessionState(
+      mode: mode ?? this.mode,
+      deckId: deckId ?? this.deckId,
       cards: cards ?? this.cards,
       currentIndex: currentIndex ?? this.currentIndex,
       isFlipped: isFlipped ?? this.isFlipped,
@@ -43,6 +55,7 @@ class ReviewSessionState {
       error: error,
       reviewedCount: reviewedCount ?? this.reviewedCount,
       totalCount: totalCount ?? this.totalCount,
+      lastResult: clearLastResult ? null : (lastResult ?? this.lastResult),
     );
   }
 }
@@ -52,10 +65,19 @@ class ReviewNotifier extends StateNotifier<ReviewSessionState> {
 
   ReviewNotifier(this._repository) : super(const ReviewSessionState());
 
-  Future<void> loadDueCards({String? deckId}) async {
-    state = state.copyWith(isLoading: true, error: null);
+  Future<void> loadQueue({
+    required String mode,
+    String? deckId,
+    int limit = 10,
+  }) async {
+    state = ReviewSessionState(
+      mode: mode,
+      deckId: deckId,
+    ).copyWith(isLoading: true, error: null);
     try {
-      final cards = await _repository.getDueCards(deckId: deckId);
+      final cards = mode == 'new'
+          ? await _repository.getNewCards(deckId: deckId, limit: limit)
+          : await _repository.getDueCards(deckId: deckId);
       state = state.copyWith(
         cards: cards,
         currentIndex: 0,
@@ -64,24 +86,7 @@ class ReviewNotifier extends StateNotifier<ReviewSessionState> {
         reviewedCount: 0,
         totalCount: cards.length,
         error: null,
-      );
-    } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
-    }
-  }
-
-  Future<void> loadNewCards({String? deckId, int limit = 10}) async {
-    state = state.copyWith(isLoading: true, error: null);
-    try {
-      final cards = await _repository.getNewCards(deckId: deckId, limit: limit);
-      state = state.copyWith(
-        cards: cards,
-        currentIndex: 0,
-        isFlipped: false,
-        isLoading: false,
-        reviewedCount: 0,
-        totalCount: cards.length,
-        error: null,
+        clearLastResult: true,
       );
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
@@ -92,19 +97,21 @@ class ReviewNotifier extends StateNotifier<ReviewSessionState> {
     state = state.copyWith(isFlipped: !state.isFlipped);
   }
 
-  Future<void> rate(String rating) async {
+  Future<ReviewResult?> rate(String rating) async {
     final card = state.currentCard;
-    if (card == null) return;
-
+    if (card == null) return null;
     try {
-      await _repository.rateCard(card.id, rating);
+      final result = await _repository.rateCard(card.id, rating);
       state = state.copyWith(
         currentIndex: state.currentIndex + 1,
         isFlipped: false,
         reviewedCount: state.reviewedCount + 1,
+        lastResult: result,
       );
+      return result;
     } catch (e) {
       state = state.copyWith(error: '评分失败: $e');
+      return null;
     }
   }
 
@@ -113,6 +120,7 @@ class ReviewNotifier extends StateNotifier<ReviewSessionState> {
   }
 }
 
-final reviewProvider = StateNotifierProvider<ReviewNotifier, ReviewSessionState>((ref) {
-  return ReviewNotifier(ReviewRepository());
-});
+final reviewProvider =
+    StateNotifierProvider<ReviewNotifier, ReviewSessionState>((ref) {
+      return ReviewNotifier(ReviewRepository());
+    });

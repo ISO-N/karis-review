@@ -12,13 +12,19 @@ class DeckRepository {
   }
 
   Future<Deck> createDeck(String name) async {
-    final response = await _client.post(ApiEndpoints.decks, data: {'name': name});
+    final response = await _client.post(
+      ApiEndpoints.decks,
+      data: {'name': name},
+    );
     final data = response.data['data'] as Map<String, dynamic>;
     return Deck.fromJson(data);
   }
 
   Future<Deck> updateDeck(String id, String name) async {
-    final response = await _client.put(ApiEndpoints.deck(id), data: {'name': name});
+    final response = await _client.put(
+      ApiEndpoints.deck(id),
+      data: {'name': name},
+    );
     final data = response.data['data'] as Map<String, dynamic>;
     return Deck.fromJson(data);
   }
