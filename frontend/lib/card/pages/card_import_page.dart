@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../app/theme.dart';
@@ -12,6 +13,14 @@ import '../../shared/widgets/section_widgets.dart';
 import '../models/card_import.dart';
 import '../repositories/card_repository.dart';
 import 'card_editor_page.dart';
+
+const String _importSampleJson = '''
+[
+  {
+    "front": "间隔重复是什么？",
+    "back": "按遗忘曲线在合适时间安排复习"
+  }
+]''';
 
 class CardImportPage extends StatefulWidget {
   final String deckId;
@@ -174,11 +183,114 @@ class _CardImportPageState extends State<CardImportPage> {
             const SizedBox(height: 12),
             _buildErrorBox(_error!),
           ],
+          const SizedBox(height: 12),
+          _buildFormatGuide(),
           const SizedBox(height: 20),
           KarisPrimaryButton(
             label: _parsing ? '解析中…' : '解析并预览',
             icon: Icons.fact_check_outlined,
             onPressed: _parsing ? null : () => _parse(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _copyFormatExample() async {
+    await Clipboard.setData(ClipboardData(text: _importSampleJson.trim()));
+    if (!mounted) return;
+    announceMessage(context, '示例 JSON 已复制');
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(const SnackBar(content: Text('示例 JSON 已复制')));
+  }
+
+  Widget _buildFormatGuide() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: KarisColors.surface,
+        border: Border.all(color: KarisColors.hairline),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'JSON 格式',
+                  style: TextStyle(
+                    color: KarisColors.ink,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0,
+                  ),
+                ),
+              ),
+              OutlinedButton.icon(
+                onPressed: _copyFormatExample,
+                icon: const Icon(Icons.copy_rounded, size: 16),
+                label: const Text('复制示例'),
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size(0, 36),
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  backgroundColor: KarisColors.paper,
+                  foregroundColor: KarisColors.jade,
+                  side: const BorderSide(color: KarisColors.hairline),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: KarisColors.paper,
+              border: Border.all(color: KarisColors.hairline),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Text(
+                _importSampleJson.trim(),
+                style: karisMono(fontSize: 12),
+                softWrap: false,
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            '格式要点',
+            style: TextStyle(
+              color: KarisColors.ink,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const _FormatRule(
+            icon: Icons.data_object_rounded,
+            text: '顶层必须是 JSON 数组，单次最多 1000 张',
+          ),
+          const _FormatRule(
+            icon: Icons.label_outline_rounded,
+            text: '每张卡片包含 front 和 back，两个字段都必须是非空字符串',
+          ),
+          const _FormatRule(
+            icon: Icons.text_fields_rounded,
+            text: '正文支持普通文本、轻量 Markdown，以及卡片编辑器生成的 Delta JSON',
+          ),
+          const _FormatRule(
+            icon: Icons.info_outline_rounded,
+            text: '未知字段会被忽略；粘贴内容或文件最大 2MB',
           ),
         ],
       ),
@@ -721,6 +833,38 @@ class _SourceButton extends StatelessWidget {
           color: active ? KarisColors.jade : KarisColors.hairline,
         ),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+    );
+  }
+}
+
+class _FormatRule extends StatelessWidget {
+  final IconData icon;
+  final String text;
+
+  const _FormatRule({required this.icon, required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 16, color: KarisColors.jade),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(
+                color: KarisColors.stone,
+                fontSize: 12,
+                height: 1.5,
+                letterSpacing: 0,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
