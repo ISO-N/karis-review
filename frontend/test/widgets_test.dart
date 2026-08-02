@@ -210,6 +210,42 @@ void main() {
       expect(find.text('全部'), findsOneWidget);
     });
 
+    testWidgets('card list lazily builds cards with CustomScrollView', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(390, 844));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final cardRepo = MockCardRepository();
+      when(
+        () => cardRepo.getDeckCards('deck-1', size: 500, filter: 'all'),
+      ).thenAnswer(
+        (_) async => {
+          'content': [
+            for (var i = 0; i < 50; i++)
+              cardJson(id: 'card-$i', front: '卡片 $i'),
+          ],
+        },
+      );
+      final statsRepo = MockStatsRepository();
+      when(
+        () => statsRepo.getOverview(),
+      ).thenAnswer((_) async => OverviewStats.fromJson(overviewStatsJson()));
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [...cardOverrides(cardRepo), ...statsOverrides(statsRepo)],
+          child: const MaterialApp(home: CardListPage(deckId: 'deck-1')),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(CustomScrollView), findsOneWidget);
+      expect(find.text('卡片 0'), findsOneWidget);
+      expect(find.text('卡片 49'), findsNothing);
+      await tester.drag(find.byType(CustomScrollView), const Offset(0, -4000));
+      await tester.pumpAndSettle();
+      expect(find.text('卡片 49'), findsOneWidget);
+    });
     testWidgets('card list opens editor and import as standalone routes', (
       tester,
     ) async {
@@ -368,6 +404,129 @@ void main() {
         find.byType(quill.QuillEditor),
       );
       expect(frontAgain.controller.document.toPlainText(), contains('正面草稿'));
+    });
+
+    testWidgets('toolbar applies formatting and supports undo and redo', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(390, 844));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await tester.pumpWidget(
+        ProviderScope(
+          child: MaterialApp(
+            localizationsDelegates:
+                quill.FlutterQuillLocalizations.localizationsDelegates,
+            supportedLocales: quill.FlutterQuillLocalizations.supportedLocales,
+            locale: const Locale('zh'),
+            home: const CardEditorPage(
+              args: CardEditorArgs(deckId: 'deck-1', localOnly: true),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final editor = tester.widget<quill.QuillEditor>(
+        find.byType(quill.QuillEditor),
+      );
+      final controller = editor.controller;
+      controller.document.insert(0, 'hello');
+      controller.updateSelection(
+        const TextSelection(baseOffset: 0, extentOffset: 5),
+        quill.ChangeSource.local,
+      );
+      await tester.pump();
+
+      await tester.tap(find.byTooltip('加粗'));
+      await tester.pump();
+      expect(
+        controller.getSelectionStyle().attributes.containsKey('bold'),
+        isTrue,
+      );
+
+      await tester.tap(find.byTooltip('撤销'));
+      await tester.pump();
+      expect(
+        controller.getSelectionStyle().attributes.containsKey('bold'),
+        isFalse,
+      );
+
+      await tester.tap(find.byTooltip('重做'));
+      await tester.pump();
+      expect(
+        controller.getSelectionStyle().attributes.containsKey('bold'),
+        isTrue,
+      );
+    });
+
+    testWidgets('toolbar inserts latex through dialog', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(390, 844));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await tester.pumpWidget(
+        ProviderScope(
+          child: MaterialApp(
+            localizationsDelegates:
+                quill.FlutterQuillLocalizations.localizationsDelegates,
+            supportedLocales: quill.FlutterQuillLocalizations.supportedLocales,
+            locale: const Locale('zh'),
+            home: const CardEditorPage(
+              args: CardEditorArgs(deckId: 'deck-1', localOnly: true),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final controller = tester
+          .widget<quill.QuillEditor>(find.byType(quill.QuillEditor))
+          .controller;
+      await tester.ensureVisible(find.byTooltip('插入公式'));
+      await tester.tap(find.byTooltip('插入公式'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('插入 LaTeX 公式'), findsOneWidget);
+      await tester.enterText(find.byType(TextField), 'x^2');
+      await tester.tap(find.text('插入'));
+      await tester.pumpAndSettle();
+      expect(controller.document.toDelta().toString(), contains('x^2'));
+    });
+
+    testWidgets('toolbar inserts code embed through dialog', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(390, 844));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await tester.pumpWidget(
+        ProviderScope(
+          child: MaterialApp(
+            localizationsDelegates:
+                quill.FlutterQuillLocalizations.localizationsDelegates,
+            supportedLocales: quill.FlutterQuillLocalizations.supportedLocales,
+            locale: const Locale('zh'),
+            home: const CardEditorPage(
+              args: CardEditorArgs(deckId: 'deck-1', localOnly: true),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final controller = tester
+          .widget<quill.QuillEditor>(find.byType(quill.QuillEditor))
+          .controller;
+      await tester.ensureVisible(find.byTooltip('插入代码'));
+      await tester.tap(find.byTooltip('插入代码'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('插入代码块'), findsOneWidget);
+      await tester.enterText(find.byType(TextField).at(1), 'void main() {}');
+      await tester.tap(find.text('插入'));
+      await tester.pumpAndSettle();
+      expect(
+        controller.document.toDelta().toString(),
+        contains('void main() {}'),
+      );
     });
   });
 
