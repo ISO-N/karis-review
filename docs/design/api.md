@@ -235,6 +235,16 @@
       "name": "日语N5",
       "card_count": 42,
       "due_count": 5,
+      "new_count": 3,
+      "mastered_count": 20,
+      "stage_distribution": {
+        "0": 5, "1": 8, "2": 6, "3": 7, "4": 5,
+        "5": 4, "6": 3, "7": 2, "8": 2
+      },
+      "due_stage_distribution": {
+        "0": 1, "1": 2, "2": 1, "3": 1, "4": 0,
+        "5": 0, "6": 0, "7": 0, "8": 0
+      },
       "created_at": "2025-07-01T10:00:00Z"
     }
   ]
@@ -245,6 +255,10 @@
 |------|------|------|
 | card_count | int | 牌组内卡片总数 |
 | due_count | int | 今日待复习卡片数 |
+| new_count | int | 可学习的新卡数（Stage 0 且非重学） |
+| mastered_count | int | 已掌握卡片数（Stage ≥ 5） |
+| stage_distribution | map<string,int> | 各阶段卡片数量分布（0-8） |
+| due_stage_distribution | map<string,int> | 今日到期卡片阶段分布（0-8） |
 
 ---
 
@@ -275,6 +289,16 @@
     "name": "日语N5",
     "card_count": 0,
     "due_count": 0,
+    "new_count": 0,
+    "mastered_count": 0,
+    "stage_distribution": {
+      "0": 0, "1": 0, "2": 0, "3": 0, "4": 0,
+      "5": 0, "6": 0, "7": 0, "8": 0
+    },
+    "due_stage_distribution": {
+      "0": 0, "1": 0, "2": 0, "3": 0, "4": 0,
+      "5": 0, "6": 0, "7": 0, "8": 0
+    },
     "created_at": "2025-08-01T10:00:00Z"
   }
 }
@@ -305,6 +329,16 @@
     "name": "日语N5-改",
     "card_count": 42,
     "due_count": 5,
+    "new_count": 3,
+    "mastered_count": 20,
+    "stage_distribution": {
+      "0": 5, "1": 8, "2": 6, "3": 7, "4": 5,
+      "5": 4, "6": 3, "7": 2, "8": 2
+    },
+    "due_stage_distribution": {
+      "0": 1, "1": 2, "2": 1, "3": 1, "4": 0,
+      "5": 0, "6": 0, "7": 0, "8": 0
+    },
     "created_at": "2025-07-01T10:00:00Z"
   }
 }
@@ -346,6 +380,7 @@
 |------|------|--------|------|
 | page | int | 0 | 页码 |
 | size | int | 20 | 每页条数 |
+| filter | string | all | 卡片筛选：`all`、`due`、`learning` |
 
 **Response (200):**
 
@@ -357,11 +392,17 @@
     "content": [
       {
         "id": "uuid",
+        "deck_id": "uuid",
         "front": "ありがとう",
         "back": "谢谢",
         "stage": 3,
         "next_review_date": "2025-08-06",
         "learning_mode": false,
+        "consecutive_familiar": 0,
+        "learning_step": 0,
+        "reentry_stage": null,
+        "learning_goal": null,
+        "due": false,
         "created_at": "2025-07-01T10:00:00Z"
       }
     ],
@@ -401,11 +442,17 @@
   "message": "卡片已创建",
   "data": {
     "id": "uuid",
+    "deck_id": "uuid",
     "front": "ありがとう",
     "back": "谢谢",
     "stage": 0,
     "next_review_date": null,
     "learning_mode": false,
+    "consecutive_familiar": 0,
+    "learning_step": 0,
+    "reentry_stage": null,
+    "learning_goal": null,
+    "due": false,
     "created_at": "2025-08-01T10:00:00Z"
   }
 }
@@ -481,9 +528,16 @@
       "id": "uuid",
       "deck_id": "uuid",
       "front": "ありがとう",
+      "back": "谢谢",
       "stage": 3,
       "learning_mode": false,
-      "consecutive_familiar": 0
+      "consecutive_familiar": 0,
+      "learning_goal": 5,
+      "reentry_stage": null,
+      "next_review_date": "2025-08-02",
+      "current_interval_days": 4,
+      "familiar_interval_days": 7,
+      "vague_interval_days": 4
     }
   ]
 }
@@ -517,7 +571,16 @@
       "id": "uuid",
       "deck_id": "uuid",
       "front": "新しい単語",
-      "back": "新单词"
+      "back": "新单词",
+      "stage": 0,
+      "learning_mode": false,
+      "consecutive_familiar": 0,
+      "learning_goal": 5,
+      "reentry_stage": null,
+      "next_review_date": null,
+      "current_interval_days": 0,
+      "familiar_interval_days": 1,
+      "vague_interval_days": 0
     }
   ]
 }
@@ -556,7 +619,8 @@
     "stage_after": 4,
     "next_review_date": "2025-08-08",
     "learning_mode": false,
-    "consecutive_familiar": 0
+    "consecutive_familiar": 0,
+    "next_interval_days": 7
   }
 }
 ```
@@ -568,6 +632,7 @@
 | next_review_date | string/date | 下次复习日期 |
 | learning_mode | bool | 是否仍在重学模式 |
 | consecutive_familiar | int | 当前连续 Familiar 计数 |
+| next_interval_days | int | 本次评分后的下次复习间隔天数（重学中为 0） |
 
 **可能的业务逻辑返回：**
 
@@ -581,7 +646,8 @@
   "stage_after": 4,
   "next_review_date": "2025-08-08",
   "learning_mode": false,
-  "consecutive_familiar": 0
+  "consecutive_familiar": 0,
+  "next_interval_days": 7
 }
 ```
 
@@ -595,7 +661,8 @@
   "stage_after": 0,
   "next_review_date": null,
   "learning_mode": true,
-  "consecutive_familiar": 0
+  "consecutive_familiar": 0,
+  "next_interval_days": 0
 }
 ```
 
@@ -609,7 +676,8 @@
   "stage_after": 0,
   "next_review_date": null,
   "learning_mode": true,
-  "consecutive_familiar": 2
+  "consecutive_familiar": 2,
+  "next_interval_days": 0
 }
 ```
 
@@ -623,7 +691,8 @@
   "stage_after": 1,
   "next_review_date": "2025-08-02",
   "learning_mode": false,
-  "consecutive_familiar": 0
+  "consecutive_familiar": 0,
+  "next_interval_days": 1
 }
 ```
 
@@ -650,7 +719,15 @@
     "reviewed_today": 12,
     "learned_today": 3,
     "mastered_cards": 120,
-    "learning_cards": 80
+    "learning_cards": 80,
+    "stage_distribution": {
+      "0": 20, "1": 28, "2": 25, "3": 22, "4": 20,
+      "5": 18, "6": 16, "7": 15, "8": 12
+    },
+    "due_stage_distribution": {
+      "0": 3, "1": 5, "2": 4, "3": 3, "4": 2,
+      "5": 1, "6": 0, "7": 0, "8": 0
+    }
   }
 }
 ```
@@ -659,6 +736,8 @@
 |------|------|------|
 | mastered_cards | int | 已掌握卡片（Stage ≥ 5） |
 | learning_cards | int | 学习中卡片（Stage 0-4） |
+| stage_distribution | map<string,int> | 全部卡片阶段分布（0-8） |
+| due_stage_distribution | map<string,int> | 今日到期卡片阶段分布（0-8） |
 
 ---
 
@@ -680,6 +759,9 @@
     "total_cards": 42,
     "due_today": 5,
     "reviewed_today": 3,
+    "new_cards": 4,
+    "learning_cards": 2,
+    "mastered_cards": 18,
     "stage_distribution": {
       "0": 5,
       "1": 8,
@@ -690,6 +772,10 @@
       "6": 3,
       "7": 2,
       "8": 2
+    },
+    "due_stage_distribution": {
+      "0": 1, "1": 2, "2": 1, "3": 1, "4": 0,
+      "5": 0, "6": 0, "7": 0, "8": 0
     }
   }
 }
