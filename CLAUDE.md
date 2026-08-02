@@ -57,7 +57,8 @@ flutter build web --release --dart-define=API_BASE_URL=https://review.kariscode.
 - **权限边界**：`SecurityConfig` 放行 `/api/auth/register`、`/api/auth/login` 以及 OpenAPI 文档路径（`/v3/api-docs/**`、`/swagger-ui/**`、`/swagger-ui.html`），其余全部要求认证。跨域配置在 `CorsConfig`（全放开）。
 - **API 文档**：集成 Springdoc OpenAPI 3，配置了 JWT Bearer 安全方案；登录/注册接口豁免认证要求，生产 profile 关闭文档。
 - **"今天"的定义**：不是自然日。`common/util/DateUtils.calculateToday(refreshTime)` 依据用户设置的 `refresh_time`（默认 04:00）计算"今天"范围——当前时间在刷新点之前时算前一天。所有到期判断（due、stats、学习模式插入位置）都基于此。
-- **数据库变更**：`ddl-auto=none`，schema 由 Flyway 迁移管理（`src/main/resources/db/migration/V1~V6`）。改表必须新增迁移脚本，不能改已提交的脚本。
+- **数据库变更**：`ddl-auto=none`，schema 由 Flyway 迁移管理（`src/main/resources/db/migration/V1~V7`）。改表必须新增迁移脚本，不能改已提交的脚本。
+- **统计口径**：`review_logs.is_new_card` 标记评分时是否为 Stage 0 且非重学的新卡；今日复习不含新学，今日新学只统计新卡上的 FAMILIAR。
 - **卡片快捷导入**：`card/service/CardImportParser` 负责解析 JSON 数组，`CardImportService` 校验牌组归属并批量写入新卡；`CardImportController` 暴露 `/api/decks/{deckId}/cards/import/preview` 与 `/api/decks/{deckId}/cards/import`，不写复习记录和排期状态。
 
 #### 排期算法（核心业务逻辑）

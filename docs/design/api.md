@@ -643,7 +643,7 @@
 
 ### GET /api/review/new
 
-获取待学习的新卡片列表（Stage 0 且未进入学习模式）。
+获取所选范围内的全部待学习新卡（Stage 0 且未进入学习模式）。
 
 **Headers:** `Authorization: Bearer <token>`
 
@@ -652,8 +652,6 @@
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
 | deck_id | UUID | null | 可选，按牌组筛选 |
-| limit | int | 10 | 每次最多取多少张新卡 |
-
 **Response (200):**
 
 ```json
@@ -828,6 +826,9 @@
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
+| due_today | int | 今日待复习卡片数 |
+| reviewed_today | int | 今日复习数（不含新学，重学计入） |
+| learned_today | int | 今日新学数（新卡 FAMILIAR） |
 | mastered_cards | int | 已掌握卡片（Stage ≥ 5） |
 | learning_cards | int | 学习中卡片（Stage 0-4） |
 | stage_distribution | map<string,int> | 全部卡片阶段分布（0-8） |
@@ -875,6 +876,19 @@
 }
 ```
 
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| deck_id | string | 牌组 ID |
+| deck_name | string | 牌组名称 |
+| total_cards | int | 牌组卡片总数 |
+| due_today | int | 今日待复习卡片数 |
+| reviewed_today | int | 今日复习数（不含新学，重学计入） |
+| new_cards | int | 可学习的新卡数 |
+| learning_cards | int | 重学中的卡片数 |
+| mastered_cards | int | 已掌握卡片数 |
+| stage_distribution | map<string,int> | 各阶段卡片数量分布（0-8） |
+| due_stage_distribution | map<string,int> | 今日到期卡片阶段分布（0-8） |
+
 ---
 
 ### GET /api/stats/trend
@@ -909,6 +923,8 @@
   ]
 }
 ```
+
+> `reviewed` 不含新学操作；`learned` 统计新卡上的 FAMILIAR。
 
 ---
 
