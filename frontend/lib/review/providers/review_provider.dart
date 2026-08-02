@@ -69,18 +69,14 @@ class ReviewNotifier extends StateNotifier<ReviewSessionState> {
 
   ReviewNotifier(this._repository) : super(const ReviewSessionState());
 
-  Future<void> loadQueue({
-    required String mode,
-    String? deckId,
-    int limit = 10,
-  }) async {
+  Future<void> loadQueue({required String mode, String? deckId}) async {
     state = ReviewSessionState(
       mode: mode,
       deckId: deckId,
     ).copyWith(isLoading: true, error: null, ratingFailed: false);
     try {
       final cards = mode == 'new'
-          ? await _repository.getNewCards(deckId: deckId, limit: limit)
+          ? await _repository.getNewCards(deckId: deckId)
           : await _repository.getDueCards(deckId: deckId);
       state = state.copyWith(
         cards: cards,

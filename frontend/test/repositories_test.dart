@@ -158,10 +158,10 @@ void main() {
 
       client.onGet = (path, query) async {
         expect(path, apiPath('/review/new'));
-        expect(query, {'limit': 5, 'deck_id': 'deck-1'});
+        expect(query, {'deck_id': 'deck-1'});
         return okResponse([reviewCardJson()]);
       };
-      final news = await repository.getNewCards(deckId: 'deck-1', limit: 5);
+      final news = await repository.getNewCards(deckId: 'deck-1');
       expect(news.single.front, '正面');
     });
 

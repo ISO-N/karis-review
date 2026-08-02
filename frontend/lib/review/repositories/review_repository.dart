@@ -20,8 +20,8 @@ class ReviewRepository {
         .toList();
   }
 
-  Future<List<ReviewCard>> getNewCards({String? deckId, int limit = 10}) async {
-    final params = <String, dynamic>{'limit': limit};
+  Future<List<ReviewCard>> getNewCards({String? deckId}) async {
+    final params = <String, dynamic>{};
     if (deckId != null) params['deck_id'] = deckId;
     final response = await _client.get(
       ApiEndpoints.reviewNew,
