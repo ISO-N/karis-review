@@ -206,7 +206,8 @@ void main() {
 
       expect(result, isNull);
       expect(notifier.state.currentIndex, 0);
-      expect(notifier.state.error, isNotNull);
+      expect(notifier.state.error, '评分失败，请检查网络后重试');
+      expect(notifier.state.ratingFailed, isTrue);
     });
   });
 
