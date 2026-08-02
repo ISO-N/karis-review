@@ -10,6 +10,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import top.kariscode.karisreview.common.exception.BusinessException;
+import top.kariscode.karisreview.common.etag.UserEtagService;
 import top.kariscode.karisreview.config.JacksonConfig;
 import top.kariscode.karisreview.config.JwtAuthenticationFilter;
 import top.kariscode.karisreview.config.JwtProvider;
@@ -40,6 +41,9 @@ class StatsControllerTest {
     private StatsService statsService;
 
     @MockitoBean
+    private UserEtagService etagService;
+
+    @MockitoBean
     private JwtProvider jwtProvider;
 
     @Test
@@ -48,10 +52,10 @@ class StatsControllerTest {
         OverviewStatsResponse stats = new OverviewStatsResponse();
         stats.setTotalCards(10);
         stats.setTotalDecks(2);
-        stats.setStageDistribution(Map.of("0", 10L));
-        stats.setDueStageDistribution(Map.of("0", 1L));
+        stats.setStageDistribution(List.of(10L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L));
+        stats.setDueStageDistribution(List.of(1L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L));
         when(statsService.getOverview(userId)).thenReturn(stats);
-
+        when(etagService.overviewEtag(userId)).thenReturn("W/\"test-etag\"");
         mockMvc.perform(get("/api/stats/overview").with(authentication(userId)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.total_cards").value(10))
@@ -66,9 +70,10 @@ class StatsControllerTest {
         stats.setDeckId(deckId.toString());
         stats.setDeckName("日语");
         stats.setTotalCards(5);
-        stats.setStageDistribution(Map.of("0", 5L));
-        stats.setDueStageDistribution(Map.of("0", 0L));
+        stats.setStageDistribution(List.of(5L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L));
+        stats.setDueStageDistribution(List.of(0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L));
         when(statsService.getDeckStats(userId, deckId)).thenReturn(stats);
+        when(etagService.deckStatsEtag(userId, deckId)).thenReturn("W/\"test-etag\"");
 
         mockMvc.perform(get("/api/stats/deck/{deckId}", deckId)
                         .with(authentication(userId)))

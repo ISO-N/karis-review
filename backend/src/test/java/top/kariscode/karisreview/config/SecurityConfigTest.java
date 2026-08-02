@@ -12,6 +12,7 @@ import top.kariscode.karisreview.auth.dto.LoginRequest;
 import top.kariscode.karisreview.auth.dto.LoginResponse;
 import top.kariscode.karisreview.auth.dto.RegisterRequest;
 import top.kariscode.karisreview.auth.service.AuthService;
+import top.kariscode.karisreview.common.etag.UserEtagService;
 import top.kariscode.karisreview.deck.controller.DeckController;
 import top.kariscode.karisreview.deck.service.DeckService;
 
@@ -36,6 +37,9 @@ class SecurityConfigTest {
 
     @MockitoBean
     private DeckService deckService;
+
+    @MockitoBean
+    private UserEtagService etagService;
 
     @MockitoBean
     private JwtProvider jwtProvider;
