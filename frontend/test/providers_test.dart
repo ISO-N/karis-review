@@ -1,3 +1,4 @@
+import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:karisreview/auth/models/login_request.dart';
@@ -7,11 +8,17 @@ import 'package:karisreview/card/models/card.dart';
 import 'package:karisreview/card/providers/card_provider.dart';
 import 'package:karisreview/deck/models/deck.dart';
 import 'package:karisreview/deck/providers/deck_provider.dart';
+import 'package:karisreview/offline/database/app_database.dart';
+import 'package:karisreview/offline/local_scheduling_engine.dart';
+import 'package:karisreview/offline/offline_repository.dart';
 import 'package:karisreview/review/models/review_card.dart';
 import 'package:karisreview/review/providers/review_provider.dart';
+import 'package:karisreview/review/repositories/review_repository.dart';
 import 'package:karisreview/settings/providers/settings_provider.dart';
 import 'package:karisreview/stats/models/stats.dart';
 import 'package:karisreview/stats/providers/stats_provider.dart';
+import 'package:karisreview/sync/repositories/sync_repository.dart';
+import 'package:karisreview/sync/sync_service.dart';
 import 'package:mocktail/mocktail.dart';
 
 import 'helpers/test_helpers.dart';
@@ -191,6 +198,97 @@ void main() {
       expect(notifier.state.isComplete, isTrue);
     });
 
+    test('uses local queue when pending ratings still cannot sync', () async {
+      final db = AppDatabase(NativeDatabase.memory());
+      final offline = OfflineRepository(db);
+      await offline.saveBootstrap(
+        userId: 'user-1',
+        email: 'a@b.c',
+        refreshTime: '04:00:00',
+        serverTime: DateTime.utc(2025, 8, 2, 12),
+        decks: [
+          {
+            'id': 'deck-1',
+            'name': '日语',
+            'created_at': '2025-08-01T00:00:00Z',
+            'updated_at': '2025-08-01T00:00:00Z',
+            'cards': [
+              {
+                'id': 'card-1',
+                'deck_id': 'deck-1',
+                'front': '单词',
+                'back': '释义',
+                'stage': 2,
+                'consecutive_familiar': 0,
+                'next_review_date': '2025-08-02',
+                'learning_mode': false,
+                'reentry_stage': null,
+                'learning_step': 0,
+                'review_version': 2,
+                'created_at': '2025-08-01T00:00:00Z',
+                'updated_at': '2025-08-02T00:00:00Z',
+              },
+            ],
+          },
+        ],
+        reviewLogs: [],
+      );
+
+      final card = FlashCard(
+        id: 'card-1',
+        deckId: 'deck-1',
+        front: '单词',
+        back: '释义',
+        stage: 2,
+        nextReviewDate: '2025-08-02',
+        learningMode: false,
+        reviewVersion: 2,
+      );
+      final outcome = LocalSchedulingEngine().rate(
+        card,
+        'FORGET',
+        nowUtc: DateTime.utc(2025, 8, 2, 12),
+        refreshTime: '04:00:00',
+      );
+      await offline.applyLocalRating(
+        userId: 'user-1',
+        card: outcome.card,
+        result: outcome.result,
+        clientRequestId: 'request-1',
+        ratedAt: DateTime.utc(2025, 8, 2, 12),
+        reviewVersionBefore: outcome.reviewVersionBefore,
+        isNewCard: outcome.wasNewCard,
+      );
+
+      var sessionCalls = 0;
+      final api = FakeApiClient();
+      api.onPostProto = (path, query, body) async {
+        if (path.endsWith('/review/sync')) {
+          throw apiError('同步失败', statusCode: 500);
+        }
+        if (path.endsWith('/review/sessions')) {
+          sessionCalls += 1;
+          throw StateError('不应在待同步时创建服务端会话');
+        }
+        throw StateError('未预期的请求');
+      };
+
+      final sync = SyncService(SyncRepository(client: api), offline);
+      final notifier = ReviewNotifier(
+        ReviewRepository(),
+        offline: offline,
+        sync: SyncRepository(client: api),
+        syncService: sync,
+      );
+      await notifier.loadQueue(mode: 'due');
+
+      expect(notifier.state.queueSource, 'local');
+      expect(notifier.state.cards, hasLength(1));
+      expect(notifier.state.cards.single.id, 'card-1');
+      expect(notifier.state.pendingSyncCount, 1);
+      expect(sessionCalls, 0);
+      await db.close();
+    });
     test('loads all new cards without a limit', () async {
       final repo = MockReviewRepository();
       when(() => repo.getNewCards(deckId: null)).thenAnswer(

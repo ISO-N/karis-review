@@ -4,6 +4,7 @@ import 'package:karisreview/card/models/card.dart';
 import 'package:karisreview/offline/database/app_database.dart';
 import 'package:karisreview/offline/local_scheduling_engine.dart';
 import 'package:karisreview/offline/offline_repository.dart';
+import 'package:karisreview/review/models/review_card.dart';
 import 'package:karisreview/shared/proto/karis_review.pb.dart' as proto;
 import 'package:karisreview/sync/repositories/sync_repository.dart';
 import 'package:karisreview/sync/sync_service.dart';
@@ -139,6 +140,87 @@ void main() {
     expect(localCard?.stage, 1);
   });
 
+  test('server card does not overwrite a pending local rating', () async {
+    await offline.saveBootstrap(
+      userId: 'user-1',
+      email: 'a@b.c',
+      refreshTime: '04:00:00',
+      serverTime: DateTime.utc(2025, 8, 2, 12),
+      decks: [
+        {
+          'id': 'deck-1',
+          'name': '日语',
+          'created_at': '2025-08-01T00:00:00Z',
+          'updated_at': '2025-08-01T00:00:00Z',
+          'cards': [
+            {
+              'id': 'card-1',
+              'deck_id': 'deck-1',
+              'front': '单词',
+              'back': '释义',
+              'stage': 0,
+              'consecutive_familiar': 0,
+              'next_review_date': null,
+              'learning_mode': false,
+              'reentry_stage': null,
+              'learning_step': 0,
+              'review_version': 0,
+              'created_at': '2025-08-01T00:00:00Z',
+              'updated_at': '2025-08-01T00:00:00Z',
+            },
+          ],
+        },
+      ],
+      reviewLogs: [],
+    );
+
+    final card = FlashCard(
+      id: 'card-1',
+      deckId: 'deck-1',
+      front: '单词',
+      back: '释义',
+      stage: 0,
+      learningMode: false,
+      reviewVersion: 0,
+    );
+    final outcome = LocalSchedulingEngine().rate(
+      card,
+      'FAMILIAR',
+      nowUtc: DateTime.utc(2025, 8, 2, 12),
+      refreshTime: '04:00:00',
+    );
+    await offline.applyLocalRating(
+      userId: 'user-1',
+      card: outcome.card,
+      result: outcome.result,
+      clientRequestId: 'request-1',
+      ratedAt: DateTime.utc(2025, 8, 2, 12),
+      reviewVersionBefore: outcome.reviewVersionBefore,
+      isNewCard: outcome.wasNewCard,
+    );
+
+    await offline.updateCardFromServer(
+      'user-1',
+      ReviewCard(
+        id: 'card-1',
+        deckId: 'deck-1',
+        front: '单词',
+        back: '释义',
+        stage: 0,
+        learningMode: false,
+        consecutiveFamiliar: 0,
+        learningStep: 0,
+        reentryStage: null,
+        nextReviewDate: null,
+        reviewVersion: 0,
+      ),
+    );
+
+    final localCard = await offline.getLocalCard('user-1', 'card-1');
+    expect(localCard?.reviewVersion.toInt(), 1);
+    expect(localCard?.stage, 1);
+    expect(await offline.getPendingRatings('user-1'), hasLength(1));
+  });
   test('overview and deck stats keep new learning separate from reviews', () async {
     await offline.saveBootstrap(
       userId: 'user-1',
