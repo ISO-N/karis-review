@@ -121,7 +121,7 @@ CREATE INDEX idx_decks_user_id ON decks(user_id);
 | learning_mode | BOOLEAN | NOT NULL, DEFAULT FALSE | 是否处于重学模式 |
 | reentry_stage | INTEGER | NULL | VAGUE 重学完成后需回到的 Stage |
 | learning_step | INTEGER | NOT NULL, DEFAULT 0 | 重学队列插入间距步数（2^n） |
-| created_at | TIMESTAMP | NOT NULL, DEFAULT NOW() | 创建时间 |
+| review_version | BIGINT | NOT NULL, DEFAULT 0 | 评分锁版本，任何评分/内容更新自动递增 |
 | updated_at | TIMESTAMP | NOT NULL, DEFAULT NOW() | 更新时间 |
 
 ```sql
@@ -137,6 +137,7 @@ CREATE TABLE cards (
     learning_mode BOOLEAN NOT NULL DEFAULT FALSE,
     reentry_stage INTEGER NULL,
     learning_step INTEGER NOT NULL DEFAULT 0,
+    review_version BIGINT NOT NULL DEFAULT 0,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
@@ -158,7 +159,7 @@ CREATE INDEX idx_cards_next_review ON cards(user_id, next_review_date)
 | stage_before | INTEGER | NOT NULL | 复习前的 Stage |
 | stage_after | INTEGER | NOT NULL | 复习后的 Stage |
 | is_new_card | BOOLEAN | NOT NULL, DEFAULT FALSE | 评分时是否处于新卡状态（Stage 0 且非重学） |
-| reviewed_at | TIMESTAMP | NOT NULL, DEFAULT NOW() | 复习时间 |
+| client_request_id | VARCHAR(64) | NULL | 客户端幂等请求 ID，同一用户内唯一 |
 
 ```sql
 CREATE TABLE review_logs (
@@ -169,16 +170,25 @@ CREATE TABLE review_logs (
     stage_before INTEGER NOT NULL,
     stage_after INTEGER NOT NULL,
     is_new_card BOOLEAN NOT NULL DEFAULT FALSE,
+    client_request_id VARCHAR(64) NULL,
     reviewed_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX idx_review_logs_card_id ON review_logs(card_id);
 CREATE INDEX idx_review_logs_user_id ON review_logs(user_id);
 CREATE INDEX idx_review_logs_reviewed_at ON review_logs(user_id, reviewed_at);
+CREATE UNIQUE INDEX idx_review_logs_user_client_request
+    ON review_logs(user_id, client_request_id)
+    WHERE client_request_id IS NOT NULL;
 ```
 
-### 3.5 backup_snapshots
+### 3.5 review_sessions 与 review_queue_items
 
+`review_sessions` 保存动态复习队列快照：id、user_id、mode、deck_id、batch_size、total_count、created_at、expires_at。
+
+`review_queue_items` 保存快照中的有序卡片位置：session_id、user_id、position、card_id，`(session_id, position)` 唯一。
+
+### 3.6 backup_snapshots
 | 字段 | 类型 | 约束 | 说明 |
 |------|------|------|------|
 | id | UUID | PK, DEFAULT gen_random_uuid() | 主键 |
@@ -207,7 +217,8 @@ src/main/resources/db/migration/
 ├── V4__create_review_logs_table.sql
 ├── V5__create_backup_snapshots_table.sql
 ├── V6__add_learning_step_to_cards.sql
-└── V7__add_new_card_flag_to_review_logs.sql
+├── V7__add_new_card_flag_to_review_logs.sql
+└── V8__add_review_lock_and_sessions.sql
 
 ## 5. 关键查询说明
 

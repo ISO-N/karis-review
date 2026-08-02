@@ -271,3 +271,13 @@ settings ──► auth, common
 - 每个模块内部按 `controller → service → repository` 单向依赖
 - 模块间**严禁循环依赖**（review 可调用 card 的 Service，但 card 不可反向调用 review）
 - `SchedulingEngine` 作为独立的核心算法类，零外部依赖，便于单元测试
+
+## 7. 离线与同步架构
+
+前端新增 Drift/SQLite 本地数据层：缓存牌组、卡片、复习日志和同步元数据；在线复习使用服务端 `review_sessions` 快照 + cursor 分页，离线回退到本地队列。
+
+后端新增 `sync` 模块提供 `/api/sync/bootstrap`；`review` 模块提供 `/api/review/sessions` 和 `/api/review/sync`。`sync` 依赖 `auth/deck/card/review`，不引入循环依赖。
+
+## 8. 跨设备评分锁
+
+`cards.review_version` 是 JPA `@Version` 乐观锁字段。评分和同步接口在事务内用 `PESSIMISTIC_WRITE` 锁住卡片并校验版本，旧设备提交会得到冲突，不会重复排期。
