@@ -16,6 +16,7 @@ android {
 
     defaultConfig {
         applicationId = "top.kariscode.karisreview"
+        manifestPlaceholders["appLabel"] = "Karis Review"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
@@ -25,7 +26,13 @@ android {
     }
 
     buildTypes {
+        debug {
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = "-debug"
+            manifestPlaceholders["appLabel"] = "Karis Review Debug"
+        }
         release {
+            manifestPlaceholders["appLabel"] = "Karis Review"
             // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")
