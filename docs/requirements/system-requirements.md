@@ -173,6 +173,7 @@
 | rating | ENUM(FORGET, VAGUE, FAMILIAR) | 评分 |
 | stage_before | INTEGER | 复习前的阶段 |
 | stage_after | INTEGER | 复习后的阶段 |
+| is_new_card | BOOLEAN | 评分时是否处于新卡状态（Stage 0 且非重学） |
 | reviewed_at | TIMESTAMP | 复习时间 |
 
 ### 3.5 备份快照（Backup）
@@ -228,6 +229,8 @@
 | GET | /api/review/due | 获取今日待复习卡片列表 |
 | GET | /api/review/new | 获取待学习的新卡片列表 |
 | POST | /api/review/{cardId}/rate | 对卡片进行评分（FORGET/VAGUE/FAMILIAR） |
+
+> 学习/复习接口均返回所选范围内的完整队列，不提供单次数量限制。
 
 ### 4.6 统计
 

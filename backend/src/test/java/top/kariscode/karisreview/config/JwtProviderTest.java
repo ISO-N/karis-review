@@ -45,9 +45,13 @@ class JwtProviderTest {
     @Test
     void rejectsTamperedToken() {
         String token = provider.generateToken(UUID.randomUUID(), "user@example.com");
-        char last = token.charAt(token.length() - 1);
-        String tampered = token.substring(0, token.length() - 1)
-                + (last == 'a' ? 'b' : 'a');
+        int signatureStart = token.lastIndexOf('.') + 1;
+        int middle = signatureStart + (token.length() - signatureStart) / 2;
+        char original = token.charAt(middle);
+        char replacement = original == '-' ? '_' : '-';
+        String tampered = token.substring(0, middle)
+                + replacement
+                + token.substring(middle + 1);
 
         assertFalse(provider.validateToken(tampered));
     }

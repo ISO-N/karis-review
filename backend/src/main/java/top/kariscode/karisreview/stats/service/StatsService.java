@@ -105,9 +105,12 @@ public class StatsService {
             LocalDate date = DateUtils.calculateToday(refreshTime, log.getReviewedAt());
             TrendStatsResponse existing = trendMap.get(date);
             if (existing != null) {
-                existing.setReviewed(existing.getReviewed() + 1);
-                if ("FAMILIAR".equals(log.getRating()) && log.getStageBefore() == 0) {
-                    existing.setLearned(existing.getLearned() + 1);
+                if (log.isNewCard()) {
+                    if ("FAMILIAR".equals(log.getRating())) {
+                        existing.setLearned(existing.getLearned() + 1);
+                    }
+                } else {
+                    existing.setReviewed(existing.getReviewed() + 1);
                 }
             }
         }

@@ -191,6 +191,21 @@ void main() {
       expect(notifier.state.isComplete, isTrue);
     });
 
+    test('loads all new cards without a limit', () async {
+      final repo = MockReviewRepository();
+      when(() => repo.getNewCards(deckId: null)).thenAnswer(
+        (_) async => [
+          for (var i = 0; i < 3; i++)
+            ReviewCard.fromJson(reviewCardJson(id: 'new-$i')),
+        ],
+      );
+      final notifier = ReviewNotifier(repo);
+
+      await notifier.loadQueue(mode: 'new');
+
+      expect(notifier.state.cards, hasLength(3));
+    });
+
     test('rating error does not advance index', () async {
       final repo = MockReviewRepository();
       when(

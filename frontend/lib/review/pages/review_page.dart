@@ -86,22 +86,29 @@ class _ReviewPageState extends ConsumerState<ReviewPage> {
     String title,
   ) {
     final card = state.currentCard!;
-    final content = Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (isTablet) ...[_QueuePanel(state: state), const SizedBox(width: 0)],
-        Expanded(
-          child: _ReviewStage(
-            state: state,
-            card: card,
-            title: title,
-            onRate: (rating) => _rate(rating),
+    if (isTablet) {
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _QueuePanel(state: state),
+          const SizedBox(width: 0),
+          Expanded(
+            child: _ReviewStage(
+              state: state,
+              card: card,
+              title: title,
+              onRate: (rating) => _rate(rating),
+            ),
           ),
-        ),
-      ],
+        ],
+      );
+    }
+    return _ReviewStage(
+      state: state,
+      card: card,
+      title: title,
+      onRate: (rating) => _rate(rating),
     );
-
-    return isTablet ? content : content;
   }
 
   Future<void> _rate(String rating) async {
@@ -161,170 +168,272 @@ class _ReviewStage extends ConsumerWidget {
     final total = state.totalCount;
     final progress = total == 0 ? 0.0 : current / total;
 
-    return SingleChildScrollView(
-      padding: EdgeInsets.fromLTRB(20, 12, 20, isTablet ? 34 : 132),
+    return Column(
+      children: [
+        Expanded(
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(20, 12, 20, isTablet ? 18 : 12),
+            child: Center(
+              child: SizedBox(
+                width: double.infinity,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 620),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(
+                        children: [
+                          KarisIconButton(
+                            icon: Icons.arrow_back,
+                            tooltip: '返回',
+                            onPressed: () => context.go('/home'),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Kicker('队列'),
+                                const SizedBox(height: 4),
+                                KarisHeading(
+                                  child: Text(
+                                    title,
+                                    style: karisDisplay(fontSize: 25),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Text(
+                            '$current / $total',
+                            style: karisMono(
+                              fontSize: 12,
+                              color: KarisColors.stone,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(3),
+                              child: LinearProgressIndicator(
+                                value: progress,
+                                minHeight: 5,
+                                backgroundColor: KarisColors.hairline,
+                                valueColor: const AlwaysStoppedAnimation(
+                                  KarisColors.jade,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            '$current / $total',
+                            style: karisMono(
+                              fontSize: 10,
+                              color: KarisColors.stone,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 18),
+                      Expanded(
+                        child: Center(
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(
+                              maxWidth: isTablet ? 560 : 520,
+                            ),
+                            child: AnimatedSwitcher(
+                              duration: reducedDuration(
+                                context,
+                                const Duration(milliseconds: 240),
+                              ),
+                              switchInCurve: Curves.easeOutCubic,
+                              switchOutCurve: Curves.easeIn,
+                              transitionBuilder: (child, animation) {
+                                return FadeTransition(
+                                  opacity: animation,
+                                  child: SlideTransition(
+                                    position: Tween<Offset>(
+                                      begin: const Offset(0, 0.025),
+                                      end: Offset.zero,
+                                    ).animate(animation),
+                                    child: child,
+                                  ),
+                                );
+                              },
+                              child: ReviewFlipCard(
+                                key: ValueKey(
+                                  '${state.currentIndex}-${card.id}',
+                                ),
+                                flipped: state.isFlipped,
+                                semanticsLabel: state.isFlipped
+                                    ? '闪卡，点击回到问题面'
+                                    : '闪卡，点击翻面',
+                                onTap: () {
+                                  ref.read(reviewProvider.notifier).flip();
+                                },
+                                front: _CardFace(
+                                  key: const ValueKey('front'),
+                                  child: _FrontFace(
+                                    card: card,
+                                    current: current,
+                                    total: total,
+                                  ),
+                                ),
+                                back: _CardFace(
+                                  key: const ValueKey('back'),
+                                  child: _BackFace(card: card),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+        if (isTablet)
+          _TabletRatingArea(state: state, card: card, onRate: onRate)
+        else
+          _MobileRatingArea(state: state, card: card, onRate: onRate),
+      ],
+    );
+  }
+}
+
+class _TabletRatingArea extends StatelessWidget {
+  final ReviewSessionState state;
+  final ReviewCard card;
+  final ValueChanged<String> onRate;
+
+  const _TabletRatingArea({
+    required this.state,
+    required this.card,
+    required this.onRate,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (!state.isFlipped) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 620),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Row(
-                children: [
-                  KarisIconButton(
-                    icon: Icons.arrow_back,
-                    tooltip: '返回',
-                    onPressed: () => context.go('/home'),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Kicker('队列'),
-                        const SizedBox(height: 4),
-                        KarisHeading(
-                          child: Text(title, style: karisDisplay(fontSize: 25)),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Text(
-                    '$current / $total',
-                    style: karisMono(fontSize: 12, color: KarisColors.stone),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(3),
-                      child: LinearProgressIndicator(
-                        value: progress,
-                        minHeight: 5,
-                        backgroundColor: KarisColors.hairline,
-                        valueColor: const AlwaysStoppedAnimation(
-                          KarisColors.jade,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Text(
-                    '$current / $total',
-                    style: karisMono(fontSize: 10, color: KarisColors.stone),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 18),
-              SizedBox(
-                height: isTablet ? 330 : 270,
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(maxWidth: isTablet ? 520 : 360),
-                    child: AnimatedSwitcher(
-                      duration: reducedDuration(
-                        context,
-                        const Duration(milliseconds: 240),
-                      ),
-                      switchInCurve: Curves.easeOutCubic,
-                      switchOutCurve: Curves.easeIn,
-                      transitionBuilder: (child, animation) {
-                        return FadeTransition(
-                          opacity: animation,
-                          child: SlideTransition(
-                            position: Tween<Offset>(
-                              begin: const Offset(0, 0.025),
-                              end: Offset.zero,
-                            ).animate(animation),
-                            child: child,
-                          ),
-                        );
-                      },
-                      child: ReviewFlipCard(
-                        key: ValueKey('${state.currentIndex}-${card.id}'),
-                        flipped: state.isFlipped,
-                        semanticsLabel: '闪卡，点击翻面',
-                        onTap: () {
-                          if (!state.isFlipped) {
-                            ref.read(reviewProvider.notifier).flip();
-                          }
-                        },
-                        front: _CardFace(
-                          key: const ValueKey('front'),
-                          child: _FrontFace(
-                            card: card,
-                            current: current,
-                            total: total,
-                          ),
-                        ),
-                        back: _CardFace(
-                          key: const ValueKey('back'),
-                          child: _BackFace(card: card),
-                        ),
-                      ),
-                    ),
-                  ),
+              const Text(
+                '本次回忆',
+                style: TextStyle(
+                  color: KarisColors.stone,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                  letterSpacing: 0,
                 ),
               ),
-              if (state.isFlipped) ...[
-                const SizedBox(height: 16),
-                const Text(
-                  '本次回忆',
-                  style: TextStyle(
-                    color: KarisColors.stone,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
-                    letterSpacing: 0,
-                  ),
-                ),
-                const SizedBox(height: 9),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _RatingButton(
-                        label: '忘记',
-                        sub: '重学',
-                        icon: Icons.close,
-                        color: KarisColors.cinnabar,
-                        onTap: () => onRate('FORGET'),
-                      ),
-                    ),
-                    const SizedBox(width: 9),
-                    Expanded(
-                      child: _RatingButton(
-                        label: '模糊',
-                        sub: card.vagueIntervalDays > 0
-                            ? KarisTheme.intervalLabel(card.vagueIntervalDays)
-                            : '重学',
-                        icon: Icons.help_outline,
-                        color: KarisColors.amber,
-                        onTap: () => onRate('VAGUE'),
-                      ),
-                    ),
-                    const SizedBox(width: 9),
-                    Expanded(
-                      child: _RatingButton(
-                        label: '熟悉',
-                        sub: card.learningMode && card.familiarIntervalDays == 0
-                            ? '继续'
-                            : KarisTheme.intervalLabel(
-                                card.familiarIntervalDays,
-                              ),
-                        icon: Icons.check,
-                        color: KarisColors.jade,
-                        onTap: () => onRate('FAMILIAR'),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+              const SizedBox(height: 9),
+              _RatingRow(card: card, onRate: onRate),
             ],
           ),
         ),
       ),
+    );
+  }
+}
+
+class _MobileRatingArea extends StatelessWidget {
+  final ReviewSessionState state;
+  final ReviewCard card;
+  final ValueChanged<String> onRate;
+
+  const _MobileRatingArea({
+    required this.state,
+    required this.card,
+    required this.onRate,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 104,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+        decoration: BoxDecoration(
+          color: KarisColors.surface.withValues(alpha: 0.96),
+          border: const Border(top: BorderSide(color: KarisColors.hairline)),
+        ),
+        child: state.isFlipped
+            ? _RatingRow(card: card, onRate: onRate)
+            : const Center(
+                child: Text(
+                  '点按翻面',
+                  style: TextStyle(
+                    color: KarisColors.stone,
+                    fontFamily: KarisTheme.monoFamily,
+                    fontSize: 10,
+                    letterSpacing: 0,
+                  ),
+                ),
+              ),
+      ),
+    );
+  }
+}
+
+class _RatingRow extends StatelessWidget {
+  final ReviewCard card;
+  final ValueChanged<String> onRate;
+
+  const _RatingRow({required this.card, required this.onRate});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: _RatingButton(
+            label: '忘记',
+            sub: '重学',
+            icon: Icons.close,
+            color: KarisColors.cinnabar,
+            onTap: () => onRate('FORGET'),
+          ),
+        ),
+        const SizedBox(width: 9),
+        Expanded(
+          child: _RatingButton(
+            label: '模糊',
+            sub: card.vagueIntervalDays > 0
+                ? KarisTheme.intervalLabel(card.vagueIntervalDays)
+                : '重学',
+            icon: Icons.help_outline,
+            color: KarisColors.amber,
+            onTap: () => onRate('VAGUE'),
+          ),
+        ),
+        const SizedBox(width: 9),
+        Expanded(
+          child: _RatingButton(
+            label: '熟悉',
+            sub: card.learningMode && card.familiarIntervalDays == 0
+                ? '继续'
+                : KarisTheme.intervalLabel(card.familiarIntervalDays),
+            icon: Icons.check,
+            color: KarisColors.jade,
+            onTap: () => onRate('FAMILIAR'),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -443,55 +552,46 @@ class _FrontFace extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
+    return _CenteredCardContent(
+      header: Row(
         children: [
-          Row(
-            children: [
-              Text(
-                '$current / $total',
-                style: karisMono(fontSize: 10, color: KarisColors.stone),
-              ),
-              const Spacer(),
-              Container(
-                height: 24,
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: KarisColors.jadeSoft,
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  'Stage ${card.stage} · ${KarisTheme.stageName(card.stage)}',
-                  style: karisMono(
-                    fontSize: 10,
-                    color: KarisColors.jade,
-                    weight: FontWeight.w500,
-                  ),
-                ),
-              ),
-            ],
+          Text(
+            '$current / $total',
+            style: karisMono(fontSize: 10, color: KarisColors.stone),
           ),
           const Spacer(),
-          SingleChildScrollView(
-            child: RichCardContent(
-              content: card.front,
-              textAlign: TextAlign.center,
-              style: karisDisplay(fontSize: 28),
+          Container(
+            height: 24,
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: KarisColors.jadeSoft,
+              borderRadius: BorderRadius.circular(6),
             ),
-          ),
-          const Spacer(),
-          const Text(
-            '点按翻面',
-            style: TextStyle(
-              color: KarisColors.stone,
-              fontFamily: KarisTheme.monoFamily,
-              fontSize: 10,
-              letterSpacing: 0,
+            child: Text(
+              'Stage ${card.stage} · ${KarisTheme.stageName(card.stage)}',
+              style: karisMono(
+                fontSize: 10,
+                color: KarisColors.jade,
+                weight: FontWeight.w500,
+              ),
             ),
           ),
         ],
+      ),
+      footer: const Text(
+        '点按翻面',
+        style: TextStyle(
+          color: KarisColors.stone,
+          fontFamily: KarisTheme.monoFamily,
+          fontSize: 10,
+          letterSpacing: 0,
+        ),
+      ),
+      child: RichCardContent(
+        content: card.front,
+        textAlign: TextAlign.center,
+        style: karisDisplay(fontSize: 28),
       ),
     );
   }
@@ -504,9 +604,8 @@ class _BackFace extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
+    return _CenteredCardContent(
+      header: Row(
         children: [
           const Text(
             '答案',
@@ -517,8 +616,8 @@ class _BackFace extends StatelessWidget {
               letterSpacing: 0,
             ),
           ),
-          if (card.learningMode) ...[
-            const SizedBox(height: 8),
+          const Spacer(),
+          if (card.learningMode)
             Container(
               height: 26,
               padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -537,44 +636,41 @@ class _BackFace extends StatelessWidget {
                 ),
               ),
             ),
-          ],
-          const SizedBox(height: 10),
-          Expanded(
-            child: SingleChildScrollView(
-              child: RichCardContent(
-                content: card.back ?? '',
-                textAlign: TextAlign.center,
-                style: karisDisplay(fontSize: 28),
-              ),
-            ),
-          ),
-          const SizedBox(height: 10),
+        ],
+      ),
+      footer: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text(
-                '当前间隔 ${card.currentIntervalDays == 0 ? '新卡' : KarisTheme.intervalLabel(card.currentIntervalDays)}',
-                style: const TextStyle(
-                  color: KarisColors.stone,
-                  fontSize: 12,
-                  letterSpacing: 0,
+              Flexible(
+                child: Text(
+                  '当前间隔 ${card.currentIntervalDays == 0 ? '新卡' : KarisTheme.intervalLabel(card.currentIntervalDays)}',
+                  style: const TextStyle(
+                    color: KarisColors.stone,
+                    fontSize: 12,
+                    letterSpacing: 0,
+                  ),
                 ),
               ),
               const SizedBox(width: 10),
-              Text(
-                card.learningMode && card.familiarIntervalDays == 0
-                    ? '继续熟悉可脱离'
-                    : '熟悉后 ${KarisTheme.intervalLabel(card.familiarIntervalDays)}',
-                style: const TextStyle(
-                  color: KarisColors.jade,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0,
+              Flexible(
+                child: Text(
+                  card.learningMode && card.familiarIntervalDays == 0
+                      ? '继续熟悉可脱离'
+                      : '熟悉后 ${KarisTheme.intervalLabel(card.familiarIntervalDays)}',
+                  style: const TextStyle(
+                    color: KarisColors.jade,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0,
+                  ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           StageRuler(
             compact: true,
             currentStage: card.stage,
@@ -582,7 +678,7 @@ class _BackFace extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           const Text(
-            '查看评分',
+            '点按回到问题面',
             style: TextStyle(
               color: KarisColors.stone,
               fontFamily: KarisTheme.monoFamily,
@@ -590,6 +686,51 @@ class _BackFace extends StatelessWidget {
               letterSpacing: 0,
             ),
           ),
+        ],
+      ),
+      child: RichCardContent(
+        content: card.back ?? '',
+        textAlign: TextAlign.center,
+        style: karisDisplay(fontSize: 28),
+      ),
+    );
+  }
+}
+
+class _CenteredCardContent extends StatelessWidget {
+  final Widget child;
+  final Widget? header;
+  final Widget? footer;
+
+  const _CenteredCardContent({required this.child, this.header, this.footer});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(22, 18, 22, 14),
+      child: Column(
+        children: [
+          if (header != null) ...[header!, const SizedBox(height: 10)],
+          Expanded(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return SingleChildScrollView(
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minHeight: constraints.maxHeight,
+                    ),
+                    child: Center(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        child: child,
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          if (footer != null) ...[const SizedBox(height: 10), footer!],
         ],
       ),
     );

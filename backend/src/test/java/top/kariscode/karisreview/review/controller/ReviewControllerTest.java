@@ -58,12 +58,11 @@ class ReviewControllerTest {
     }
 
     @Test
-    void getNewCardsReturnsLimitedQueue() throws Exception {
+    void getNewCardsReturnsAllQueue() throws Exception {
         UUID userId = UUID.randomUUID();
-        when(reviewService.getNewCards(userId, null, 5)).thenReturn(List.of(reviewCard()));
+        when(reviewService.getNewCards(userId, null)).thenReturn(List.of(reviewCard()));
 
-        mockMvc.perform(get("/api/review/new").with(authentication(userId))
-                        .param("limit", "5"))
+        mockMvc.perform(get("/api/review/new").with(authentication(userId)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.length()").value(1));
     }

@@ -157,6 +157,7 @@ CREATE INDEX idx_cards_next_review ON cards(user_id, next_review_date)
 | rating | VARCHAR(10) | NOT NULL, CHECK IN ('FORGET','VAGUE','FAMILIAR') | 评分 |
 | stage_before | INTEGER | NOT NULL | 复习前的 Stage |
 | stage_after | INTEGER | NOT NULL | 复习后的 Stage |
+| is_new_card | BOOLEAN | NOT NULL, DEFAULT FALSE | 评分时是否处于新卡状态（Stage 0 且非重学） |
 | reviewed_at | TIMESTAMP | NOT NULL, DEFAULT NOW() | 复习时间 |
 
 ```sql
@@ -167,6 +168,7 @@ CREATE TABLE review_logs (
     rating VARCHAR(10) NOT NULL CHECK (rating IN ('FORGET', 'VAGUE', 'FAMILIAR')),
     stage_before INTEGER NOT NULL,
     stage_after INTEGER NOT NULL,
+    is_new_card BOOLEAN NOT NULL DEFAULT FALSE,
     reviewed_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
@@ -204,8 +206,8 @@ src/main/resources/db/migration/
 ├── V3__create_cards_table.sql
 ├── V4__create_review_logs_table.sql
 ├── V5__create_backup_snapshots_table.sql
-└── V6__add_learning_step_to_cards.sql
-```
+├── V6__add_learning_step_to_cards.sql
+└── V7__add_new_card_flag_to_review_logs.sql
 
 ## 5. 关键查询说明
 
@@ -266,6 +268,7 @@ ORDER BY c.created_at ASC;
       "rating": "FAMILIAR",
       "stage_before": 2,
       "stage_after": 3,
+      "is_new_card": false,
       "reviewed_at": "2025-08-01T12:00:00Z"
     }
   ]

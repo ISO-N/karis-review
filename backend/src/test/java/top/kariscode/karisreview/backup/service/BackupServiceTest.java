@@ -5,6 +5,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
+import org.mockito.ArgumentCaptor;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 import top.kariscode.karisreview.backup.entity.BackupSnapshot;
@@ -88,6 +89,7 @@ class BackupServiceTest {
         log.setRating("FAMILIAR");
         log.setStageBefore(2);
         log.setStageAfter(3);
+        log.setNewCard(true);
         log.setReviewedAt(LocalDateTime.of(2025, 1, 1, 10, 0));
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
@@ -106,6 +108,7 @@ class BackupServiceTest {
 
         assertNotNull(result.get("backup_id"));
         assertTrue(result.toString().contains(user.getEmail()));
+        assertTrue(result.toString().contains("is_new_card"));
         verify(backupRepository).save(any(BackupSnapshot.class));
     }
 
@@ -151,6 +154,7 @@ class BackupServiceTest {
                         "rating", "FAMILIAR",
                         "stage_before", 2,
                         "stage_after", 3,
+                        "is_new_card", true,
                         "reviewed_at", "2025-01-01T10:00:00")));
 
         Map<String, Object> result = service.importData(userId, data);
@@ -158,6 +162,9 @@ class BackupServiceTest {
         assertEquals(1, result.get("imported_decks"));
         assertEquals(1, result.get("imported_cards"));
         assertEquals(1, result.get("imported_review_logs"));
+        ArgumentCaptor<ReviewLog> logCaptor = ArgumentCaptor.forClass(ReviewLog.class);
+        verify(reviewLogRepository).save(logCaptor.capture());
+        assertEquals(true, logCaptor.getValue().isNewCard());
         verify(deckRepository).delete(existing);
     }
 
@@ -189,6 +196,9 @@ class BackupServiceTest {
         Map<String, Object> result = service.importData(userId, data);
 
         assertEquals(1, result.get("imported_review_logs"));
+        ArgumentCaptor<ReviewLog> logCaptor = ArgumentCaptor.forClass(ReviewLog.class);
+        verify(reviewLogRepository).save(logCaptor.capture());
+        assertEquals(false, logCaptor.getValue().isNewCard());
     }
 
     @Test
