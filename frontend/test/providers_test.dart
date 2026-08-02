@@ -54,6 +54,21 @@ void main() {
       expect(notifier.state.error, '邮箱已被注册');
     });
 
+    test('login exposes connection error detail', () async {
+      final repo = MockAuthRepository();
+      when(() => repo.isLoggedIn()).thenAnswer((_) async => false);
+      when(
+        () => repo.login(any()),
+      ).thenThrow(connectionError('Connection refused, errno = 111'));
+      final notifier = AuthNotifier(repo);
+
+      await notifier.login('a@b.c', 'secret');
+
+      expect(notifier.state.isAuthenticated, isFalse);
+      expect(notifier.state.error, contains('无法连接服务器'));
+      expect(notifier.state.error, contains('Connection refused'));
+    });
+
     test('logout clears state', () async {
       final repo = MockAuthRepository();
       when(() => repo.isLoggedIn()).thenAnswer((_) async => false);

@@ -39,6 +39,14 @@ DioException apiError(String message, {int statusCode = 400}) {
   );
 }
 
+DioException connectionError(String message) {
+  return DioException(
+    requestOptions: RequestOptions(path: '/'),
+    type: DioExceptionType.connectionError,
+    message: message,
+  );
+}
+
 class FakeApiClient extends ApiClient {
   Future<Response> Function(String path, Map<String, dynamic>? query)? onGet;
   Future<Response> Function(String path, Object? data)? onPost;
