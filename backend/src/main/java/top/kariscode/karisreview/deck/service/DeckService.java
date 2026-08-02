@@ -13,8 +13,11 @@ import top.kariscode.karisreview.deck.repository.DeckRepository;
 import top.kariscode.karisreview.auth.entity.User;
 import top.kariscode.karisreview.auth.repository.UserRepository;
 
+import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -45,7 +48,8 @@ public class DeckService {
         deck.setUserId(userId);
         deck.setName(request.getName());
         deck = deckRepository.save(deck);
-        return new DeckResponse(deck.getId(), deck.getName(), 0, 0, deck.getCreatedAt());
+        LocalTime refreshTime = getRefreshTime(userId);
+        return toDeckResponse(deck, refreshTime);
     }
 
     @Transactional
@@ -71,9 +75,31 @@ public class DeckService {
     }
 
     private DeckResponse toDeckResponse(Deck deck, LocalTime refreshTime) {
-        int cardCount = (int) cardRepository.countByDeckId(deck.getId());
-        int dueCount = cardRepository.countDueByDeckId(deck.getId(), DateUtils.calculateToday(refreshTime));
-        return new DeckResponse(deck.getId(), deck.getName(), cardCount, dueCount, deck.getCreatedAt());
+        LocalDate today = DateUtils.calculateToday(refreshTime);
+        UUID deckId = deck.getId();
+        int cardCount = (int) cardRepository.countByDeckId(deckId);
+        int dueCount = cardRepository.countDueByDeckId(deckId, today);
+        int newCount = (int) cardRepository.countByDeckIdAndStageAndLearningModeFalse(deckId, 0);
+        int masteredCount = (int) cardRepository.countByDeckIdAndStageGreaterThanEqual(deckId, 5);
+        Map<String, Long> stageDistribution = distributionFromRows(
+                cardRepository.countByStageGroupedByDeck(deckId));
+        Map<String, Long> dueStageDistribution = distributionFromRows(
+                cardRepository.countDueByStageGroupedByDeck(deckId, today));
+        return new DeckResponse(deck.getId(), deck.getName(), cardCount, dueCount,
+                newCount, masteredCount, stageDistribution, dueStageDistribution,
+                deck.getCreatedAt());
+    }
+
+    private Map<String, Long> distributionFromRows(List<Object[]> rows) {
+        Map<String, Long> distribution = new LinkedHashMap<>();
+        for (int i = 0; i <= 8; i++) {
+            distribution.put(String.valueOf(i), 0L);
+        }
+        for (Object[] row : rows) {
+            String stage = String.valueOf(((Number) row[0]).intValue());
+            distribution.merge(stage, ((Number) row[1]).longValue(), Long::sum);
+        }
+        return distribution;
     }
 
     private LocalTime getRefreshTime(UUID userId) {

@@ -39,6 +39,25 @@ class SchedulingEngineTest {
     }
 
     @Test
+    void intervalHelpersReportRatingTargetsForNormalAndRelearningCards() {
+        Card normal = new Card();
+        normal.setStage(3);
+        assertEquals(4, SchedulingEngine.getStageInterval(3));
+        assertEquals(7, SchedulingEngine.getFamiliarIntervalAfterRating(normal));
+        assertEquals(4, SchedulingEngine.getVagueIntervalAfterRating(normal));
+
+        Card relearning = new Card();
+        relearning.setStage(0);
+        relearning.setLearningMode(true);
+        relearning.setConsecutiveFamiliar(2);
+        relearning.setReentryStage(4);
+        assertEquals(3, SchedulingEngine.getRelearningThreshold(relearning));
+        assertEquals(3, SchedulingEngine.getFamiliarIntervalAfterRating(relearning));
+
+        relearning.setConsecutiveFamiliar(1);
+        assertEquals(0, SchedulingEngine.getFamiliarIntervalAfterRating(relearning));
+    }
+    @Test
     void forgetEntersRelearningModeAndResetsToStageZero() {
         Card card = new Card();
         card.setStage(4);

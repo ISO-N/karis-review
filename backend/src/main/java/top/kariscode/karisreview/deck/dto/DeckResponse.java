@@ -1,6 +1,7 @@
 package top.kariscode.karisreview.deck.dto;
 
 import java.time.LocalDateTime;
+import java.util.Map;
 import java.util.UUID;
 
 public class DeckResponse {
@@ -9,13 +10,25 @@ public class DeckResponse {
     private String name;
     private int cardCount;
     private int dueCount;
+    private int newCount;
+    private int masteredCount;
+    private Map<String, Long> stageDistribution;
+    private Map<String, Long> dueStageDistribution;
     private LocalDateTime createdAt;
 
-    public DeckResponse(UUID id, String name, int cardCount, int dueCount, LocalDateTime createdAt) {
+    public DeckResponse(UUID id, String name, int cardCount, int dueCount,
+                        int newCount, int masteredCount,
+                        Map<String, Long> stageDistribution,
+                        Map<String, Long> dueStageDistribution,
+                        LocalDateTime createdAt) {
         this.id = id;
         this.name = name;
         this.cardCount = cardCount;
         this.dueCount = dueCount;
+        this.newCount = newCount;
+        this.masteredCount = masteredCount;
+        this.stageDistribution = stageDistribution;
+        this.dueStageDistribution = dueStageDistribution;
         this.createdAt = createdAt;
     }
 
@@ -27,6 +40,14 @@ public class DeckResponse {
     public void setCardCount(int cardCount) { this.cardCount = cardCount; }
     public int getDueCount() { return dueCount; }
     public void setDueCount(int dueCount) { this.dueCount = dueCount; }
+    public int getNewCount() { return newCount; }
+    public void setNewCount(int newCount) { this.newCount = newCount; }
+    public int getMasteredCount() { return masteredCount; }
+    public void setMasteredCount(int masteredCount) { this.masteredCount = masteredCount; }
+    public Map<String, Long> getStageDistribution() { return stageDistribution; }
+    public void setStageDistribution(Map<String, Long> stageDistribution) { this.stageDistribution = stageDistribution; }
+    public Map<String, Long> getDueStageDistribution() { return dueStageDistribution; }
+    public void setDueStageDistribution(Map<String, Long> dueStageDistribution) { this.dueStageDistribution = dueStageDistribution; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 }

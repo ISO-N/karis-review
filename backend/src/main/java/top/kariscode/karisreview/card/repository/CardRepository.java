@@ -18,13 +18,34 @@ public interface CardRepository extends JpaRepository<Card, UUID> {
 
     List<Card> findByDeckIdOrderByCreatedAtAsc(UUID deckId);
     Page<Card> findByDeckIdOrderByCreatedAtAsc(UUID deckId, Pageable pageable);
+    Page<Card> findByDeckIdAndLearningModeTrueOrderByCreatedAtAsc(UUID deckId, Pageable pageable);
+    Page<Card> findByDeckIdAndNextReviewDateNotNullAndNextReviewDateLessThanEqualOrderByNextReviewDateAsc(
+            UUID deckId, LocalDate today, Pageable pageable);
     Optional<Card> findByIdAndUserId(UUID id, UUID userId);
     long countByDeckId(UUID deckId);
     long countByUserId(UUID userId);
+    long countByDeckIdAndLearningModeTrue(UUID deckId);
+    long countByDeckIdAndStageGreaterThanEqual(UUID deckId, int stage);
+    long countByDeckIdAndStage(UUID deckId, int stage);
+    long countByDeckIdAndStageAndLearningModeFalse(UUID deckId, int stage);
 
     @Query("SELECT COUNT(c) FROM Card c WHERE c.deckId = :deckId " +
            "AND c.nextReviewDate IS NOT NULL AND c.nextReviewDate <= :today")
     int countDueByDeckId(@Param("deckId") UUID deckId, @Param("today") LocalDate today);
+
+    @Query("SELECT c.stage, COUNT(c) FROM Card c WHERE c.userId = :userId GROUP BY c.stage")
+    List<Object[]> countByStageGrouped(@Param("userId") UUID userId);
+
+    @Query("SELECT c.stage, COUNT(c) FROM Card c WHERE c.userId = :userId " +
+           "AND c.nextReviewDate IS NOT NULL AND c.nextReviewDate <= :today GROUP BY c.stage")
+    List<Object[]> countDueByStageGrouped(@Param("userId") UUID userId, @Param("today") LocalDate today);
+
+    @Query("SELECT c.stage, COUNT(c) FROM Card c WHERE c.deckId = :deckId GROUP BY c.stage")
+    List<Object[]> countByStageGroupedByDeck(@Param("deckId") UUID deckId);
+
+    @Query("SELECT c.stage, COUNT(c) FROM Card c WHERE c.deckId = :deckId " +
+           "AND c.nextReviewDate IS NOT NULL AND c.nextReviewDate <= :today GROUP BY c.stage")
+    List<Object[]> countDueByStageGroupedByDeck(@Param("deckId") UUID deckId, @Param("today") LocalDate today);
 
     @Query("SELECT c FROM Card c WHERE c.userId = :userId " +
            "AND c.nextReviewDate IS NOT NULL AND c.nextReviewDate <= :today " +
