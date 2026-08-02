@@ -15,7 +15,7 @@ class DeckListPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final decksAsync = ref.watch(deckListProvider);
-
+    final isTablet = MediaQuery.sizeOf(context).width >= 600;
     return AdaptiveAppScaffold(
       current: KarisNavItem.decks,
       onSelect: (item) => _go(item, context),
@@ -23,7 +23,12 @@ class DeckListPage extends ConsumerWidget {
         onRefresh: () => ref.read(deckListProvider.notifier).loadDecks(),
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+          padding: EdgeInsets.fromLTRB(
+            20,
+            isTablet ? 132 : 20,
+            20,
+            isTablet ? 24 : 132,
+          ),
           child: Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 900),

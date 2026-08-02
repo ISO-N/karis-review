@@ -93,7 +93,20 @@ class AuthNotifier extends StateNotifier<AuthState> {
       if (data is Map && data.containsKey('message')) {
         return data['message'] as String;
       }
-      return '网络请求失败';
+      final detail = e.message;
+      final suffix = (detail == null || detail.isEmpty) ? '' : '：$detail';
+      return switch (e.type) {
+        DioExceptionType.connectionTimeout => '连接服务器超时$suffix',
+        DioExceptionType.sendTimeout => '发送请求超时$suffix',
+        DioExceptionType.receiveTimeout => '服务器响应超时$suffix',
+        DioExceptionType.badCertificate => '服务器证书校验失败$suffix',
+        DioExceptionType.connectionError => '无法连接服务器$suffix',
+        DioExceptionType.badResponse =>
+          '服务器返回异常（HTTP ${e.response?.statusCode}）$suffix',
+        DioExceptionType.transformTimeout => '处理响应超时$suffix',
+        DioExceptionType.cancel => '请求已取消',
+        DioExceptionType.unknown => '网络请求失败$suffix',
+      };
     }
     return e.toString();
   }

@@ -44,7 +44,12 @@ class _StatsPageState extends ConsumerState<StatsPage> {
         },
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+          padding: EdgeInsets.fromLTRB(
+            20,
+            isTablet ? 132 : 20,
+            20,
+            isTablet ? 24 : 132,
+          ),
           child: Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 1080),
