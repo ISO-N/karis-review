@@ -184,10 +184,12 @@ void main() {
     test('gets overview, deck stats, and trend', () async {
       final client = FakeApiClient();
       client.onGet = (path, query) async {
-        if (path == apiPath('/stats/overview'))
+        if (path == apiPath('/stats/overview')) {
           return okResponse(overviewStatsJson());
-        if (path == apiPath('/stats/deck/deck-1'))
+        }
+        if (path == apiPath('/stats/deck/deck-1')) {
           return okResponse(deckStatsJson());
+        }
         expect(path, apiPath('/stats/trend'));
         expect(query, {'days': 7});
         return okResponse([trendPointJson()]);
