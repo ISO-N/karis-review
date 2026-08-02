@@ -35,6 +35,10 @@ class ReviewStatsSystemTest extends SystemTestSupport {
         data("POST", "/review/" + card2 + "/rate", userA.token(),
                 Map.of("rating", "FAMILIAR"));
 
+        JsonNode bootstrap = data("GET", "/sync/bootstrap", userA.token(), null);
+        assertEquals(2, bootstrap.get("review_logs").size());
+        assertTrue(bootstrap.get("review_logs").get(0).get("is_new_card").asBoolean());
+
         JsonNode overview = data("GET", "/stats/overview", userA.token(), null);
         assertEquals(2, overview.get("total_cards").asInt());
         assertEquals(1, overview.get("total_decks").asInt());

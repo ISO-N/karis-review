@@ -4,6 +4,10 @@ import 'package:karisreview/card/models/card.dart';
 import 'package:karisreview/offline/database/app_database.dart';
 import 'package:karisreview/offline/local_scheduling_engine.dart';
 import 'package:karisreview/offline/offline_repository.dart';
+import 'package:karisreview/sync/repositories/sync_repository.dart';
+import 'package:karisreview/sync/sync_service.dart';
+
+import 'helpers/test_helpers.dart';
 
 void main() {
   late AppDatabase db;
@@ -266,5 +270,57 @@ void main() {
     expect(trend[3].date, '2025-08-09');
     expect(trend[3].reviewed, 2);
     expect(trend[3].learned, 0);
+  });
+
+  test('sync bootstrap restores is_new_card into local stats', () async {
+    final api = FakeApiClient();
+    api.onGet = (path, query) async => okResponse({
+      'server_time': '2025-08-10T12:00:00Z',
+      'user': {'id': 'user-1', 'email': 'a@b.c', 'refresh_time': '04:00:00'},
+      'decks': [
+        {
+          'id': 'deck-1',
+          'name': '日语',
+          'created_at': '2025-08-01T00:00:00Z',
+          'updated_at': '2025-08-01T00:00:00Z',
+          'cards': [
+            {
+              'id': 'card-1',
+              'deck_id': 'deck-1',
+              'front': '单词',
+              'back': '释义',
+              'stage': 1,
+              'consecutive_familiar': 0,
+              'next_review_date': '2025-08-11',
+              'learning_mode': false,
+              'reentry_stage': null,
+              'learning_step': 0,
+              'review_version': 1,
+              'created_at': '2025-08-01T00:00:00Z',
+              'updated_at': '2025-08-10T12:00:00Z',
+            },
+          ],
+        },
+      ],
+      'review_logs': [
+        {
+          'id': 'log-new',
+          'card_id': 'card-1',
+          'rating': 'FAMILIAR',
+          'stage_before': 0,
+          'stage_after': 1,
+          'new_card': true,
+          'is_new_card': true,
+          'reviewed_at': '2025-08-10T12:00:00',
+        },
+      ],
+    });
+
+    final sync = SyncService(SyncRepository(client: api), offline);
+    await sync.bootstrap(userId: 'user-1');
+
+    final stats = await offline.getOverviewStats('user-1');
+    expect(stats.learnedToday, 1);
+    expect(stats.reviewedToday, 0);
   });
 }

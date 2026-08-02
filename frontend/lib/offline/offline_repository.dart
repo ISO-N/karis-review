@@ -309,7 +309,8 @@ class OfflineRepository {
       for (final logJson in reviewLogs) {
         final map = logJson;
         final rating = map['rating'] as String? ?? 'FAMILIAR';
-        final isNewCard = map['is_new_card'] as bool? ??
+        final isNewCard = (map['is_new_card'] as bool?) ??
+            (map['new_card'] as bool?) ??
             (rating == 'FAMILIAR' && _int(map['stage_before']) == 0);
         await db.into(db.localReviewLogs).insertOnConflictUpdate(
               LocalReviewLogsCompanion.insert(

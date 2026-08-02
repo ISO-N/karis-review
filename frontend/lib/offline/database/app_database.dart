@@ -95,7 +95,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor]) : super(executor ?? driftDatabase(name: 'karis_review'));
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -103,6 +103,11 @@ class AppDatabase extends _$AppDatabase {
     onUpgrade: (m, from, to) async {
       if (from < 2) {
         await m.addColumn(localReviewLogs, localReviewLogs.isNewCard);
+      }
+      if (from < 3) {
+        await customStatement(
+          "UPDATE local_review_logs SET is_new_card = 1 WHERE sync_status = 'PENDING' AND rating = 'FAMILIAR' AND stage_before = 0 AND is_new_card = 0",
+        );
       }
     },
   );
