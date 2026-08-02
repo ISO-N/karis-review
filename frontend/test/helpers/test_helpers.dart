@@ -206,7 +206,13 @@ Map<String, dynamic> importPreviewJson() {
     'invalid_count': 1,
     'cards': [
       {'index': 0, 'front': '正面', 'back': '反面', 'valid': true, 'message': null},
-      {'index': 1, 'front': '', 'back': '反面', 'valid': false, 'message': '正面内容不能为空'},
+      {
+        'index': 1,
+        'front': '',
+        'back': '反面',
+        'valid': false,
+        'message': '正面内容不能为空',
+      },
     ],
   };
 }
@@ -218,18 +224,17 @@ List<Override> authOverrides(MockAuthRepository repo) => [
   authProvider.overrideWith((ref) => AuthNotifier(repo)),
 ];
 
-List<Override> reviewOverrides(MockReviewRepository repo, ReviewSessionState state) => [
-  reviewProvider.overrideWith((ref) => FakeReviewNotifier(repo, state)),
-];
+List<Override> reviewOverrides(
+  MockReviewRepository repo,
+  ReviewSessionState state,
+) => [reviewProvider.overrideWith((ref) => FakeReviewNotifier(repo, state))];
 
 List<Override> deckOverrides(MockDeckRepository repo) => [
   deckListProvider.overrideWith((ref) => DeckListNotifier(repo)),
 ];
 
 List<Override> cardOverrides(MockCardRepository repo) => [
-  cardListProvider.overrideWith(
-    (ref, args) => CardListNotifier(repo, args),
-  ),
+  cardListProvider.overrideWith((ref, args) => CardListNotifier(repo, args)),
 ];
 
 List<Override> statsOverrides(MockStatsRepository repo) => [

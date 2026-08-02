@@ -292,7 +292,9 @@ class _CardListPageState extends ConsumerState<CardListPage> {
         initialFront: card?.front,
         initialBack: card?.back,
         onSaved: (_) {
-          ref.invalidate(cardListProvider(CardListArgs(widget.deckId, _filter)));
+          ref.invalidate(
+            cardListProvider(CardListArgs(widget.deckId, _filter)),
+          );
           ref.invalidate(deckStatsProvider(widget.deckId));
           ref.invalidate(deckListProvider);
         },
@@ -313,9 +315,9 @@ class _CardListPageState extends ConsumerState<CardListPage> {
           );
           ref.invalidate(deckStatsProvider(widget.deckId));
           ref.invalidate(deckListProvider);
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('已导入 $count 张卡片')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('已导入 $count 张卡片')));
         },
       ),
     );

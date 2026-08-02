@@ -67,9 +67,7 @@ class _CardImportSheetState extends State<CardImportSheet> {
             children: [
               _buildHeader(),
               Expanded(
-                child: _showPreview
-                    ? _buildPreviewBody()
-                    : _buildInputBody(),
+                child: _showPreview ? _buildPreviewBody() : _buildInputBody(),
               ),
               if (_showPreview) _buildPreviewFooter(),
             ],
@@ -88,8 +86,7 @@ class _CardImportSheetState extends State<CardImportSheet> {
             KarisIconButton(
               icon: Icons.arrow_back,
               tooltip: '返回',
-              onPressed:
-                  _parsing || _importing ? null : () => _backToSource(),
+              onPressed: _parsing || _importing ? null : () => _backToSource(),
             )
           else
             const SizedBox(width: 40),
@@ -110,7 +107,9 @@ class _CardImportSheetState extends State<CardImportSheet> {
           KarisIconButton(
             icon: Icons.close,
             tooltip: '关闭',
-            onPressed: _parsing || _importing ? null : () => Navigator.pop(context),
+            onPressed: _parsing || _importing
+                ? null
+                : () => Navigator.pop(context),
           ),
         ],
       ),
@@ -160,7 +159,8 @@ class _CardImportSheetState extends State<CardImportSheet> {
               decoration: const InputDecoration(
                 labelText: 'JSON 数组',
                 alignLabelWithHint: true,
-                hintText: '[\n  {\n    "front": "正面",\n    "back": "反面"\n  }\n]',
+                hintText:
+                    '[\n  {\n    "front": "正面",\n    "back": "反面"\n  }\n]',
               ),
             )
           else
@@ -456,9 +456,7 @@ class _CardImportSheetState extends State<CardImportSheet> {
                         : '导入卡片',
                     icon: Icons.file_upload_outlined,
                     onPressed:
-                        _validCount > 0 &&
-                            _invalidCount == 0 &&
-                            !_importing
+                        _validCount > 0 && _invalidCount == 0 && !_importing
                         ? _import
                         : null,
                   ),
@@ -543,9 +541,8 @@ class _CardImportSheetState extends State<CardImportSheet> {
       final rawCards = data['cards'] as List<dynamic>? ?? [];
       final items = rawCards
           .map(
-            (item) => CardImportPreviewItem.fromJson(
-              item as Map<String, dynamic>,
-            ),
+            (item) =>
+                CardImportPreviewItem.fromJson(item as Map<String, dynamic>),
           )
           .toList();
       if (!mounted) return;
@@ -710,10 +707,7 @@ class _SummaryBadge extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          Text(
-            value,
-            style: karisMono(fontSize: 12, color: color),
-          ),
+          Text(value, style: karisMono(fontSize: 12, color: color)),
         ],
       ),
     );

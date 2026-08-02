@@ -184,8 +184,10 @@ void main() {
     test('gets overview, deck stats, and trend', () async {
       final client = FakeApiClient();
       client.onGet = (path, query) async {
-        if (path == apiPath('/stats/overview')) return okResponse(overviewStatsJson());
-        if (path == apiPath('/stats/deck/deck-1')) return okResponse(deckStatsJson());
+        if (path == apiPath('/stats/overview'))
+          return okResponse(overviewStatsJson());
+        if (path == apiPath('/stats/deck/deck-1'))
+          return okResponse(deckStatsJson());
         expect(path, apiPath('/stats/trend'));
         expect(query, {'days': 7});
         return okResponse([trendPointJson()]);
@@ -215,24 +217,34 @@ void main() {
         expect(data, {'refresh_time': '03:00:00'});
         return okResponse({'email': 'a@b.c', 'refresh_time': '03:00:00'});
       };
-      expect((await repository.updateSettings('03:00:00'))['refresh_time'], '03:00:00');
+      expect(
+        (await repository.updateSettings('03:00:00'))['refresh_time'],
+        '03:00:00',
+      );
     });
 
     test('exports and imports backup', () async {
       final client = FakeApiClient();
       client.onPost = (path, data) async {
         if (path == apiPath('/backup/export')) {
-          return okResponse({'backup_id': 'b1', 'data': {'decks': []}});
+          return okResponse({
+            'backup_id': 'b1',
+            'data': {'decks': []},
+          });
         }
         expect(path, apiPath('/backup/import'));
-        expect(data, {'data': {'decks': []}});
+        expect(data, {
+          'data': {'decks': []},
+        });
         return okResponse({'imported_decks': 0});
       };
       final repository = SettingsRepository(client: client);
 
       expect((await repository.exportBackup())['backup_id'], 'b1');
-      expect((await repository.importBackup({'decks': []}))['imported_decks'], 0);
+      expect(
+        (await repository.importBackup({'decks': []}))['imported_decks'],
+        0,
+      );
     });
   });
 }
-

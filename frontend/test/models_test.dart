@@ -47,11 +47,7 @@ void main() {
     });
 
     test('defaults optional fields', () {
-      final card = FlashCard.fromJson({
-        'id': 'c',
-        'front': 'f',
-        'back': 'b',
-      });
+      final card = FlashCard.fromJson({'id': 'c', 'front': 'f', 'back': 'b'});
 
       expect(card.deckId, '');
       expect(card.stage, 0);
@@ -143,7 +139,10 @@ void main() {
     test('parses preview response rows', () {
       final data = importPreviewJson();
       final items = (data['cards'] as List<dynamic>)
-          .map((item) => CardImportPreviewItem.fromJson(item as Map<String, dynamic>))
+          .map(
+            (item) =>
+                CardImportPreviewItem.fromJson(item as Map<String, dynamic>),
+          )
           .toList();
 
       expect(items[0].valid, isTrue);
@@ -160,7 +159,12 @@ void main() {
         message: '错误',
       );
 
-      final updated = item.copyWith(front: 'f', back: 'b', valid: true, clearMessage: true);
+      final updated = item.copyWith(
+        front: 'f',
+        back: 'b',
+        valid: true,
+        clearMessage: true,
+      );
 
       expect(updated.valid, isTrue);
       expect(updated.message, isNull);
