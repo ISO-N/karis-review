@@ -12,11 +12,8 @@ class StatsNotifier extends StateNotifier<AsyncValue<OverviewStats?>> {
   final OfflineRepository? offline;
   final SyncService? sync;
 
-  StatsNotifier(
-    this._repository, {
-    this.offline,
-    this.sync,
-  }) : super(const AsyncValue.loading()) {
+  StatsNotifier(this._repository, {this.offline, this.sync})
+    : super(const AsyncValue.loading()) {
     if (offline != null) {
       _loadLocal();
     } else {
@@ -32,7 +29,10 @@ class StatsNotifier extends StateNotifier<AsyncValue<OverviewStats?>> {
       }
       try {
         final meta = await offline!.getActiveSyncMeta();
-        if (meta == null) throw StateError('no active local user');
+        if (meta == null) {
+          state = AsyncValue.data(await _repository.getOverview());
+          return;
+        }
         await sync!.bootstrap(userId: meta.userId);
         state = AsyncValue.data(await offline!.getOverviewStats(meta.userId));
       } catch (e, st) {
