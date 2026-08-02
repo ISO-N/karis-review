@@ -1,0 +1,10 @@
+.git/
+**/.git/
+backend/target/
+frontend/
+docs/
+tools/
+deploy.sh
+docker-compose*.yml
+.env*
+*.md
