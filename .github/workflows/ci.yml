@@ -22,13 +22,15 @@ jobs:
           POSTGRES_DB: karis_review
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
         options: >-
           --health-cmd "pg_isready -U postgres -d karis_review"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
     env:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/karis_review
+      SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/karis_review
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
     steps:
