@@ -1,0 +1,126 @@
+syntax = "proto3";
+
+package karisreview;
+
+option java_package = "top.kariscode.karisreview.proto";
+option java_outer_classname = "KarisReviewProto";
+
+message User {
+  string id = 1;
+  string email = 2;
+  string refresh_time = 3;
+}
+
+message Card {
+  string id = 1;
+  string deck_id = 2;
+  string front = 3;
+  string back = 4;
+  int32 stage = 5;
+  int32 consecutive_familiar = 6;
+  optional string next_review_date = 7;
+  bool learning_mode = 8;
+  optional string reentry_stage = 9;
+  int32 learning_step = 10;
+  int64 review_version = 11;
+  string created_at = 12;
+  string updated_at = 13;
+}
+
+message Deck {
+  string id = 1;
+  string name = 2;
+  string created_at = 3;
+  string updated_at = 4;
+  repeated Card cards = 5;
+}
+
+message ReviewLog {
+  string id = 1;
+  string card_id = 2;
+  string rating = 3;
+  int32 stage_before = 4;
+  int32 stage_after = 5;
+  string reviewed_at = 6;
+  bool is_new_card = 7;
+}
+
+message SyncResponse {
+  string server_time = 1;
+  User user = 2;
+  repeated Deck decks = 3;
+  repeated ReviewLog review_logs = 4;
+  repeated string deleted_deck_ids = 5;
+  repeated string deleted_card_ids = 6;
+  repeated string deleted_review_log_ids = 7;
+  int64 event_cursor = 8;
+  bool has_more = 9;
+  bool reset_required = 10;
+  repeated Card changed_cards = 11;
+}
+
+message ReviewCard {
+  string id = 1;
+  string deck_id = 2;
+  string front = 3;
+  string back = 4;
+  int32 stage = 5;
+  bool learning_mode = 6;
+  int32 consecutive_familiar = 7;
+  int32 learning_step = 8;
+  optional string reentry_stage = 9;
+  optional string next_review_date = 10;
+  int64 review_version = 11;
+}
+
+message ReviewCardListResponse {
+  repeated ReviewCard cards = 1;
+}
+
+message ReviewSessionCreateRequest {
+  string mode = 1;
+  optional string deck_id = 2;
+  int32 batch_size = 3;
+}
+
+message ReviewSessionPageResponse {
+  string session_id = 1;
+  string mode = 2;
+  optional string deck_id = 3;
+  int32 batch_size = 4;
+  int32 total = 5;
+  int32 cursor = 6;
+  bool has_more = 7;
+  repeated ReviewCard cards = 8;
+}
+
+message ReviewSyncRequest {
+  repeated ReviewSyncItem items = 1;
+}
+
+message ReviewSyncItem {
+  string client_request_id = 1;
+  string card_id = 2;
+  string rating = 3;
+  string rated_at = 4;
+  int64 review_version = 5;
+}
+
+message ReviewSyncResponse {
+  int32 synced = 1;
+  int32 conflicts = 2;
+  int32 missing = 3;
+  repeated ReviewSyncItemResult items = 4;
+}
+
+message ReviewSyncItemResult {
+  string client_request_id = 1;
+  string status = 2;
+  optional ReviewCard current_card = 3;
+  optional string card_id = 4;
+}
+
+message ApiError {
+  int32 code = 1;
+  string message = 2;
+}
