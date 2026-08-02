@@ -5,7 +5,7 @@ import '../models/stats.dart';
 class StatsRepository {
   final ApiClient _client;
 
-  StatsRepository({ApiClient? client}) : _client = client ?? ApiClient();
+  StatsRepository({ApiClient? client}) : _client = client ?? ApiClient.shared;
 
   Future<OverviewStats> getOverview() async {
     final response = await _client.get(ApiEndpoints.statsOverview);

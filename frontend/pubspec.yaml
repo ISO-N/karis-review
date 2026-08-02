@@ -25,12 +25,27 @@ dependencies:
   flutter_highlight: ^0.7.0
   highlight: ^0.7.0
   file_picker: ^10.3.8
+  drift: ^2.34.3
+  drift_flutter: ^0.3.1
+  sqlite3_flutter_libs: ^0.6.0+eol
+  path_provider: ^2.1.6
+  path: ^1.9.1
+  uuid: ^4.6.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
   mocktail: ^1.0.4
+  drift_dev: ^2.34.5
+  build_runner: ^2.15.1
+
+hooks:
+  user_defines:
+    sqlite3:
+      source: system
+      name_windows: winsqlite3
+      name: sqlite3
 
 flutter:
   uses-material-design: true

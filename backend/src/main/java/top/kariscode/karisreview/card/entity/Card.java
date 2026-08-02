@@ -49,6 +49,10 @@ public class Card {
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
+    @Version
+    @Column(name = "review_version", nullable = false)
+    private long reviewVersion = 0;
+
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
@@ -84,4 +88,6 @@ public class Card {
     public void setLearningStep(int learningStep) { this.learningStep = learningStep; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }
+    public long getReviewVersion() { return reviewVersion; }
+    public void setReviewVersion(long reviewVersion) { this.reviewVersion = reviewVersion; }
 }

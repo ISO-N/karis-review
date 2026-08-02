@@ -9,11 +9,13 @@ import 'package:go_router/go_router.dart';
 import '../../app/theme.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../deck/providers/deck_provider.dart';
+import '../../offline/providers.dart';
 import '../../shared/widgets/adaptive_scaffold.dart';
 import '../../shared/widgets/app_semantics.dart';
 import '../../shared/widgets/section_widgets.dart';
 import '../../shared/widgets/settings_action_tile.dart';
 import '../../stats/providers/stats_provider.dart';
+import '../../sync/providers.dart';
 import '../providers/settings_provider.dart';
 import '../repositories/settings_repository.dart';
 
@@ -270,8 +272,55 @@ class _DataBlock extends StatelessWidget {
           danger: true,
           onTap: () => _import(context, ref),
         ),
+        SettingsActionTile(
+          icon: Icons.cloud_sync_outlined,
+          title: '以服务器为准',
+          subtitle: '丢弃待同步评分并重新拉取服务器数据',
+          danger: true,
+          onTap: () => _forceServer(context, ref),
+        ),
       ],
     );
+  }
+
+  Future<void> _forceServer(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('以服务器为准'),
+        content: const Text('这会丢弃所有未同步的离线评分，并用服务器数据覆盖本地。确定继续吗？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: KarisColors.cinnabar,
+              foregroundColor: KarisColors.surface,
+            ),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('确定覆盖'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+    try {
+      final meta = await ref.read(offlineRepositoryProvider).getActiveSyncMeta();
+      if (meta != null) {
+        await ref.read(syncServiceProvider).forceServerAuthoritative(userId: meta.userId);
+        ref.invalidate(deckListProvider);
+        ref.invalidate(statsProvider);
+        ref.invalidate(settingsProvider);
+      }
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('同步失败，请检查网络后重试')),
+        );
+      }
+    }
   }
 
   Future<void> _export(BuildContext context, WidgetRef ref) async {

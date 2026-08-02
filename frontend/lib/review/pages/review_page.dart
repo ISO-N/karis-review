@@ -165,7 +165,9 @@ class _ReviewStage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final isTablet = MediaQuery.sizeOf(context).width >= 600;
     final current = state.currentIndex + 1;
-    final total = state.totalCount;
+    final total = state.serverTotal > state.totalCount
+        ? state.serverTotal
+        : state.totalCount;
     final progress = total == 0 ? 0.0 : current / total;
 
     return Column(
@@ -239,6 +241,30 @@ class _ReviewStage extends ConsumerWidget {
                           ),
                         ],
                       ),
+                      if (state.pendingSyncCount > 0 || state.loadingMore) ...[
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            Icon(
+                              state.loadingMore
+                                  ? Icons.sync
+                                  : Icons.cloud_off_outlined,
+                              size: 14,
+                              color: KarisColors.amber,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              state.loadingMore
+                                  ? '正在加载更多队列'
+                                  : '离线 · ${state.pendingSyncCount} 条评分待同步',
+                              style: karisMono(
+                                fontSize: 10,
+                                color: KarisColors.amber,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                       const SizedBox(height: 18),
                       Expanded(
                         child: Center(
@@ -341,7 +367,11 @@ class _TabletRatingArea extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 9),
-              _RatingRow(card: card, onRate: onRate),
+              _RatingRow(
+                card: card,
+                onRate: onRate,
+                enabled: !state.isRating && !state.loadingMore,
+              ),
             ],
           ),
         ),
@@ -373,7 +403,11 @@ class _MobileRatingArea extends StatelessWidget {
           border: const Border(top: BorderSide(color: KarisColors.hairline)),
         ),
         child: state.isFlipped
-            ? _RatingRow(card: card, onRate: onRate)
+            ? _RatingRow(
+                card: card,
+                onRate: onRate,
+                enabled: !state.isRating && !state.loadingMore,
+              )
             : const Center(
                 child: Text(
                   '点按翻面',
@@ -393,8 +427,13 @@ class _MobileRatingArea extends StatelessWidget {
 class _RatingRow extends StatelessWidget {
   final ReviewCard card;
   final ValueChanged<String> onRate;
+  final bool enabled;
 
-  const _RatingRow({required this.card, required this.onRate});
+  const _RatingRow({
+    required this.card,
+    required this.onRate,
+    this.enabled = true,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -406,6 +445,7 @@ class _RatingRow extends StatelessWidget {
             sub: '重学',
             icon: Icons.close,
             color: KarisColors.cinnabar,
+            enabled: enabled,
             onTap: () => onRate('FORGET'),
           ),
         ),
@@ -418,6 +458,7 @@ class _RatingRow extends StatelessWidget {
                 : '重学',
             icon: Icons.help_outline,
             color: KarisColors.amber,
+            enabled: enabled,
             onTap: () => onRate('VAGUE'),
           ),
         ),
@@ -430,6 +471,7 @@ class _RatingRow extends StatelessWidget {
                 : KarisTheme.intervalLabel(card.familiarIntervalDays),
             icon: Icons.check,
             color: KarisColors.jade,
+            enabled: enabled,
             onTap: () => onRate('FAMILIAR'),
           ),
         ),
@@ -742,6 +784,7 @@ class _RatingButton extends StatelessWidget {
   final String sub;
   final IconData icon;
   final Color color;
+  final bool enabled;
   final VoidCallback onTap;
 
   const _RatingButton({
@@ -749,6 +792,7 @@ class _RatingButton extends StatelessWidget {
     required this.sub,
     required this.icon,
     required this.color,
+    this.enabled = true,
     required this.onTap,
   });
 
@@ -756,7 +800,7 @@ class _RatingButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return KarisInteractive(
       child: InkWell(
-        onTap: onTap,
+        onTap: enabled ? onTap : null,
         borderRadius: BorderRadius.circular(8),
         child: Container(
           constraints: const BoxConstraints(minHeight: 74),

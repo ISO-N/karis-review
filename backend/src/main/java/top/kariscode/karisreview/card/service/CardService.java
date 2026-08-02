@@ -102,7 +102,8 @@ public class CardService {
                 card.getId(), card.getDeckId(), card.getFront(), card.getBack(),
                 card.getStage(), card.getNextReviewDate(), card.isLearningMode(),
                 card.getConsecutiveFamiliar(), card.getLearningStep(),
-                card.getReentryStage(), learningGoal, due, card.getCreatedAt());
+                card.getReentryStage(), learningGoal, due, card.getCreatedAt(),
+                card.getReviewVersion());
     }
 
     private LocalDate todayFor(UUID userId) {

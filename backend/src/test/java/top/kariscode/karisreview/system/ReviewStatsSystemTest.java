@@ -6,6 +6,7 @@ import top.kariscode.karisreview.common.util.DateUtils;
 
 import java.time.LocalTime;
 import java.util.Map;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -109,6 +110,29 @@ class ReviewStatsSystemTest extends SystemTestSupport {
         assertEquals(7, trend.size());
         assertEquals(0, trend.get(trend.size() - 1).get("reviewed").asInt());
         assertEquals(1, trend.get(trend.size() - 1).get("learned").asInt());
+    }
+    @Test
+    void staleDeviceRatingCannotDoubleSchedule() {
+        TestAccount user = register("review-lock");
+        String deckId = text(createDeck(user.token(), "并发锁"), "id");
+        String cardId = text(createCard(user.token(), deckId, "锁卡", "反面"), "id");
+
+        JsonNode before = data("GET", "/cards/" + cardId, user.token(), null);
+        int reviewVersion = before.get("review_version").asInt();
+
+        JsonNode first = data("POST", "/review/" + cardId + "/rate", user.token(),
+                Map.of("rating", "FAMILIAR", "review_version", reviewVersion));
+        assertEquals(1, first.get("stage_after").asInt());
+
+        call("POST", "/review/" + cardId + "/rate", user.token(),
+                Map.of("rating", "FAMILIAR", "review_version", reviewVersion), 409);
+
+        JsonNode after = data("GET", "/cards/" + cardId, user.token(), null);
+        assertEquals(1, after.get("stage").asInt());
+        Integer logs = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM review_logs WHERE card_id = ?", Integer.class,
+                UUID.fromString(cardId));
+        assertEquals(1, logs);
     }
 
     private JsonNode createDeck(String token, String name) {

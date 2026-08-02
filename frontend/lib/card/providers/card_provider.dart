@@ -1,4 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../offline/offline_repository.dart';
+import '../../offline/providers.dart';
+import '../../sync/providers.dart';
+import '../../sync/sync_service.dart';
 import '../repositories/card_repository.dart';
 import '../models/card.dart';
 
@@ -22,13 +27,45 @@ class CardListArgs {
 class CardListNotifier extends StateNotifier<AsyncValue<List<FlashCard>>> {
   final CardRepository _repository;
   final CardListArgs args;
+  final OfflineRepository? offline;
+  final SyncService? sync;
 
-  CardListNotifier(this._repository, this.args)
-    : super(const AsyncValue.loading()) {
-    loadCards();
+  CardListNotifier(
+    this._repository,
+    this.args, {
+    this.offline,
+    this.sync,
+  }) : super(const AsyncValue.loading()) {
+    if (offline != null) {
+      _loadLocalCards();
+    } else {
+      loadCards();
+    }
   }
 
   Future<void> loadCards() async {
+    if (offline != null) {
+      final previous = state.valueOrNull;
+      if (previous == null) {
+        state = const AsyncValue.loading();
+      }
+      try {
+        final meta = await offline!.getActiveSyncMeta();
+        if (meta == null) throw StateError('no active local user');
+        await sync!.bootstrap(userId: meta.userId);
+        state = AsyncValue.data(
+          await _localCards(meta.userId),
+        );
+      } catch (e, st) {
+        if (previous == null) {
+          state = AsyncValue.error(e, st);
+        } else {
+          state = AsyncValue.data(previous);
+        }
+      }
+      return;
+    }
+
     state = const AsyncValue.loading();
     try {
       final result = await _repository.getDeckCards(
@@ -72,6 +109,24 @@ class CardListNotifier extends StateNotifier<AsyncValue<List<FlashCard>>> {
       state = AsyncValue.error(e, st);
     }
   }
+
+  Future<void> _loadLocalCards() async {
+    try {
+      final meta = await offline!.getActiveSyncMeta();
+      if (meta == null) return;
+      state = AsyncValue.data(await _localCards(meta.userId));
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+    }
+  }
+
+  Future<List<FlashCard>> _localCards(String userId) {
+    return offline!.getFilteredFlashCards(
+      userId,
+      deckId: args.deckId,
+      filter: args.filter,
+    );
+  }
 }
 
 final cardListProvider =
@@ -79,4 +134,9 @@ final cardListProvider =
       CardListNotifier,
       AsyncValue<List<FlashCard>>,
       CardListArgs
-    >((ref, args) => CardListNotifier(CardRepository(), args));
+    >((ref, args) => CardListNotifier(
+          CardRepository(),
+          args,
+          offline: ref.watch(offlineRepositoryProvider),
+          sync: ref.watch(syncServiceProvider),
+        ));

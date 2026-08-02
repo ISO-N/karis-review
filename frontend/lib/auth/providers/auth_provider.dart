@@ -1,5 +1,8 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../offline/providers.dart';
+import '../../shared/api/api_client.dart';
+import '../../sync/providers.dart';
 import '../repositories/auth_repository.dart';
 import '../models/login_request.dart';
 import '../models/login_response.dart';
@@ -34,15 +37,25 @@ class AuthState {
 
 class AuthNotifier extends StateNotifier<AuthState> {
   final AuthRepository _repository;
+  final Future<void> Function(UserInfo)? onAuthenticated;
+  final Future<UserInfo?> Function()? restoreUser;
+  final Future<void> Function()? onLoggedOut;
 
-  AuthNotifier(this._repository) : super(const AuthState()) {
+  AuthNotifier(
+    this._repository, {
+    this.onAuthenticated,
+    this.restoreUser,
+    this.onLoggedOut,
+  }) : super(const AuthState()) {
     _checkAuth();
   }
 
   Future<void> _checkAuth() async {
     final loggedIn = await _repository.isLoggedIn();
     if (loggedIn) {
-      state = state.copyWith(isAuthenticated: true);
+      final user = await restoreUser?.call();
+      state = state.copyWith(isAuthenticated: true, user: user);
+      if (user != null) await _safeAuthenticated(user);
     }
   }
 
@@ -58,6 +71,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         isLoading: false,
         error: null,
       );
+      await _safeAuthenticated(response.user);
     } catch (e) {
       final message = _extractError(e);
       state = state.copyWith(isLoading: false, error: message);
@@ -76,6 +90,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         isLoading: false,
         error: null,
       );
+      await _safeAuthenticated(response.user);
     } catch (e) {
       final message = _extractError(e);
       state = state.copyWith(isLoading: false, error: message);
@@ -84,7 +99,19 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   Future<void> logout() async {
     await _repository.logout();
+    await onLoggedOut?.call();
     state = const AuthState();
+  }
+
+  Future<void> handleUnauthorized() {
+    state = const AuthState();
+    return Future.value();
+  }
+
+  Future<void> _safeAuthenticated(UserInfo user) async {
+    try {
+      await onAuthenticated?.call(user);
+    } catch (_) {}
   }
 
   String _extractError(dynamic e) {
@@ -113,5 +140,25 @@ class AuthNotifier extends StateNotifier<AuthState> {
 }
 
 final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
-  return AuthNotifier(AuthRepository());
+  final notifier = AuthNotifier(
+    AuthRepository(),
+    onAuthenticated: (user) async {
+      try {
+        await ref.read(syncServiceProvider).bootstrap(userId: user.id);
+      } catch (_) {}
+    },
+    restoreUser: () async {
+      final meta = await ref.read(offlineRepositoryProvider).getActiveSyncMeta();
+      if (meta == null) return null;
+      return UserInfo(id: meta.userId, email: meta.email ?? '');
+    },
+    onLoggedOut: () async {
+      final meta = await ref.read(offlineRepositoryProvider).getActiveSyncMeta();
+      if (meta != null) {
+        await ref.read(offlineRepositoryProvider).clearUserData(meta.userId);
+      }
+    },
+  );
+  ApiClient.onUnauthorized = notifier.handleUnauthorized;
+  return notifier;
 });

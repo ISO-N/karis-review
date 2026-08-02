@@ -12,6 +12,7 @@ class FlashCard {
   final int? learningGoal;
   final bool due;
   final String createdAt;
+  final int reviewVersion;
 
   FlashCard({
     required this.id,
@@ -27,6 +28,7 @@ class FlashCard {
     this.learningGoal,
     this.due = false,
     this.createdAt = '',
+    this.reviewVersion = 0,
   });
 
   factory FlashCard.fromJson(Map<String, dynamic> json) {
@@ -44,6 +46,7 @@ class FlashCard {
       learningGoal: (json['learning_goal'] as num?)?.toInt(),
       due: json['due'] as bool? ?? false,
       createdAt: json['created_at'] as String? ?? '',
+      reviewVersion: (json['review_version'] as num?)?.toInt() ?? 0,
     );
   }
 }

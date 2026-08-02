@@ -610,7 +610,7 @@
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
 | deck_id | UUID | null | 可选，按牌组筛选 |
-
+| limit | int | 500 | 最大返回量 |
 **Response (200):**
 
 ```json
@@ -629,9 +629,11 @@
       "learning_goal": 5,
       "reentry_stage": null,
       "next_review_date": "2025-08-02",
+      "learning_step": 0,
       "current_interval_days": 4,
       "familiar_interval_days": 7,
-      "vague_interval_days": 4
+      "vague_interval_days": 4,
+      "review_version": 0
     }
   ]
 }
@@ -652,6 +654,7 @@
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
 | deck_id | UUID | null | 可选，按牌组筛选 |
+| limit | int | 10 | 最大返回量 |
 **Response (200):**
 
 ```json
@@ -670,9 +673,11 @@
       "learning_goal": 5,
       "reentry_stage": null,
       "next_review_date": null,
+      "learning_step": 0,
       "current_interval_days": 0,
       "familiar_interval_days": 1,
-      "vague_interval_days": 0
+      "vague_interval_days": 0,
+      "review_version": 0
     }
   ]
 }
@@ -991,3 +996,80 @@
 ```
 
 > **警告：** 此操作不可逆，导入前会清除当前用户所有数据。
+
+---
+
+## 9. 离线同步与动态复习会话
+
+### POST /api/review/sessions
+
+创建复习队列快照，首次返回一页卡片。
+
+**Request Body:**
+
+```json
+{
+  "mode": "due",
+  "deck_id": null,
+  "batch_size": 10
+}
+```
+
+**Response (200):**
+
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": {
+    "session_id": "uuid",
+    "mode": "due",
+    "deck_id": null,
+    "batch_size": 10,
+    "total": 37,
+    "cursor": 10,
+    "has_more": true,
+    "cards": [ ... ]
+  }
+}
+```
+
+### GET /api/review/sessions/{sessionId}
+
+按 `cursor` 拉取下一页，默认 `limit=10`；会话过期返回 410。
+
+### DELETE /api/review/sessions/{sessionId}
+
+用户完成或离开复习时关闭会话。
+
+### POST /api/review/sync
+
+按顺序提交离线评分，每条使用 `client_request_id` 幂等，并用 `review_version` 校验服务器卡片状态。
+
+**Request Body:**
+
+```json
+{
+  "items": [
+    {
+      "client_request_id": "uuid",
+      "card_id": "uuid",
+      "rating": "FAMILIAR",
+      "rated_at": "2025-08-02T12:00:00Z",
+      "review_version": 3
+    }
+  ]
+}
+```
+
+**Response 条目状态：** `SYNCED`、`ALREADY_SYNCED`、`CONFLICT`、`CARD_NOT_FOUND`。冲突时返回 `current_card` 与最新 `review_version`。
+
+### GET /api/sync/bootstrap
+
+返回当前用户全量离线快照：`server_time`、用户设置、牌组及全部卡片、复习日志。卡片包含 `review_version`、`learning_step`、`created_at`、`updated_at`。
+
+### 评分锁规则
+
+- 所有复习队列和卡片响应都返回 `review_version`。
+- 单卡评分请求可携带 `client_request_id` 与 `review_version`；版本不一致返回 409。
+- 两个设备同时评分时，服务端用事务行锁串行处理，后提交方因版本不一致被拒绝。

@@ -16,12 +16,20 @@ public class RateResponse {
     private boolean learningMode;
     private int consecutiveFamiliar;
     private int nextIntervalDays;
+    private long reviewVersion;
 
     public RateResponse() {}
 
     public RateResponse(UUID cardId, String rating, int stageBefore, int stageAfter,
                         LocalDate nextReviewDate, boolean learningMode, int consecutiveFamiliar,
                         int nextIntervalDays) {
+        this(cardId, rating, stageBefore, stageAfter, nextReviewDate, learningMode,
+                consecutiveFamiliar, nextIntervalDays, 0);
+    }
+
+    public RateResponse(UUID cardId, String rating, int stageBefore, int stageAfter,
+                        LocalDate nextReviewDate, boolean learningMode, int consecutiveFamiliar,
+                        int nextIntervalDays, long reviewVersion) {
         this.cardId = cardId;
         this.rating = rating;
         this.stageBefore = stageBefore;
@@ -30,6 +38,7 @@ public class RateResponse {
         this.learningMode = learningMode;
         this.consecutiveFamiliar = consecutiveFamiliar;
         this.nextIntervalDays = nextIntervalDays;
+        this.reviewVersion = reviewVersion;
     }
 
     public UUID getCardId() { return cardId; }
@@ -48,4 +57,6 @@ public class RateResponse {
     public void setConsecutiveFamiliar(int consecutiveFamiliar) { this.consecutiveFamiliar = consecutiveFamiliar; }
     public int getNextIntervalDays() { return nextIntervalDays; }
     public void setNextIntervalDays(int nextIntervalDays) { this.nextIntervalDays = nextIntervalDays; }
+    public long getReviewVersion() { return reviewVersion; }
+    public void setReviewVersion(long reviewVersion) { this.reviewVersion = reviewVersion; }
 }

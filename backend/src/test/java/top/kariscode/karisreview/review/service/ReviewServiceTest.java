@@ -14,9 +14,13 @@ import top.kariscode.karisreview.common.util.DateUtils;
 import top.kariscode.karisreview.review.dto.RateRequest;
 import top.kariscode.karisreview.review.dto.RateResponse;
 import top.kariscode.karisreview.review.dto.ReviewCardResponse;
+import top.kariscode.karisreview.review.dto.ReviewSyncItem;
+import top.kariscode.karisreview.review.dto.ReviewSyncRequest;
+import top.kariscode.karisreview.review.dto.ReviewSyncResponse;
 import top.kariscode.karisreview.review.entity.ReviewLog;
 import top.kariscode.karisreview.review.repository.ReviewLogRepository;
-
+import top.kariscode.karisreview.review.repository.ReviewQueueItemRepository;
+import top.kariscode.karisreview.review.repository.ReviewSessionRepository;
 import java.time.LocalTime;
 import java.util.List;
 import java.util.Optional;
@@ -46,12 +50,19 @@ class ReviewServiceTest {
     @Mock
     private SchedulingEngine schedulingEngine;
 
+    @Mock
+    private ReviewSessionRepository reviewSessionRepository;
+
+    @Mock
+    private ReviewQueueItemRepository reviewQueueItemRepository;
+
     private ReviewService service;
 
     @BeforeEach
     void setUp() {
         service = new ReviewService(
-                cardRepository, reviewLogRepository, userRepository, schedulingEngine);
+                cardRepository, reviewLogRepository, userRepository, schedulingEngine,
+                reviewSessionRepository, reviewQueueItemRepository);
     }
 
     @Test
@@ -96,7 +107,7 @@ class ReviewServiceTest {
         Card card = new Card();
         card.setId(cardId);
         card.setStage(0);
-        when(cardRepository.findByIdAndUserId(cardId, userId)).thenReturn(Optional.of(card));
+        when(cardRepository.findByIdAndUserIdForUpdate(cardId, userId)).thenReturn(Optional.of(card));
         when(userRepository.findById(userId)).thenReturn(Optional.of(user()));
         SchedulingEngine.RatingResult result = result(0, 1, false, 0);
         when(schedulingEngine.rateFamiliar(card, LocalTime.of(4, 0))).thenReturn(result);
@@ -119,7 +130,7 @@ class ReviewServiceTest {
         Card card = new Card();
         card.setId(cardId);
         card.setStage(4);
-        when(cardRepository.findByIdAndUserId(cardId, userId)).thenReturn(Optional.of(card));
+        when(cardRepository.findByIdAndUserIdForUpdate(cardId, userId)).thenReturn(Optional.of(card));
         when(userRepository.findById(userId)).thenReturn(Optional.of(user()));
         SchedulingEngine.RatingResult result = result(4, 0, true, 0);
         when(schedulingEngine.rateForget(card, LocalTime.of(4, 0))).thenReturn(result);
@@ -140,7 +151,7 @@ class ReviewServiceTest {
         UUID cardId = UUID.randomUUID();
         Card card = new Card();
         card.setId(cardId);
-        when(cardRepository.findByIdAndUserId(cardId, userId)).thenReturn(Optional.of(card));
+        when(cardRepository.findByIdAndUserIdForUpdate(cardId, userId)).thenReturn(Optional.of(card));
 
         BusinessException exception = assertThrows(
                 BusinessException.class,
@@ -156,7 +167,7 @@ class ReviewServiceTest {
     void rateRejectsMissingCard() {
         UUID userId = UUID.randomUUID();
         UUID cardId = UUID.randomUUID();
-        when(cardRepository.findByIdAndUserId(cardId, userId)).thenReturn(Optional.empty());
+        when(cardRepository.findByIdAndUserIdForUpdate(cardId, userId)).thenReturn(Optional.empty());
 
         BusinessException exception = assertThrows(
                 BusinessException.class,
@@ -164,6 +175,105 @@ class ReviewServiceTest {
 
         assertEquals(404, exception.getCode());
         assertEquals("卡片不存在", exception.getMessage());
+    }
+
+    @Test
+    void syncRatingsRejectsVersionConflict() {
+        UUID userId = UUID.randomUUID();
+        UUID cardId = UUID.randomUUID();
+        Card card = new Card();
+        card.setId(cardId);
+        card.setUserId(userId);
+        card.setStage(3);
+        card.setReviewVersion(3);
+        when(cardRepository.findByIdAndUserIdForUpdate(cardId, userId)).thenReturn(Optional.of(card));
+
+        ReviewSyncResponse response = service.syncRatings(userId, syncRequest(syncItem(cardId, 2)));
+
+        assertEquals(1, response.getConflicts());
+        assertEquals("CONFLICT", response.getItems().get(0).getStatus());
+        verify(cardRepository, never()).save(any());
+        verify(reviewLogRepository, never()).save(any());
+    }
+
+    @Test
+    void syncRatingsIsIdempotentForClientRequestId() {
+        UUID userId = UUID.randomUUID();
+        UUID cardId = UUID.randomUUID();
+        ReviewLog existing = new ReviewLog();
+        existing.setCardId(cardId);
+        existing.setRating("FAMILIAR");
+        when(reviewLogRepository.findByUserIdAndClientRequestId(userId, "request-1"))
+                .thenReturn(Optional.of(existing));
+
+        ReviewSyncResponse response = service.syncRatings(
+                userId, syncRequest(syncItem(cardId, 0)));
+
+        assertEquals("ALREADY_SYNCED", response.getItems().get(0).getStatus());
+        verify(cardRepository, never()).findByIdAndUserIdForUpdate(any(), any());
+        verify(reviewLogRepository, never()).save(any());
+    }
+
+    @Test
+    void syncRatingsAppliesInOrderAndPersistsClientId() {
+        UUID userId = UUID.randomUUID();
+        UUID cardId = UUID.randomUUID();
+        Card card = new Card();
+        card.setId(cardId);
+        card.setUserId(userId);
+        card.setStage(0);
+        card.setReviewVersion(0);
+        when(cardRepository.findByIdAndUserIdForUpdate(cardId, userId)).thenReturn(Optional.of(card));
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user()));
+        when(schedulingEngine.rateFamiliar(card, LocalTime.of(4, 0)))
+                .thenReturn(result(0, 1, false, 0));
+        when(cardRepository.save(card)).thenReturn(card);
+
+        ReviewSyncResponse response = service.syncRatings(
+                userId, syncRequest(syncItem(cardId, 0)));
+
+        assertEquals(1, response.getSynced());
+        assertEquals("SYNCED", response.getItems().get(0).getStatus());
+        ArgumentCaptor<ReviewLog> captor = ArgumentCaptor.forClass(ReviewLog.class);
+        verify(reviewLogRepository).save(captor.capture());
+        assertEquals("request-1", captor.getValue().getClientRequestId());
+    }
+
+    @Test
+    void rateCardRejectsStaleReviewVersion() {
+        UUID userId = UUID.randomUUID();
+        UUID cardId = UUID.randomUUID();
+        Card card = new Card();
+        card.setId(cardId);
+        card.setUserId(userId);
+        card.setReviewVersion(3);
+        when(cardRepository.findByIdAndUserIdForUpdate(cardId, userId)).thenReturn(Optional.of(card));
+        RateRequest request = rate("FAMILIAR");
+        request.setReviewVersion(2);
+
+        BusinessException exception = assertThrows(
+                BusinessException.class,
+                () -> service.rateCard(userId, cardId, request));
+
+        assertEquals(409, exception.getCode());
+        verify(cardRepository, never()).save(any());
+        verify(reviewLogRepository, never()).save(any());
+    }
+
+    private ReviewSyncItem syncItem(UUID cardId, long reviewVersion) {
+        ReviewSyncItem item = new ReviewSyncItem();
+        item.setClientRequestId("request-1");
+        item.setCardId(cardId);
+        item.setRating("FAMILIAR");
+        item.setRatedAt(DateUtils.calculateToday(LocalTime.of(4, 0)).atTime(12, 0));
+        item.setReviewVersion(reviewVersion);
+        return item;
+    }
+
+    private ReviewSyncRequest syncRequest(ReviewSyncItem item) {
+        ReviewSyncRequest request = new ReviewSyncRequest();
+        request.setItems(List.of(item));
+        return request;
     }
 
     private User user() {
