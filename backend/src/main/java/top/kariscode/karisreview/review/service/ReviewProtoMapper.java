@@ -11,6 +11,9 @@ import top.kariscode.karisreview.review.dto.ReviewSyncRequest;
 import top.kariscode.karisreview.review.dto.ReviewSyncResponse;
 
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.UUID;
 
@@ -76,7 +79,7 @@ public class ReviewProtoMapper {
             syncItem.setClientRequestId(item.getClientRequestId());
             syncItem.setCardId(UUID.fromString(item.getCardId()));
             syncItem.setRating(item.getRating());
-            syncItem.setRatedAt(LocalDateTime.parse(item.getRatedAt()));
+            syncItem.setRatedAt(parseRatedAt(item.getRatedAt()));
             syncItem.setReviewVersion(item.getReviewVersion());
             items.add(syncItem);
         }
@@ -121,5 +124,15 @@ public class ReviewProtoMapper {
             builder.setNextReviewDate(card.getNextReviewDate().toString());
         }
         return builder.build();
+    }
+
+    private static LocalDateTime parseRatedAt(String value) {
+        try {
+            return OffsetDateTime.parse(value)
+                    .withOffsetSameInstant(ZoneOffset.UTC)
+                    .toLocalDateTime();
+        } catch (DateTimeParseException ignored) {
+            return LocalDateTime.parse(value);
+        }
     }
 }

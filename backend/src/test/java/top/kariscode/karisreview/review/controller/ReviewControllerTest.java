@@ -150,7 +150,7 @@ class ReviewControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"items\":[{\"client_request_id\":\"request-1\"," +
                                 "\"card_id\":\"00000000-0000-0000-0000-000000000001\"," +
-                                "\"rating\":\"FAMILIAR\",\"rated_at\":\"2025-08-02T12:00:00\",\"review_version\":0}]}"))
+                                "\"rating\":\"FAMILIAR\",\"rated_at\":\"2025-08-02T12:00:00Z\",\"review_version\":0}]}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.synced").value(1));
     }
