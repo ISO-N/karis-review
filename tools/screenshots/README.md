@@ -1,6 +1,6 @@
 # Karis Review 界面截图
 
-使用 Playwright 驱动 Chrome，将 Flutter Web 的每个页面和关键组件分别截成手机、平板两张图。
+使用 Playwright 驱动 Chrome，将 Flutter Web 的每个页面和关键组件分别截成手机、平板各 15 张截图。
 
 ## 前置条件
 
@@ -39,6 +39,25 @@ node capture.cjs
 - `docs/frontend-design/screenshots/mobile/`
 - `docs/frontend-design/screenshots/tablet/`
 
+每次运行会先清空 `mobile/` 和 `tablet/`，避免旧截图残留。每端生成 15 张：
+
+```text
+01-login.png
+02-register.png
+03-home.png
+04-start-flow.png
+05-decks.png
+06-deck-dialog.png
+07-cards.png
+08-card-editor-front.png
+09-card-editor-back.png
+10-card-import.png
+11-review-front.png
+12-review-back.png
+13-review-complete.png
+14-stats.png
+15-settings.png
+```
 如果 `playwright-core` 没有安装在 `tools/screenshots/node_modules`，可通过环境变量指定安装位置：
 
 ```bash

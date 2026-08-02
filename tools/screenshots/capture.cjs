@@ -153,6 +153,11 @@ async function shot(page, dir, name) {
   console.log('saved', path.relative(ROOT, target));
 }
 
+function cleanOutputDir(dir) {
+  fs.rmSync(dir, { recursive: true, force: true });
+  fs.mkdirSync(dir, { recursive: true });
+}
+
 async function login(page, account) {
   await page.locator('input[aria-label="邮箱"]').fill(account.email);
   await page.locator('input[aria-label="密码"]').fill(account.password);
@@ -207,20 +212,29 @@ async function captureCards(page, dir) {
   await shot(page, dir, '07-cards.png');
 
   await clickButton(page, '新卡片');
-  await sleep(1200);
-  await shot(page, dir, '08-card-editor.png');
-  await clickAria(page, '关闭');
+  await sleep(1500);
+  await shot(page, dir, '08-card-editor-front.png');
+  await clickAria(page, '反面');
+  await sleep(1000);
+  await shot(page, dir, '09-card-editor-back.png');
+  await clickAria(page, '返回');
+  await sleep(900);
+
+  await clickAria(page, '导入卡片');
+  await sleep(1500);
+  await shot(page, dir, '10-card-import.png');
+  await clickAria(page, '返回');
   await sleep(900);
 }
 
 async function captureReview(page, dir) {
   await clickAria(page, '复习当前牌组');
   await sleep(2000);
-  await shot(page, dir, '09-review-front.png');
+  await shot(page, dir, '11-review-front.png');
 
   await clickAria(page, '闪卡');
   await sleep(1100);
-  await shot(page, dir, '10-review-back.png');
+  await shot(page, dir, '12-review-back.png');
 
   for (let i = 0; i < 10; i++) {
     const text = await bodyText(page);
@@ -234,20 +248,21 @@ async function captureReview(page, dir) {
     await sleep(1200);
   }
   await sleep(4200);
-  await shot(page, dir, '11-review-complete.png');
+  await shot(page, dir, '13-review-complete.png');
   await clickButton(page, '返回今日');
   await sleep(1500);
 }
 
 async function captureStatsAndSettings(page, dir) {
   await goNav(page, '统计');
-  await shot(page, dir, '12-stats.png');
+  await shot(page, dir, '14-stats.png');
   await goNav(page, '设置');
-  await shot(page, dir, '13-settings.png');
+  await shot(page, dir, '15-settings.png');
 }
 
 async function captureDevice(browser, viewport, account, deviceName) {
   const dir = path.join(OUTPUT_ROOT, deviceName);
+  cleanOutputDir(dir);
   const page = await browser.newPage({ viewport });
   try {
     await captureAuthAndHome(page, account, dir);
