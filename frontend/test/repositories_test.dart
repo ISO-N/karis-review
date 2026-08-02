@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:karisreview/auth/models/login_request.dart';
 import 'package:karisreview/auth/repositories/auth_repository.dart';
@@ -8,6 +9,7 @@ import 'package:karisreview/settings/repositories/settings_repository.dart';
 import 'package:karisreview/shared/api/api_client.dart';
 import 'package:karisreview/shared/proto/karis_review.pb.dart' as proto;
 import 'package:karisreview/stats/repositories/stats_repository.dart';
+import 'package:karisreview/sync/repositories/sync_repository.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'helpers/test_helpers.dart';
@@ -192,6 +194,38 @@ void main() {
       final result = await repository.rateCard('card-1', 'FAMILIAR');
 
       expect(result.stageAfter, 1);
+    });
+  });
+
+  group('SyncRepository', () {
+    test('protobuf 401 falls back to JSON without losing token', () async {
+      final client = FakeApiClient();
+      client.onGetProto = (path, query) async {
+        throw DioException(
+          requestOptions: RequestOptions(path: path),
+          type: DioExceptionType.badResponse,
+          response: Response<dynamic>(
+            requestOptions: RequestOptions(path: path),
+            statusCode: 401,
+          ),
+        );
+      };
+      client.onGet = (path, query) async {
+        expect(path, apiPath('/sync/bootstrap'));
+        expect(query, {'event_cursor': 0});
+        return okResponse({
+          'server_time': '2026-01-01T00:00:00Z',
+          'user': {'id': 'u1', 'email': 'a@b.c', 'refresh_time': '04:00:00'},
+          'decks': [],
+          'review_logs': [],
+          'event_cursor': 0,
+          'has_more': false,
+          'reset_required': false,
+        });
+      };
+
+      final data = await SyncRepository(client: client).fetchBootstrap();
+      expect(data['user']['email'], 'a@b.c');
     });
   });
 

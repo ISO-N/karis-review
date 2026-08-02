@@ -26,7 +26,8 @@ class ApiClient {
         baseUrl: ApiEndpoints.baseUrl,
         connectTimeout: const Duration(seconds: 8),
         receiveTimeout: const Duration(seconds: 20),
-        validateStatus: (status) => status != null && status < 400,
+        validateStatus: (status) =>
+            status != null && (status < 300 || status == 304),
         headers: {'Content-Type': 'application/json'},
       ),
     );
@@ -41,7 +42,8 @@ class ApiClient {
           handler.next(options);
         },
         onError: (error, handler) async {
-          if (error.response?.statusCode == 401) {
+          if (error.response?.statusCode == 401 &&
+              !_isProtoRequest(error.requestOptions)) {
             await clearToken();
             onUnauthorized?.call();
           }
@@ -155,6 +157,11 @@ class ApiClient {
         type: DioExceptionType.badResponse,
       );
     }
+  }
+
+  static bool _isProtoRequest(RequestOptions options) {
+    return options.headers['Accept'] == 'application/x-protobuf' ||
+        options.headers['Content-Type'] == 'application/x-protobuf';
   }
 
   static String _queryKey(Map<String, dynamic>? queryParameters) {
