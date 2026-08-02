@@ -346,7 +346,7 @@ class _QueuePanel extends StatelessWidget {
                 final active = index == state.currentIndex;
                 return Container(
                   margin: active
-                      ? const EdgeInsets.symmetric(vertical: 0, horizontal: -10)
+                      ? const EdgeInsets.symmetric(horizontal: 8)
                       : null,
                   padding: const EdgeInsets.all(10),
                   decoration: active

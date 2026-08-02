@@ -14,20 +14,22 @@ import 'card_editor_sheet.dart';
 
 class CardImportSheet extends StatefulWidget {
   final String deckId;
+  final CardRepository repository;
   final ValueChanged<int>? onImported;
 
-  const CardImportSheet({
+  CardImportSheet({
     super.key,
     required this.deckId,
+    CardRepository? repository,
     this.onImported,
-  });
+  }) : repository = repository ?? CardRepository();
 
   @override
   State<CardImportSheet> createState() => _CardImportSheetState();
 }
 
 class _CardImportSheetState extends State<CardImportSheet> {
-  final CardRepository _repository = CardRepository();
+  CardRepository get _repository => widget.repository;
   final TextEditingController _jsonController = TextEditingController();
   final List<CardImportPreviewItem> _items = [];
 

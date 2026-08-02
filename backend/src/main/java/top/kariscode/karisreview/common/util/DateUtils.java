@@ -1,6 +1,8 @@
 package top.kariscode.karisreview.common.util;
 
 import java.time.LocalDate;
+import java.time.Clock;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
@@ -16,7 +18,14 @@ public class DateUtils {
      *          refresh_time = 04:00, current = 2025-08-02 10:00 → today = 2025-08-02
      */
     public static LocalDate calculateToday(LocalTime refreshTime) {
-        LocalDateTime now = LocalDateTime.now(ZoneId.of("UTC"));
+        return calculateToday(refreshTime, LocalDateTime.now(ZoneId.of("UTC")));
+    }
+
+    public static LocalDate calculateToday(LocalTime refreshTime, Clock clock) {
+        return calculateToday(refreshTime, LocalDateTime.now(clock));
+    }
+
+    public static LocalDate calculateToday(LocalTime refreshTime, LocalDateTime now) {
         LocalDateTime todayRefresh = now.toLocalDate().atTime(refreshTime);
         if (now.isBefore(todayRefresh)) {
             return now.toLocalDate().minusDays(1);
@@ -29,7 +38,14 @@ public class DateUtils {
      * Based on the user's refresh time.
      */
     public static LocalDate calculateNextReviewDate(int intervalDays, LocalTime refreshTime) {
-        LocalDate today = calculateToday(refreshTime);
-        return today.plusDays(intervalDays);
+        return calculateNextReviewDate(intervalDays, refreshTime, LocalDateTime.now(ZoneId.of("UTC")));
+    }
+
+    public static LocalDate calculateNextReviewDate(int intervalDays, LocalTime refreshTime, Clock clock) {
+        return calculateNextReviewDate(intervalDays, refreshTime, LocalDateTime.now(clock));
+    }
+
+    public static LocalDate calculateNextReviewDate(int intervalDays, LocalTime refreshTime, LocalDateTime now) {
+        return calculateToday(refreshTime, now).plusDays(intervalDays);
     }
 }

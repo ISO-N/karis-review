@@ -4,7 +4,9 @@ import '../models/login_request.dart';
 import '../models/login_response.dart';
 
 class AuthRepository {
-  final ApiClient _client = ApiClient();
+  final ApiClient _client;
+
+  AuthRepository({ApiClient? client}) : _client = client ?? ApiClient();
 
   Future<LoginResponse> register(LoginRequest request) async {
     final response = await _client.post(

@@ -288,7 +288,7 @@ class _DistributionPanel extends StatelessWidget {
                 1,
                 (current, item) => item > current ? item : current,
               );
-              final height = max == 0 ? 4.0 : 4.0 + (value / max) * 118;
+              final height = max == 0 ? 4.0 : 4.0 + (value / max) * 104;
               return Expanded(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.end,

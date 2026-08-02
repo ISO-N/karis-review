@@ -82,9 +82,23 @@ cp .env.prod.example .env.prod
 ## 测试
 
 ```bash
+## 测试
+
+后端完整测试包含部件测试与系统测试，需要 PostgreSQL：
+
+```bash
+docker compose up -d postgres
 cd backend
 mvn test
+```
 
+前端测试不需要真实后端：
+
+```bash
 cd frontend
+flutter pub get
+flutter analyze
 flutter test
 ```
+
+测试层级、数据隔离与场景说明见 [docs/design/testing.md](docs/design/testing.md)。

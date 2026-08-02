@@ -91,8 +91,9 @@ flutter build web --release --dart-define=API_BASE_URL=https://review.kariscode.
 
 ## 测试
 
-- 后端：`SchedulingEngineTest` 覆盖评分规则（Familiar 推进、Forget/Vague 重学阈值、重学计数重置、Stage 1 Vague 特例）；`CardImportParserTest` 和 `CardImportServiceTest` 覆盖快捷导入解析与批量写入。
-- 前端：`test/widget_test.dart`、`test/rich_content_test.dart`（富文本渲染解析）、`test/card_import_test.dart`（导入预览模型）。
+- 后端：`mvn test` 会运行纯算法/工具测试、Service 与 Controller 部件测试，以及真实 PostgreSQL + HTTP 的系统测试；系统测试只创建/清理 `system-test-*@example.com` 测试用户，不清理其他用户数据。
+- 前端：`flutter test` 覆盖模型、Repository、Provider 和主要页面 Widget；`flutter analyze` 需保持无警告。
+- 测试层级、运行命令和数据隔离说明见 `docs/design/testing.md`。
 
 ## 文档
 

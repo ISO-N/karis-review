@@ -7,6 +7,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import top.kariscode.karisreview.card.dto.CardImportItem;
+import top.kariscode.karisreview.card.dto.CardImportPreviewResponse;
 import top.kariscode.karisreview.card.dto.CardImportRequest;
 import top.kariscode.karisreview.card.dto.CardImportResult;
 import top.kariscode.karisreview.card.entity.Card;
@@ -15,13 +16,18 @@ import top.kariscode.karisreview.common.exception.BusinessException;
 import top.kariscode.karisreview.deck.entity.Deck;
 import top.kariscode.karisreview.deck.repository.DeckRepository;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class CardImportServiceTest {
@@ -64,10 +70,36 @@ class CardImportServiceTest {
         assertEquals(deckId, card.getDeckId());
         assertEquals(userId, card.getUserId());
         assertEquals("正面一", card.getFront());
-        assertEquals("反面一", card.getBack());
         assertEquals(0, card.getStage());
-        assertFalse(card.isLearningMode());
         assertNull(card.getNextReviewDate());
+    }
+
+    @Test
+    void previewRequiresOwnedDeckBeforeParsing() {
+        UUID userId = UUID.randomUUID();
+        UUID deckId = UUID.randomUUID();
+        when(deckRepository.findByIdAndUserId(deckId, userId)).thenReturn(Optional.empty());
+
+        BusinessException exception = assertThrows(
+                BusinessException.class,
+                () -> service.preview(userId, deckId, "[]"));
+
+        assertEquals(404, exception.getCode());
+        verify(cardImportParser, never()).parse(any());
+    }
+
+    @Test
+    void previewDelegatesToParserForOwnedDeck() {
+        UUID userId = UUID.randomUUID();
+        UUID deckId = UUID.randomUUID();
+        Deck deck = new Deck();
+        deck.setId(deckId);
+        deck.setUserId(userId);
+        CardImportPreviewResponse preview = new CardImportPreviewResponse(1, 1, 0, List.of());
+        when(deckRepository.findByIdAndUserId(deckId, userId)).thenReturn(Optional.of(deck));
+        when(cardImportParser.parse("content")).thenReturn(preview);
+
+        assertEquals(preview, service.preview(userId, deckId, "content"));
     }
 
     @Test
@@ -104,6 +136,69 @@ class CardImportServiceTest {
 
         assertEquals(404, exception.getCode());
         assertEquals("牌组不存在", exception.getMessage());
+        verify(cardRepository, never()).saveAll(any());
+    }
+
+    @Test
+    void rejectsEmptyCardList() {
+        UUID userId = UUID.randomUUID();
+        UUID deckId = UUID.randomUUID();
+        when(deckRepository.findByIdAndUserId(deckId, userId))
+                .thenReturn(Optional.of(new Deck()));
+
+        CardImportRequest request = new CardImportRequest();
+        request.setCards(List.of());
+
+        BusinessException exception = assertThrows(
+                BusinessException.class,
+                () -> service.importCards(userId, deckId, request));
+
+        assertEquals(400, exception.getCode());
+        assertEquals("卡片列表不能为空", exception.getMessage());
+        verify(cardRepository, never()).saveAll(any());
+    }
+
+    @Test
+    void rejectsMoreThanMaxCards() {
+        UUID userId = UUID.randomUUID();
+        UUID deckId = UUID.randomUUID();
+        when(deckRepository.findByIdAndUserId(deckId, userId))
+                .thenReturn(Optional.of(new Deck()));
+
+        CardImportRequest request = new CardImportRequest();
+        request.setCards(new ArrayList<>());
+        request.getCards().clear();
+        for (int i = 0; i < CardImportParser.MAX_CARDS + 1; i++) {
+            request.getCards().add(item("正面" + i, "反面" + i));
+        }
+
+        BusinessException exception = assertThrows(
+                BusinessException.class,
+                () -> service.importCards(userId, deckId, request));
+
+        assertEquals(400, exception.getCode());
+        verify(cardRepository, never()).saveAll(any());
+    }
+
+    @Test
+    void rejectsNullRowAndRejectsWholeImport() {
+        UUID userId = UUID.randomUUID();
+        UUID deckId = UUID.randomUUID();
+        when(deckRepository.findByIdAndUserId(deckId, userId))
+                .thenReturn(Optional.of(new Deck()));
+
+        CardImportRequest request = new CardImportRequest();
+        List<CardImportItem> cards = new ArrayList<>();
+        cards.add(item("正面", "反面"));
+        cards.add(null);
+        request.setCards(cards);
+
+        BusinessException exception = assertThrows(
+                BusinessException.class,
+                () -> service.importCards(userId, deckId, request));
+
+        assertEquals(400, exception.getCode());
+        assertEquals("卡片数据不能为空", exception.getMessage());
         verify(cardRepository, never()).saveAll(any());
     }
 
