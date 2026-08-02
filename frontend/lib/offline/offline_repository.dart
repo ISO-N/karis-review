@@ -567,7 +567,21 @@ class OfflineRepository {
   }
 
   Future<void> updateCardFromServer(String userId, ReviewCard card) async {
+    final pending = await (db.select(db.localReviewLogs)
+          ..where(
+            (t) =>
+                t.userId.equals(userId) &
+                t.cardId.equals(card.id) &
+                t.syncStatus.equals('PENDING'),
+          ))
+        .get();
     final existing = await getLocalCard(userId, card.id);
+    final serverVersion = BigInt.from(card.reviewVersion);
+    if (pending.isNotEmpty &&
+        existing != null &&
+        existing.reviewVersion.compareTo(serverVersion) >= 0) {
+      return;
+    }
     final created = existing?.createdAt;
     await db.into(db.localCards).insertOnConflictUpdate(
           LocalCardsCompanion.insert(

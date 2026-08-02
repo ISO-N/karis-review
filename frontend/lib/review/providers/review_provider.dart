@@ -145,6 +145,20 @@ class ReviewNotifier extends StateNotifier<ReviewSessionState> {
       mode: mode,
       deckId: deckId,
     ).copyWith(isLoading: true, error: null, ratingFailed: false);
+    final userId = await _activeUserId();
+    if (userId != null) {
+      final pending = await _offline.getPendingRatings(userId);
+      if (pending.isNotEmpty) {
+        try {
+          await _syncService.syncPending(userId: userId);
+        } catch (_) {}
+        final remaining = await _offline.getPendingRatings(userId);
+        if (remaining.isNotEmpty) {
+          await _loadLocalQueue(mode: mode, deckId: deckId);
+          return;
+        }
+      }
+    }
     try {
       final page = await _sync.createReviewSession(
         mode: mode,
@@ -152,10 +166,10 @@ class ReviewNotifier extends StateNotifier<ReviewSessionState> {
         batchSize: limit,
       );
       final cards = _parseCards(page['cards']);
-      final userId = await _activeUserId();
-      if (userId != null) {
+      final currentUserId = userId ?? await _activeUserId();
+      if (currentUserId != null) {
         for (final card in cards) {
-          await _offline.updateCardFromServer(userId, card);
+          await _offline.updateCardFromServer(currentUserId, card);
         }
       }
       state = state.copyWith(
