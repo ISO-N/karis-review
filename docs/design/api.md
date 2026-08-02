@@ -501,6 +501,100 @@
 }
 ```
 
+### POST /api/decks/{deckId}/cards/import/preview
+
+解析用户粘贴或上传的卡片 JSON 数组，返回逐行规范化预览。
+
+**Headers:** `Authorization: Bearer <token>`
+
+**Request Body:**
+
+```json
+{
+  "content": "[{\"front\":\"正面\",\"back\":\"反面\"}]"
+}
+```
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| content | string | 是 | 原始 JSON 数组文本，最大 2MB |
+
+**Response (200):**
+
+```json
+{
+  "code": 200,
+  "message": "解析完成",
+  "data": {
+    "total": 2,
+    "valid_count": 2,
+    "invalid_count": 0,
+    "cards": [
+      {
+        "index": 0,
+        "front": "正面",
+        "back": "反面",
+        "valid": true,
+        "message": null
+      }
+    ]
+  }
+}
+```
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| total | int | 解析出的行数 |
+| valid_count | int | 有效卡片数 |
+| invalid_count | int | 无效卡片数 |
+| cards | array | 逐行预览，`valid=false` 时 `message` 为中文错误信息 |
+
+格式规则：
+
+- 顶层必须是 JSON 数组，元素为 `{"front":"...","back":"..."}`。
+- `front`、`back` 必须是非空字符串，未知字段忽略。
+- 单个元素无效不会中断解析；顶层非数组、空数组、超过 1000 行或超过 2MB 时返回 400。
+- 预览接口不保存任何状态。
+
+---
+
+### POST /api/decks/{deckId}/cards/import
+
+将预览后的卡片批量导入当前牌组。
+
+**Headers:** `Authorization: Bearer <token>`
+
+**Request Body:**
+
+```json
+{
+  "cards": [
+    {
+      "front": "正面",
+      "back": "反面"
+    }
+  ]
+}
+```
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| cards | array | 是 | 非空卡片列表，最多 1000 张 |
+
+**Response (200):**
+
+```json
+{
+  "code": 200,
+  "message": "卡片已导入",
+  "data": {
+    "imported_cards": 2
+  }
+}
+```
+
+> 导入接口会重新校验牌组归属和每行内容；有任何无效行则整体拒绝，不做部分导入。导入的卡片均为 Stage 0 新卡，不包含排期状态与复习日志。
+
 ---
 
 ## 6. 复习模块

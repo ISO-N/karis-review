@@ -58,6 +58,7 @@ flutter build web --release --dart-define=API_BASE_URL=https://review.kariscode.
 - **API 文档**：集成 Springdoc OpenAPI 3，配置了 JWT Bearer 安全方案；登录/注册接口豁免认证要求，生产 profile 关闭文档。
 - **"今天"的定义**：不是自然日。`common/util/DateUtils.calculateToday(refreshTime)` 依据用户设置的 `refresh_time`（默认 04:00）计算"今天"范围——当前时间在刷新点之前时算前一天。所有到期判断（due、stats、学习模式插入位置）都基于此。
 - **数据库变更**：`ddl-auto=none`，schema 由 Flyway 迁移管理（`src/main/resources/db/migration/V1~V6`）。改表必须新增迁移脚本，不能改已提交的脚本。
+- **卡片快捷导入**：`card/service/CardImportParser` 负责解析 JSON 数组，`CardImportService` 校验牌组归属并批量写入新卡；`CardImportController` 暴露 `/api/decks/{deckId}/cards/import/preview` 与 `/api/decks/{deckId}/cards/import`，不写复习记录和排期状态。
 
 #### 排期算法（核心业务逻辑）
 
@@ -84,16 +85,17 @@ flutter build web --release --dart-define=API_BASE_URL=https://review.kariscode.
 - **API 客户端**：`shared/api/api_client.dart` 的 Dio 单例，拦截器自动附加 Token（SharedPreferences 存储）并在 401 时清除。基础 URL 与端点常量在 `shared/api/api_endpoints.dart`。
 - **路由/鉴权**：`app/router.dart` 的 GoRouter 监听 `authProvider` 做重定向（未登录 → `/login`，已登录访问登录页 → `/decks`）。`/review/due` 与 `/review/new` 共用 `ReviewPage`，用 `filter` 参数区分学习/复习模式，牌组筛选走 `deck_id` query 参数。
 - **富文本**：卡片正反面存 Quill Delta JSON 字符串（`flutter_quill` 编辑器，LaTeX 和代码块是自定义 custom block embed）。`shared/widgets/rich_card_content.dart` 渲染时自动识别——内容以 `[` 开头且可解析为 JSON 列表则按 Delta 渲染，否则按轻量 Markdown 解析（`**粗体**`、`*斜体*`、`` `行内代码` ``、`# 标题`、`- 列表`、`$$...$$` 行间公式、`$...$` 行内公式、` ``` 代码块 ````），并对 Delta/普通文本两种格式都做了容错处理。
+- **卡片快捷导入**：`card/widgets/card_import_sheet.dart` 支持粘贴 JSON 或选择 `.json` 文件；解析和最终导入都走后端，预览阶段可编辑/删除行，不支持新增和排序。
 - **评分流程**：`review/providers/review_provider.dart` 维护 `ReviewSessionState`（卡片队列、当前索引、是否翻面），评分后推进索引。
 - 另有 `shared/widgets/loading_widget.dart`、`error_widget.dart` 等通用组件。
 
 ## 测试
 
-- 后端：`SchedulingEngineTest` 覆盖评分规则（Familiar 推进、Forget/Vague 重学阈值、重学计数重置、Stage 1 Vague 特例）。
-- 前端：`test/widget_test.dart`、`test/rich_content_test.dart`（富文本渲染解析）。
+- 后端：`SchedulingEngineTest` 覆盖评分规则（Familiar 推进、Forget/Vague 重学阈值、重学计数重置、Stage 1 Vague 特例）；`CardImportParserTest` 和 `CardImportServiceTest` 覆盖快捷导入解析与批量写入。
+- 前端：`test/widget_test.dart`、`test/rich_content_test.dart`（富文本渲染解析）、`test/card_import_test.dart`（导入预览模型）。
 
 ## 文档
 
-`docs/README.md` 是文档索引：需求（`docs/requirements/`）、架构/数据库/API 设计（`docs/design/`）。需求文档里有 26 条用户需求，改功能前先对照。API 细节以 `docs/design/api.md` 为准（含所有接口的请求/响应示例）。
+`docs/README.md` 是文档索引：需求（`docs/requirements/`）、架构/数据库/API 设计（`docs/design/`）。需求文档里有 27 条用户需求，改功能前先对照。API 细节以 `docs/design/api.md` 为准（含所有接口的请求/响应示例）。
 
 代码语义变更（字段、算法、接口、表结构等）时，须同步更新对应文档（本文件、docs/ 下相关文档、迁移脚本）。
