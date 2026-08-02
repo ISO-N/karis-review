@@ -1,6 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:karisreview/auth/models/auth_config.dart';
 import 'package:karisreview/auth/models/login_request.dart';
 import 'package:karisreview/auth/models/login_response.dart';
+import 'package:karisreview/auth/models/register_request.dart';
 import 'package:karisreview/card/models/card.dart';
 import 'package:karisreview/card/models/card_import.dart';
 import 'package:karisreview/deck/models/deck.dart';
@@ -182,9 +184,40 @@ void main() {
       expect(response.user.id, 'u1');
       expect(response.user.email, 'user@example.com');
     });
-
     test('serializes login request', () {
       final request = LoginRequest(email: 'a@b.c', password: 'secret');
+
+      expect(request.toJson(), {'email': 'a@b.c', 'password': 'secret'});
+    });
+
+    test('parses auth config with default', () {
+      expect(
+        AuthConfig.fromJson({'invite_code_required': true}).inviteCodeRequired,
+        isTrue,
+      );
+      expect(AuthConfig.fromJson({}).inviteCodeRequired, isFalse);
+    });
+
+    test('serializes register request with invite code', () {
+      final request = RegisterRequest(
+        email: 'a@b.c',
+        password: 'secret',
+        inviteCode: 'invite-1',
+      );
+
+      expect(request.toJson(), {
+        'email': 'a@b.c',
+        'password': 'secret',
+        'invite_code': 'invite-1',
+      });
+    });
+
+    test('omits empty register invite code', () {
+      final request = RegisterRequest(
+        email: 'a@b.c',
+        password: 'secret',
+        inviteCode: '',
+      );
 
       expect(request.toJson(), {'email': 'a@b.c', 'password': 'secret'});
     });

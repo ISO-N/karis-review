@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:protobuf/protobuf.dart' as pb;
+import 'package:karisreview/auth/models/auth_config.dart';
 import 'package:karisreview/auth/providers/auth_provider.dart';
 import 'package:karisreview/auth/repositories/auth_repository.dart';
 import 'package:karisreview/card/providers/card_provider.dart';
@@ -251,8 +252,14 @@ Map<String, dynamic> importPreviewJson() {
 DeckStats deckStats() => DeckStats.fromJson(deckStatsJson());
 
 TrendPoint trendPoint() => TrendPoint.fromJson(trendPointJson());
-List<Override> authOverrides(MockAuthRepository repo) => [
+List<Override> authOverrides(
+  MockAuthRepository repo, {
+  bool inviteCodeRequired = false,
+}) => [
   authProvider.overrideWith((ref) => AuthNotifier(repo)),
+  authConfigProvider.overrideWith(
+    (ref) async => AuthConfig(inviteCodeRequired: inviteCodeRequired),
+  ),
 ];
 
 List<Override> reviewOverrides(
