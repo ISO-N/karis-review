@@ -42,6 +42,28 @@ class CardRepository {
     return FlashCard.fromJson(data);
   }
 
+  Future<Map<String, dynamic>> previewCardImport(
+    String deckId,
+    String content,
+  ) async {
+    final response = await _client.post(
+      ApiEndpoints.cardImportPreview(deckId),
+      data: {'content': content},
+    );
+    return response.data['data'] as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> importCards(
+    String deckId,
+    List<Map<String, dynamic>> cards,
+  ) async {
+    final response = await _client.post(
+      ApiEndpoints.cardImport(deckId),
+      data: {'cards': cards},
+    );
+    return response.data['data'] as Map<String, dynamic>;
+  }
+
   Future<void> deleteCard(String cardId) async {
     await _client.delete(ApiEndpoints.card(cardId));
   }

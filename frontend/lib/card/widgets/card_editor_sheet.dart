@@ -15,7 +15,9 @@ class CardEditorSheet extends ConsumerStatefulWidget {
   final String? cardId;
   final String? initialFront;
   final String? initialBack;
+  final String? title;
   final ValueChanged<bool>? onSaved;
+  final ValueChanged<(String, String)>? onLocalSave;
 
   const CardEditorSheet({
     super.key,
@@ -23,7 +25,9 @@ class CardEditorSheet extends ConsumerStatefulWidget {
     this.cardId,
     this.initialFront,
     this.initialBack,
+    this.title,
     this.onSaved,
+    this.onLocalSave,
   });
 
   @override
@@ -96,6 +100,13 @@ class _CardEditorSheetState extends ConsumerState<CardEditorSheet> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('正面和反面内容不能为空')));
+      return;
+    }
+
+    final onLocalSave = widget.onLocalSave;
+    if (onLocalSave != null) {
+      onLocalSave((front, back));
+      if (mounted) Navigator.pop(context, true);
       return;
     }
 
@@ -247,7 +258,9 @@ class _CardEditorSheetState extends ConsumerState<CardEditorSheet> {
                           const Kicker('卡片'),
                           const SizedBox(height: 4),
                           Text(
-                            widget.cardId == null ? '新建卡片' : '编辑卡片',
+                            widget.title ?? (widget.cardId == null
+                                ? '新建卡片'
+                                : '编辑卡片'),
                             style: karisDisplay(fontSize: 22),
                           ),
                         ],

@@ -19,6 +19,10 @@ class ApiEndpoints {
   // Cards
   static String deckCards(String deckId) => '$baseUrl/decks/$deckId/cards';
   static String card(String cardId) => '$baseUrl/cards/$cardId';
+  static String cardImportPreview(String deckId) =>
+      '$baseUrl/decks/$deckId/cards/import/preview';
+  static String cardImport(String deckId) =>
+      '$baseUrl/decks/$deckId/cards/import';
 
   // Review
   static const String reviewDue = '$baseUrl/review/due';
