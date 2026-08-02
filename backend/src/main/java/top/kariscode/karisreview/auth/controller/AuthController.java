@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import top.kariscode.karisreview.auth.dto.AuthConfigResponse;
 import top.kariscode.karisreview.auth.dto.LoginRequest;
 import top.kariscode.karisreview.auth.dto.LoginResponse;
 import top.kariscode.karisreview.auth.dto.RegisterRequest;
@@ -18,6 +19,11 @@ public class AuthController {
 
     public AuthController(AuthService authService) {
         this.authService = authService;
+    }
+
+    @GetMapping("/config")
+    public ResponseEntity<ApiResponse<AuthConfigResponse>> getConfig() {
+        return ResponseEntity.ok(ApiResponse.success(authService.getAuthConfig()));
     }
 
     @PostMapping("/register")

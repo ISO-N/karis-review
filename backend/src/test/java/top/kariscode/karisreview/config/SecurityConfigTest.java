@@ -8,6 +8,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import top.kariscode.karisreview.auth.controller.AuthController;
+import top.kariscode.karisreview.auth.dto.AuthConfigResponse;
 import top.kariscode.karisreview.auth.dto.LoginRequest;
 import top.kariscode.karisreview.auth.dto.LoginResponse;
 import top.kariscode.karisreview.auth.dto.RegisterRequest;
@@ -58,6 +59,15 @@ class SecurityConfigTest {
                         .header("Authorization", "Bearer invalid-token"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value(401));
+    }
+
+    @Test
+    void authConfigIsPermittedWithoutAuthentication() throws Exception {
+        when(authService.getAuthConfig()).thenReturn(new AuthConfigResponse(false));
+
+        mockMvc.perform(get("/api/auth/config"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.invite_code_required").value(false));
     }
 
     @Test

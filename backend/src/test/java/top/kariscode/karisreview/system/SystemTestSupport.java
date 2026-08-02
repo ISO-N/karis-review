@@ -46,10 +46,15 @@ public abstract class SystemTestSupport {
     }
 
     protected TestAccount register(String prefix) {
+        return register(prefix, "");
+    }
+
+    protected TestAccount register(String prefix, String inviteCode) {
         String email = "system-test-" + prefix + "-" + UUID.randomUUID() + "@example.com";
         JsonNode data = data("POST", "/auth/register", null, Map.of(
                 "email", email,
-                "password", PASSWORD));
+                "password", PASSWORD,
+                "invite_code", inviteCode));
         return new TestAccount(email, data.get("token").asText());
     }
 
