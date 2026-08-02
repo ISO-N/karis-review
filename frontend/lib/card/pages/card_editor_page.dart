@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_quill/flutter_quill.dart' as quill;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../app/theme.dart';
 import '../../shared/widgets/adaptive_scaffold.dart';
@@ -10,44 +11,50 @@ import '../../shared/widgets/rich_card_content.dart';
 import '../../shared/widgets/section_widgets.dart';
 import '../providers/card_provider.dart';
 
-class CardEditorSheet extends ConsumerStatefulWidget {
+class CardEditorArgs {
   final String deckId;
   final String? cardId;
   final String? initialFront;
   final String? initialBack;
   final String? title;
-  final ValueChanged<bool>? onSaved;
-  final ValueChanged<(String, String)>? onLocalSave;
+  final bool localOnly;
 
-  const CardEditorSheet({
-    super.key,
+  const CardEditorArgs({
     required this.deckId,
     this.cardId,
     this.initialFront,
     this.initialBack,
     this.title,
-    this.onSaved,
-    this.onLocalSave,
+    this.localOnly = false,
   });
-
-  @override
-  ConsumerState<CardEditorSheet> createState() => _CardEditorSheetState();
 }
 
-class _CardEditorSheetState extends ConsumerState<CardEditorSheet> {
+class CardEditorPage extends ConsumerStatefulWidget {
+  final CardEditorArgs args;
+
+  const CardEditorPage({super.key, required this.args});
+
+  @override
+  ConsumerState<CardEditorPage> createState() => _CardEditorPageState();
+}
+
+enum _CardSide { front, back }
+
+class _CardEditorPageState extends ConsumerState<CardEditorPage> {
   late quill.QuillController _frontController;
   late quill.QuillController _backController;
   late FocusNode _frontFocusNode;
   late FocusNode _backFocusNode;
   late ScrollController _frontScrollController;
   late ScrollController _backScrollController;
+  _CardSide _side = _CardSide.front;
   bool _isSaving = false;
 
   @override
   void initState() {
     super.initState();
-    _frontController = _buildController(widget.initialFront ?? '');
-    _backController = _buildController(widget.initialBack ?? '');
+    _frontController = _buildController(widget.args.initialFront ?? '');
+    _backController = _buildController(widget.args.initialBack ?? '');
     _frontFocusNode = FocusNode();
     _backFocusNode = FocusNode();
     _frontScrollController = ScrollController();
@@ -103,33 +110,29 @@ class _CardEditorSheetState extends ConsumerState<CardEditorSheet> {
       return;
     }
 
-    final onLocalSave = widget.onLocalSave;
-    if (onLocalSave != null) {
-      onLocalSave((front, back));
-      if (mounted) Navigator.pop(context, true);
+    if (widget.args.localOnly) {
+      if (mounted) Navigator.pop(context, (front, back));
       return;
     }
 
     setState(() => _isSaving = true);
     try {
       final notifier = ref.read(
-        cardListProvider(CardListArgs(widget.deckId, 'all')).notifier,
+        cardListProvider(CardListArgs(widget.args.deckId, 'all')).notifier,
       );
-      if (widget.cardId == null) {
+      if (widget.args.cardId == null) {
         await notifier.createCard(front, back);
       } else {
-        await notifier.updateCard(widget.cardId!, front, back);
+        await notifier.updateCard(widget.args.cardId!, front, back);
       }
-      widget.onSaved?.call(true);
-      if (mounted) Navigator.pop(context, true);
+      if (mounted) Navigator.pop(context, (front, back));
     } catch (e) {
       if (mounted) {
+        setState(() => _isSaving = false);
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('保存失败: $e')));
       }
-    } finally {
-      if (mounted) setState(() => _isSaving = false);
     }
   }
 
@@ -232,103 +235,121 @@ class _CardEditorSheetState extends ConsumerState<CardEditorSheet> {
     );
   }
 
+  void _goBack() {
+    if (context.canPop()) {
+      Navigator.pop(context);
+    } else {
+      context.go('/decks/${widget.args.deckId}/cards');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final height = MediaQuery.sizeOf(context).height;
-    final isTablet = MediaQuery.sizeOf(context).width >= 600;
     final embedBuilders = const [LatexEmbedBuilder(), CodeEmbedBuilder()];
 
-    return SafeArea(
-      top: false,
-      child: Center(
-        child: Container(
-          width: isTablet ? 720 : double.infinity,
-          height: height * (isTablet ? 0.82 : 0.92),
-          decoration: const BoxDecoration(color: KarisColors.paper),
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 16, 12, 10),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Kicker('卡片'),
-                          const SizedBox(height: 4),
-                          Text(
-                            widget.title ??
-                                (widget.cardId == null ? '新建卡片' : '编辑卡片'),
-                            style: karisDisplay(fontSize: 22),
+    return Scaffold(
+      backgroundColor: KarisColors.paper,
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 760),
+            child: Column(
+              children: [
+                _buildHeader(),
+                _buildSideSwitch(),
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+                    child: _side == _CardSide.front
+                        ? _buildEditor(
+                            controller: _frontController,
+                            focusNode: _frontFocusNode,
+                            scrollController: _frontScrollController,
+                            embedBuilders: embedBuilders,
+                            onLatex: () => _insertLatex(_frontController),
+                            onCode: () => _insertCode(_frontController),
+                          )
+                        : _buildEditor(
+                            controller: _backController,
+                            focusNode: _backFocusNode,
+                            scrollController: _backScrollController,
+                            embedBuilders: embedBuilders,
+                            onLatex: () => _insertLatex(_backController),
+                            onCode: () => _insertCode(_backController),
                           ),
-                        ],
-                      ),
-                    ),
-                    KarisIconButton(
-                      icon: Icons.close,
-                      tooltip: '关闭',
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      const Text(
-                        '正面',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: KarisColors.ink,
-                          letterSpacing: 0,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      _buildEditor(
-                        controller: _frontController,
-                        focusNode: _frontFocusNode,
-                        scrollController: _frontScrollController,
-                        embedBuilders: embedBuilders,
-                        onLatex: () => _insertLatex(_frontController),
-                        onCode: () => _insertCode(_frontController),
-                      ),
-                      const SizedBox(height: 18),
-                      const Text(
-                        '反面',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: KarisColors.ink,
-                          letterSpacing: 0,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      _buildEditor(
-                        controller: _backController,
-                        focusNode: _backFocusNode,
-                        scrollController: _backScrollController,
-                        embedBuilders: embedBuilders,
-                        onLatex: () => _insertLatex(_backController),
-                        onCode: () => _insertCode(_backController),
-                      ),
-                      const SizedBox(height: 16),
-                      KarisPrimaryButton(
-                        label: _isSaving ? '保存中...' : '保存',
-                        icon: Icons.save_outlined,
-                        onPressed: _isSaving ? null : _save,
-                      ),
-                    ],
                   ),
                 ),
-              ),
-            ],
+                _buildFooter(),
+              ],
+            ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildHeader() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 10),
+      child: Row(
+        children: [
+          KarisIconButton(
+            icon: Icons.arrow_back,
+            tooltip: '返回',
+            onPressed: _isSaving ? null : _goBack,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Kicker('卡片'),
+                const SizedBox(height: 4),
+                Text(
+                  widget.args.title ??
+                      (widget.args.cardId == null ? '新建卡片' : '编辑卡片'),
+                  style: karisDisplay(fontSize: 22),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSideSwitch() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
+      child: SizedBox(
+        width: double.infinity,
+        child: SegmentedButton<_CardSide>(
+          segments: const [
+            ButtonSegment(value: _CardSide.front, label: Text('正面')),
+            ButtonSegment(value: _CardSide.back, label: Text('反面')),
+          ],
+          selected: {_side},
+          onSelectionChanged: (selection) {
+            setState(() => _side = selection.first);
+          },
+          showSelectedIcon: false,
+          style: const ButtonStyle(visualDensity: VisualDensity.standard),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFooter() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+      decoration: const BoxDecoration(
+        color: KarisColors.paper,
+        border: Border(top: BorderSide(color: KarisColors.hairline)),
+      ),
+      child: KarisPrimaryButton(
+        label: _isSaving ? '保存中...' : '保存',
+        icon: Icons.save_outlined,
+        onPressed: _isSaving ? null : _save,
       ),
     );
   }
