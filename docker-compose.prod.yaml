@@ -1,0 +1,39 @@
+name: karis-review-prod
+
+services:
+  backend:
+    image: ghcr.io/iso-n/karis-review-backend:latest
+    container_name: karis-review-backend
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/karis_review
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-postgres}
+      SPRING_DATASOURCE_PASSWORD: "${POSTGRES_PASSWORD:?请在 .env.prod 中设置 POSTGRES_PASSWORD}"
+      JWT_SECRET: "${JWT_SECRET:?请在 .env.prod 中设置 JWT_SECRET}"
+      JWT_EXPIRATION: ${JWT_EXPIRATION:-604800000}
+    ports:
+      - "${BACKEND_PORT:-8080}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:16
+    container_name: karis-review-postgres-prod
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: karis_review
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?请在 .env.prod 中设置 POSTGRES_PASSWORD}"
+    volumes:
+      - karis-review-prod-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d karis_review"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  karis-review-prod-pgdata:
