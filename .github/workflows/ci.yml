@@ -94,10 +94,15 @@ jobs:
           labels: |
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
-      - name: Keep latest two package versions
+      # GHCR 会把多架构子清单存为无 tag 版本，旧清理动作会误删 latest 仍引用的清单。
+      - name: Keep latest two GHCR images
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: actions/delete-package-versions@v5
+        uses: dataaxiom/ghcr-cleanup-action@v1
         with:
-          package-name: karis-review-backend
-          package-type: container
-          min-versions-to-keep: 2
+          token: ${{ secrets.GITHUB_TOKEN }}
+          packages: karis-review-backend
+          keep-n-tagged: 2
+          delete-untagged: true
+          delete-partial-images: true
+          delete-ghost-images: true
+          validate: true

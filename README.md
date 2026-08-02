@@ -54,7 +54,7 @@ ghcr.io/iso-n/karis-review-backend:latest
 ghcr.io/iso-n/karis-review-backend:sha-<commit-sha>
 ```
 
-GitHub Packages 中该包只保留最新两个版本，旧版本由 CI 自动删除。
+GitHub Packages 中该包最多保留最新两个镜像，旧版本由 CI 自动删除；清理逻辑会保留仍被 tag 引用的多架构子清单，避免 `latest` 指向缺失清单。
 
 ## 生产部署
 
