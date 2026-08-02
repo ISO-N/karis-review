@@ -28,7 +28,7 @@ public class ReviewController {
     @GetMapping("/due")
     public ResponseEntity<ApiResponse<List<ReviewCardResponse>>> getDueCards(
             @AuthenticationPrincipal UUID userId,
-            @RequestParam(required = false) UUID deckId) {
+            @RequestParam(name = "deck_id", required = false) UUID deckId) {
         List<ReviewCardResponse> cards = reviewService.getDueCards(userId, deckId);
         return ResponseEntity.ok(ApiResponse.success(cards));
     }
@@ -36,7 +36,7 @@ public class ReviewController {
     @GetMapping("/new")
     public ResponseEntity<ApiResponse<List<ReviewCardResponse>>> getNewCards(
             @AuthenticationPrincipal UUID userId,
-            @RequestParam(required = false) UUID deckId,
+            @RequestParam(name = "deck_id", required = false) UUID deckId,
             @RequestParam(defaultValue = "10") int limit) {
         List<ReviewCardResponse> cards = reviewService.getNewCards(userId, deckId, limit);
         return ResponseEntity.ok(ApiResponse.success(cards));

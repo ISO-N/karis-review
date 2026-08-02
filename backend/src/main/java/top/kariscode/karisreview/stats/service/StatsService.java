@@ -6,6 +6,7 @@ import top.kariscode.karisreview.common.exception.BusinessException;
 import top.kariscode.karisreview.common.util.DateUtils;
 import top.kariscode.karisreview.deck.entity.Deck;
 import top.kariscode.karisreview.deck.repository.DeckRepository;
+import top.kariscode.karisreview.review.entity.ReviewLog;
 import top.kariscode.karisreview.review.repository.ReviewLogRepository;
 import top.kariscode.karisreview.stats.dto.DeckStatsResponse;
 import top.kariscode.karisreview.stats.dto.OverviewStatsResponse;
@@ -92,7 +93,7 @@ public class StatsService {
         LocalDate today = DateUtils.calculateToday(refreshTime);
         LocalDateTime start = today.minusDays(days).atTime(refreshTime);
 
-        List<Object[]> rows = reviewLogRepository.findDailyTrend(userId, start);
+        List<ReviewLog> logs = reviewLogRepository.findByUserIdAndReviewedAtAfter(userId, start);
         Map<LocalDate, TrendStatsResponse> trendMap = new LinkedHashMap<>();
 
         for (int i = days - 1; i >= 0; i--) {
@@ -100,16 +101,14 @@ public class StatsService {
             trendMap.put(date, new TrendStatsResponse(date, 0, 0));
         }
 
-        for (Object[] row : rows) {
-            LocalDate date = row[0] instanceof java.sql.Date
-                    ? ((java.sql.Date) row[0]).toLocalDate()
-                    : (LocalDate) row[0];
-            long reviewed = ((Number) row[1]).longValue();
-            long learned = ((Number) row[2]).longValue();
+        for (ReviewLog log : logs) {
+            LocalDate date = DateUtils.calculateToday(refreshTime, log.getReviewedAt());
             TrendStatsResponse existing = trendMap.get(date);
             if (existing != null) {
-                existing.setReviewed(reviewed);
-                existing.setLearned(learned);
+                existing.setReviewed(existing.getReviewed() + 1);
+                if ("FAMILIAR".equals(log.getRating()) && log.getStageBefore() == 0) {
+                    existing.setLearned(existing.getLearned() + 1);
+                }
             }
         }
 

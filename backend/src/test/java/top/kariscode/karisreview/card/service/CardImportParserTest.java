@@ -2,13 +2,15 @@ package top.kariscode.karisreview.card.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
-import top.kariscode.karisreview.card.dto.CardImportPreviewItem;
 import top.kariscode.karisreview.card.dto.CardImportPreviewResponse;
 import top.kariscode.karisreview.common.exception.BusinessException;
 
 import java.util.Collections;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class CardImportParserTest {
 
@@ -43,20 +45,39 @@ class CardImportParserTest {
                   {"back": "缺少正面"},
                   {"front": 123, "back": "非字符串"},
                   42,
+                  null,
                   {"front": "有效", "back": "有效"}
                 ]
                 """;
 
         CardImportPreviewResponse response = parser.parse(json);
 
-        assertEquals(5, response.getTotal());
+        assertEquals(6, response.getTotal());
         assertEquals(1, response.getValidCount());
-        assertEquals(4, response.getInvalidCount());
+        assertEquals(5, response.getInvalidCount());
         assertTrue(response.getCards().get(0).getMessage().contains("正面内容不能为空"));
         assertTrue(response.getCards().get(1).getMessage().contains("正面内容不能为空"));
         assertTrue(response.getCards().get(2).getMessage().contains("正面内容必须是字符串"));
         assertEquals("卡片必须是对象", response.getCards().get(3).getMessage());
-        assertNull(response.getCards().get(4).getMessage());
+        assertEquals("卡片必须是对象", response.getCards().get(4).getMessage());
+        assertNull(response.getCards().get(5).getMessage());
+    }
+
+    @Test
+    void ignoresUnknownFieldsAndTrimsContentForValidation() {
+        String json = """
+                [
+                  {"front": "  正面  ", "back": "反面", "extra": "忽略", "tags": [1, 2]},
+                  {"front": "   ", "back": "反面"}
+                ]
+                """;
+
+        CardImportPreviewResponse response = parser.parse(json);
+
+        assertEquals(2, response.getTotal());
+        assertEquals(1, response.getValidCount());
+        assertEquals("  正面  ", response.getCards().get(0).getFront());
+        assertTrue(response.getCards().get(1).getMessage().contains("正面内容不能为空"));
     }
 
     @Test
@@ -70,6 +91,7 @@ class CardImportParserTest {
 
     @Test
     void rejectsBlankAndMalformedJson() {
+        assertThrows(BusinessException.class, () -> parser.parse(null));
         assertThrows(BusinessException.class, () -> parser.parse("  "));
         assertThrows(BusinessException.class, () -> parser.parse("[{\"front\":"));
     }
@@ -81,6 +103,17 @@ class CardImportParserTest {
 
         assertEquals(400, exception.getCode());
         assertEquals("JSON 数组不能为空", exception.getMessage());
+    }
+
+    @Test
+    void acceptsExactlyMaxCards() {
+        String json = "[" + String.join(",", Collections.nCopies(
+                CardImportParser.MAX_CARDS, "{}")) + "]";
+
+        CardImportPreviewResponse response = parser.parse(json);
+
+        assertEquals(CardImportParser.MAX_CARDS, response.getTotal());
+        assertEquals(0, response.getValidCount());
     }
 
     @Test
