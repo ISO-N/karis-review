@@ -1,12 +1,12 @@
 import 'dart:convert';
 
-import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../app/theme.dart';
 import '../../shared/widgets/adaptive_scaffold.dart';
+import '../../shared/widgets/app_semantics.dart';
 import '../../shared/widgets/rich_card_content.dart';
 import '../../shared/widgets/section_widgets.dart';
 import '../models/card_import.dart';
@@ -42,6 +42,7 @@ class _CardImportPageState extends State<CardImportPage> {
   String? _fileContent;
   String? _error;
   String? _importError;
+  bool _hasEdits = false;
 
   int get _validCount => _items.where((item) => item.valid).length;
   int get _invalidCount => _items.length - _validCount;
@@ -54,20 +55,29 @@ class _CardImportPageState extends State<CardImportPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: KarisColors.paper,
-      body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 900),
-            child: Column(
-              children: [
-                _buildHeader(),
-                Expanded(
-                  child: _showPreview ? _buildPreviewBody() : _buildInputBody(),
-                ),
-                if (_showPreview) _buildPreviewFooter(),
-              ],
+    return PopScope(
+      canPop: !_hasEdits || _importing,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop || _importing) return;
+        _confirmAndClose();
+      },
+      child: Scaffold(
+        backgroundColor: KarisColors.paper,
+        body: SafeArea(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 900),
+              child: Column(
+                children: [
+                  _buildHeader(),
+                  Expanded(
+                    child: _showPreview
+                        ? _buildPreviewBody()
+                        : _buildInputBody(),
+                  ),
+                  if (_showPreview) _buildPreviewFooter(),
+                ],
+              ),
             ),
           ),
         ),
@@ -94,9 +104,11 @@ class _CardImportPageState extends State<CardImportPage> {
               children: [
                 const Kicker('卡片'),
                 const SizedBox(height: 4),
-                Text(
-                  _showPreview ? '导入预览' : '快捷导入',
-                  style: karisDisplay(fontSize: 22),
+                KarisHeading(
+                  child: Text(
+                    _showPreview ? '导入预览' : '快捷导入',
+                    style: karisDisplay(fontSize: 22),
+                  ),
                 ),
               ],
             ),
@@ -145,6 +157,9 @@ class _CardImportPageState extends State<CardImportPage> {
               minLines: 12,
               maxLines: 14,
               keyboardType: TextInputType.multiline,
+              autocorrect: false,
+              enableSuggestions: false,
+              onChanged: (_) => _markEdits(),
               style: karisMono(fontSize: 12),
               decoration: const InputDecoration(
                 labelText: 'JSON 数组',
@@ -161,7 +176,7 @@ class _CardImportPageState extends State<CardImportPage> {
           ],
           const SizedBox(height: 20),
           KarisPrimaryButton(
-            label: _parsing ? '解析中...' : '解析并预览',
+            label: _parsing ? '解析中…' : '解析并预览',
             icon: Icons.fact_check_outlined,
             onPressed: _parsing ? null : () => _parse(),
           ),
@@ -440,7 +455,7 @@ class _CardImportPageState extends State<CardImportPage> {
                   flex: 2,
                   child: KarisPrimaryButton(
                     label: _importing
-                        ? '导入中...'
+                        ? '导入中…'
                         : _validCount > 0
                         ? '导入 $_validCount 张卡片'
                         : '导入卡片',
@@ -506,7 +521,7 @@ class _CardImportPageState extends State<CardImportPage> {
       await _parse(content);
     } catch (e) {
       if (mounted) {
-        setState(() => _error = '读取文件失败: ${_errorMessage(e)}');
+        setState(() => _error = '读取文件失败，请确认文件为 UTF-8 JSON 后重试');
       }
     }
   }
@@ -542,12 +557,13 @@ class _CardImportPageState extends State<CardImportPage> {
           ..addAll(items);
         _showPreview = true;
         _parsing = false;
+        _hasEdits = false;
       });
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _parsing = false;
-        _error = _errorMessage(e);
+        _error = '解析失败，请检查 JSON 格式后重试';
       });
     }
   }
@@ -574,7 +590,7 @@ class _CardImportPageState extends State<CardImportPage> {
       if (!mounted) return;
       setState(() {
         _importing = false;
-        _importError = _errorMessage(e);
+        _importError = '导入失败，请检查网络连接后重试';
       });
     }
   }
@@ -594,6 +610,11 @@ class _CardImportPageState extends State<CardImportPage> {
     _applyEdit(index, result.$1, result.$2);
   }
 
+  void _markEdits() {
+    if (_hasEdits) return;
+    setState(() => _hasEdits = true);
+  }
+
   void _applyEdit(int index, String front, String back) {
     final messages = <String>[];
     if (front.trim().isEmpty) messages.add('正面内容不能为空');
@@ -606,36 +627,71 @@ class _CardImportPageState extends State<CardImportPage> {
         message: messages.isEmpty ? null : messages.join('，'),
         clearMessage: messages.isEmpty,
       );
+      _hasEdits = true;
     });
   }
 
   void _deleteItem(int index) {
-    setState(() => _items.removeAt(index));
+    setState(() {
+      _items.removeAt(index);
+      _hasEdits = true;
+    });
   }
 
-  void _backToSource() {
+  Future<bool> _confirmDiscard() async {
+    final leave = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('放弃未保存内容'),
+        content: const Text('当前修改尚未保存，确定要离开吗？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('继续编辑'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('放弃修改'),
+          ),
+        ],
+      ),
+    );
+    return leave ?? false;
+  }
+
+  Future<void> _backToSource() async {
+    if (_showPreview && _hasEdits) {
+      final leave = await _confirmDiscard();
+      if (leave != true || !mounted) return;
+      setState(() => _hasEdits = false);
+    }
     setState(() {
       _showPreview = false;
       _importError = null;
     });
   }
 
+  Future<void> _confirmAndClose() async {
+    if (_hasEdits) {
+      final leave = await _confirmDiscard();
+      if (leave != true || !mounted) return;
+    }
+    setState(() => _hasEdits = false);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _popOrGo();
+    });
+  }
+
   void _closePage() {
+    _confirmAndClose();
+  }
+
+  void _popOrGo() {
     if (Navigator.of(context).canPop()) {
       Navigator.pop(context);
     } else {
       context.go('/decks/${widget.deckId}/cards');
     }
-  }
-
-  String _errorMessage(Object error) {
-    if (error is DioException) {
-      final data = error.response?.data;
-      if (data is Map && data['message'] is String) {
-        return data['message'] as String;
-      }
-    }
-    return error.toString();
   }
 }
 
