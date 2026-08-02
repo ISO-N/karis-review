@@ -1,0 +1,44 @@
+{
+  "server_time": "2026-01-01T04:00:00Z",
+  "user": {
+    "id": "00000000-0000-0000-0000-000000000001",
+    "email": "benchmark@example.com",
+    "refresh_time": "04:00:00"
+  },
+  "decks": [
+    {
+      "id": "00000000-0000-0000-0000-000000000002",
+      "name": "基准牌组",
+      "created_at": "2025-01-01T00:00:00Z",
+      "updated_at": "2026-01-01T00:00:00Z",
+      "cards": [
+        {
+          "id": "00000000-0000-0000-0000-00000000CARD",
+          "deck_id": "00000000-0000-0000-0000-000000000002",
+          "front": "[{\"insert\":\"基准卡片正面\\n\"}]",
+          "back": "[{\"insert\":\"基准卡片背面，包含 LaTeX 公式 $E=mc^2$ 和代码块。\\n\"}]",
+          "stage": 4,
+          "consecutive_familiar": 0,
+          "next_review_date": "2026-01-02",
+          "learning_mode": false,
+          "reentry_stage": null,
+          "learning_step": 0,
+          "review_version": 12,
+          "created_at": "2025-01-01T00:00:00Z",
+          "updated_at": "2026-01-01T00:00:00Z"
+        }
+      ]
+    }
+  ],
+  "review_logs": [
+    {
+      "id": "00000000-0000-0000-0000-000000000003",
+      "card_id": "00000000-0000-0000-0000-00000000CARD",
+      "rating": "FAMILIAR",
+      "stage_before": 3,
+      "stage_after": 4,
+      "reviewed_at": "2026-01-01T03:59:59Z",
+      "is_new_card": false
+    }
+  ]
+}
