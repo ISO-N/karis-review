@@ -3,7 +3,9 @@ import '../../shared/api/api_endpoints.dart';
 import '../models/review_card.dart';
 
 class ReviewRepository {
-  final ApiClient _client = ApiClient();
+  final ApiClient _client;
+
+  ReviewRepository({ApiClient? client}) : _client = client ?? ApiClient();
 
   Future<List<ReviewCard>> getDueCards({String? deckId}) async {
     final params = <String, dynamic>{};
