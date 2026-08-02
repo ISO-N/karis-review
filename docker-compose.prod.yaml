@@ -12,6 +12,8 @@ services:
       SPRING_DATASOURCE_PASSWORD: "${POSTGRES_PASSWORD:?请在 .env.prod 中设置 POSTGRES_PASSWORD}"
       JWT_SECRET: "${JWT_SECRET:?请在 .env.prod 中设置 JWT_SECRET}"
       JWT_EXPIRATION: ${JWT_EXPIRATION:-604800000}
+      AUTH_INVITE_ENABLED: "${AUTH_INVITE_ENABLED:-false}"
+      AUTH_INVITE_CODE: "${AUTH_INVITE_CODE:-}"
     ports:
       - "${BACKEND_PORT:-8080}:8080"
     depends_on:
