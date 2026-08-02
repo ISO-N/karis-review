@@ -31,7 +31,9 @@ void main() {
 
   setUpAll(() async {
     await initializeDateFormatting('zh_CN');
-    registerFallbackValue(LoginRequest(email: 'fallback@example.com', password: 'fallback'));
+    registerFallbackValue(
+      LoginRequest(email: 'fallback@example.com', password: 'fallback'),
+    );
   });
 
   setUp(() {
@@ -42,9 +44,9 @@ void main() {
     testWidgets('login validates and submits credentials', (tester) async {
       final repo = MockAuthRepository();
       when(() => repo.isLoggedIn()).thenAnswer((_) async => false);
-      when(() => repo.login(any())).thenAnswer(
-        (_) async => loginResponse('a@b.c'),
-      );
+      when(
+        () => repo.login(any()),
+      ).thenAnswer((_) async => loginResponse('a@b.c'));
 
       await tester.pumpWidget(
         ProviderScope(
@@ -70,9 +72,9 @@ void main() {
     testWidgets('register submits account', (tester) async {
       final repo = MockAuthRepository();
       when(() => repo.isLoggedIn()).thenAnswer((_) async => false);
-      when(() => repo.register(any())).thenAnswer(
-        (_) async => loginResponse('a@b.c'),
-      );
+      when(
+        () => repo.register(any()),
+      ).thenAnswer((_) async => loginResponse('a@b.c'));
 
       await tester.pumpWidget(
         ProviderScope(
@@ -97,13 +99,13 @@ void main() {
       final authRepo = MockAuthRepository();
       when(() => authRepo.isLoggedIn()).thenAnswer((_) async => false);
       final deckRepo = MockDeckRepository();
-      when(() => deckRepo.getDecks()).thenAnswer(
-        (_) async => [Deck.fromJson(deckJson())],
-      );
+      when(
+        () => deckRepo.getDecks(),
+      ).thenAnswer((_) async => [Deck.fromJson(deckJson())]);
       final statsRepo = MockStatsRepository();
-      when(() => statsRepo.getOverview()).thenAnswer(
-        (_) async => OverviewStats.fromJson(overviewStatsJson()),
-      );
+      when(
+        () => statsRepo.getOverview(),
+      ).thenAnswer((_) async => OverviewStats.fromJson(overviewStatsJson()));
 
       await tester.pumpWidget(
         ProviderScope(
@@ -123,9 +125,9 @@ void main() {
 
     testWidgets('deck list renders rows and empty state', (tester) async {
       final repo = MockDeckRepository();
-      when(() => repo.getDecks()).thenAnswer(
-        (_) async => [Deck.fromJson(deckJson())],
-      );
+      when(
+        () => repo.getDecks(),
+      ).thenAnswer((_) async => [Deck.fromJson(deckJson())]);
 
       await tester.pumpWidget(
         ProviderScope(
@@ -153,11 +155,13 @@ void main() {
       expect(find.text('还没有牌组'), findsOneWidget);
     });
 
-    testWidgets('start flow switches between review and new cards', (tester) async {
+    testWidgets('start flow switches between review and new cards', (
+      tester,
+    ) async {
       final repo = MockDeckRepository();
-      when(() => repo.getDecks()).thenAnswer(
-        (_) async => [Deck.fromJson(deckJson())],
-      );
+      when(
+        () => repo.getDecks(),
+      ).thenAnswer((_) async => [Deck.fromJson(deckJson())]);
 
       await tester.pumpWidget(
         ProviderScope(
@@ -175,12 +179,17 @@ void main() {
 
     testWidgets('card list renders cards and filters', (tester) async {
       final cardRepo = MockCardRepository();
-      when(() => cardRepo.getDeckCards('deck-1', size: 500, filter: 'all'))
-          .thenAnswer((_) async => {'content': [cardJson(front: '正面内容')]});
-      final statsRepo = MockStatsRepository();
-      when(() => statsRepo.getOverview()).thenAnswer(
-        (_) async => OverviewStats.fromJson(overviewStatsJson()),
+      when(
+        () => cardRepo.getDeckCards('deck-1', size: 500, filter: 'all'),
+      ).thenAnswer(
+        (_) async => {
+          'content': [cardJson(front: '正面内容')],
+        },
       );
+      final statsRepo = MockStatsRepository();
+      when(
+        () => statsRepo.getOverview(),
+      ).thenAnswer((_) async => OverviewStats.fromJson(overviewStatsJson()));
 
       await tester.pumpWidget(
         ProviderScope(
@@ -202,12 +211,12 @@ void main() {
   group('Review flow', () {
     testWidgets('flips card, rates it, and completes queue', (tester) async {
       final repo = MockReviewRepository();
-      when(() => repo.getDueCards(deckId: null)).thenAnswer(
-        (_) async => [ReviewCard.fromJson(reviewCardJson())],
-      );
-      when(() => repo.rateCard('card-1', 'FAMILIAR')).thenAnswer(
-        (_) async => ReviewResult.fromJson(reviewResultJson()),
-      );
+      when(
+        () => repo.getDueCards(deckId: null),
+      ).thenAnswer((_) async => [ReviewCard.fromJson(reviewCardJson())]);
+      when(
+        () => repo.rateCard('card-1', 'FAMILIAR'),
+      ).thenAnswer((_) async => ReviewResult.fromJson(reviewResultJson()));
       final router = GoRouter(
         initialLocation: '/review',
         routes: [
@@ -240,9 +249,9 @@ void main() {
     testWidgets('previews and deletes imported rows', (tester) async {
       final repo = MockCardRepository();
       const content = '[{"front":"正面","back":"反面"},{"front":"","back":"反面"}]';
-      when(() => repo.previewCardImport('deck-1', content)).thenAnswer(
-        (_) async => importPreviewJson(),
-      );
+      when(
+        () => repo.previewCardImport('deck-1', content),
+      ).thenAnswer((_) async => importPreviewJson());
 
       await tester.pumpWidget(
         MaterialApp(
@@ -252,10 +261,7 @@ void main() {
         ),
       );
 
-      await tester.enterText(
-        find.byType(TextField),
-        content,
-      );
+      await tester.enterText(find.byType(TextField), content);
       await tester.tap(find.text('解析并预览'));
       await tester.pumpAndSettle();
 
@@ -274,9 +280,9 @@ void main() {
       await tester.binding.setSurfaceSize(const Size(1400, 1000));
       addTearDown(() => tester.binding.setSurfaceSize(null));
       final repo = MockStatsRepository();
-      when(() => repo.getOverview()).thenAnswer(
-        (_) async => OverviewStats.fromJson(overviewStatsJson()),
-      );
+      when(
+        () => repo.getOverview(),
+      ).thenAnswer((_) async => OverviewStats.fromJson(overviewStatsJson()));
 
       await tester.pumpWidget(
         ProviderScope(
@@ -291,13 +297,15 @@ void main() {
       expect(find.text('10'), findsOneWidget);
     });
 
-    testWidgets('settings page renders account and refresh time', (tester) async {
+    testWidgets('settings page renders account and refresh time', (
+      tester,
+    ) async {
       final authRepo = MockAuthRepository();
       when(() => authRepo.isLoggedIn()).thenAnswer((_) async => false);
       final settingsRepo = MockSettingsRepository();
-      when(() => settingsRepo.getSettings()).thenAnswer(
-        (_) async => {'email': 'a@b.c', 'refresh_time': '04:00:00'},
-      );
+      when(
+        () => settingsRepo.getSettings(),
+      ).thenAnswer((_) async => {'email': 'a@b.c', 'refresh_time': '04:00:00'});
 
       await tester.pumpWidget(
         ProviderScope(
@@ -330,7 +338,9 @@ void main() {
       expect(find.text('3'), findsOneWidget);
     });
 
-    testWidgets('review flip card renders front and flipped back', (tester) async {
+    testWidgets('review flip card renders front and flipped back', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(

@@ -258,9 +258,8 @@ class _CardEditorSheetState extends ConsumerState<CardEditorSheet> {
                           const Kicker('卡片'),
                           const SizedBox(height: 4),
                           Text(
-                            widget.title ?? (widget.cardId == null
-                                ? '新建卡片'
-                                : '编辑卡片'),
+                            widget.title ??
+                                (widget.cardId == null ? '新建卡片' : '编辑卡片'),
                             style: karisDisplay(fontSize: 22),
                           ),
                         ],
