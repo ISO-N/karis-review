@@ -1,4 +1,7 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -545,6 +548,7 @@ void main() {
       );
 
       await tester.enterText(find.byType(TextField), content);
+      await tester.ensureVisible(find.text('解析并预览'));
       await tester.tap(find.text('解析并预览'));
       await tester.pumpAndSettle();
 
@@ -555,6 +559,46 @@ void main() {
       await tester.tap(find.byTooltip('删除').last);
       await tester.pumpAndSettle();
       expect(find.text('导入 1 张卡片'), findsOneWidget);
+    });
+
+    testWidgets('shows JSON format guide and copies example', (tester) async {
+      final copiedTexts = <String>[];
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        (call) async {
+          if (call.method == 'Clipboard.setData') {
+            final arguments = call.arguments as Map;
+            copiedTexts.add(arguments['text'] as String);
+          }
+          return null;
+        },
+      );
+      addTearDown(() {
+        tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          null,
+        );
+      });
+
+      await tester.pumpWidget(
+        MaterialApp(home: CardImportPage(deckId: 'deck-1')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('JSON 格式'), findsOneWidget);
+      expect(find.textContaining('间隔重复是什么？'), findsOneWidget);
+      expect(find.text('格式要点'), findsOneWidget);
+
+      await tester.ensureVisible(find.text('复制示例'));
+      await tester.tap(find.text('复制示例'));
+      await tester.pumpAndSettle();
+
+      expect(copiedTexts, hasLength(1));
+      final decoded = jsonDecode(copiedTexts.single) as List<dynamic>;
+      final first = decoded.first as Map<String, dynamic>;
+      expect(first['front'], '间隔重复是什么？');
+      expect(first['back'], '按遗忘曲线在合适时间安排复习');
+      expect(find.text('示例 JSON 已复制'), findsOneWidget);
     });
 
     testWidgets('renders below status bar on a narrow phone', (tester) async {
