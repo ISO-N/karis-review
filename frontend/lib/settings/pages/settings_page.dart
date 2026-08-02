@@ -10,6 +10,7 @@ import '../../app/theme.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../deck/providers/deck_provider.dart';
 import '../../shared/widgets/adaptive_scaffold.dart';
+import '../../shared/widgets/app_semantics.dart';
 import '../../shared/widgets/section_widgets.dart';
 import '../../shared/widgets/settings_action_tile.dart';
 import '../../stats/providers/stats_provider.dart';
@@ -118,7 +119,9 @@ class _SettingsHeader extends StatelessWidget {
             children: [
               const Kicker('SETTINGS'),
               const SizedBox(height: 7),
-              Text('设置', style: karisDisplay(fontSize: 27)),
+              KarisHeading(
+                child: Text('设置', style: karisDisplay(fontSize: 27)),
+              ),
             ],
           ),
         ),
@@ -286,9 +289,10 @@ class _DataBlock extends StatelessWidget {
       );
     } catch (e) {
       if (context.mounted) {
+        announceMessage(context, '导出失败，请检查网络后重试');
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('导出失败: $e')));
+        ).showSnackBar(SnackBar(content: Text('导出失败，请检查网络后重试')));
       }
     }
   }
@@ -311,9 +315,10 @@ class _DataBlock extends StatelessWidget {
       data = decoded;
     } catch (e) {
       if (context.mounted) {
+        announceMessage(context, '读取备份失败，请确认文件格式正确后重试');
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('读取备份失败: $e')));
+        ).showSnackBar(SnackBar(content: Text('读取备份失败，请确认文件格式正确后重试')));
       }
       return;
     }
@@ -360,9 +365,10 @@ class _DataBlock extends StatelessWidget {
       }
     } catch (e) {
       if (context.mounted) {
+        announceMessage(context, '导入失败，请检查网络或备份文件后重试');
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('导入失败: $e')));
+        ).showSnackBar(SnackBar(content: Text('导入失败，请检查网络或备份文件后重试')));
       }
     }
   }

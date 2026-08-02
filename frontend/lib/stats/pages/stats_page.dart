@@ -1,11 +1,15 @@
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 
 import '../../app/theme.dart';
+import '../../shared/utils/motion.dart';
 import '../../shared/widgets/adaptive_scaffold.dart';
+import '../../shared/widgets/app_semantics.dart';
 import '../../shared/widgets/metric_tile.dart';
 import '../../shared/widgets/section_widgets.dart';
 import '../models/stats.dart';
@@ -68,7 +72,12 @@ class _StatsPageState extends ConsumerState<StatsPage> {
                     error: (error, _) => EmptyState(
                       icon: Icons.error_outline,
                       title: '统计加载失败',
-                      message: '$error',
+                      message: '统计加载失败，请检查网络后重试',
+                      action: TextButton(
+                        onPressed: () =>
+                            ref.read(statsProvider.notifier).loadOverview(),
+                        child: const Text('重试'),
+                      ),
                     ),
                     data: (value) {
                       if (value == null) {
@@ -137,7 +146,9 @@ class _StatsHeader extends StatelessWidget {
             children: [
               const Kicker('PROGRESS'),
               const SizedBox(height: 7),
-              Text('学习统计', style: karisDisplay(fontSize: 27)),
+              KarisHeading(
+                child: Text('学习统计', style: karisDisplay(fontSize: 27)),
+              ),
             ],
           ),
         ),
@@ -299,7 +310,10 @@ class _DistributionPanel extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     AnimatedContainer(
-                      duration: const Duration(milliseconds: 450),
+                      duration: reducedDuration(
+                        context,
+                        const Duration(milliseconds: 450),
+                      ),
                       curve: Curves.easeOutCubic,
                       height: height,
                       decoration: const BoxDecoration(
@@ -407,14 +421,14 @@ class TrendChartPainter extends CustomPainter {
     }
 
     final labelStyle = karisMono(fontSize: 9, color: KarisColors.stone);
+    final dateFormat = DateFormat('M/d');
     for (var i = 0; i < points.length; i += step) {
       final offset = pointAt(i);
-      final text = points[i].date.length >= 10
-          ? points[i].date.substring(5)
-          : points[i].date;
+      final parsed = DateTime.tryParse(points[i].date);
+      final text = parsed != null ? dateFormat.format(parsed) : points[i].date;
       final textPainter = TextPainter(
         text: TextSpan(text: text, style: labelStyle),
-        textDirection: TextDirection.ltr,
+        textDirection: ui.TextDirection.ltr,
       )..layout();
       textPainter.paint(
         canvas,

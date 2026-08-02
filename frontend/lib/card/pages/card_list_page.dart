@@ -8,7 +8,9 @@ import '../../card/providers/card_provider.dart';
 import '../../card/pages/card_editor_page.dart';
 import '../../deck/providers/deck_provider.dart';
 import '../../shared/utils/date_utils.dart';
+import '../../shared/utils/motion.dart';
 import '../../shared/widgets/adaptive_scaffold.dart';
+import '../../shared/widgets/app_semantics.dart';
 import '../../shared/widgets/metric_tile.dart';
 import '../../shared/widgets/rich_card_content.dart';
 import '../../shared/widgets/section_widgets.dart';
@@ -17,15 +19,43 @@ import '../../stats/providers/deck_stats_provider.dart';
 
 class CardListPage extends ConsumerStatefulWidget {
   final String deckId;
+  final String initialFilter;
 
-  const CardListPage({super.key, required this.deckId});
+  const CardListPage({
+    super.key,
+    required this.deckId,
+    this.initialFilter = 'all',
+  });
 
   @override
   ConsumerState<CardListPage> createState() => _CardListPageState();
 }
 
 class _CardListPageState extends ConsumerState<CardListPage> {
-  String _filter = 'all';
+  late String _filter;
+
+  @override
+  void initState() {
+    super.initState();
+    _filter = widget.initialFilter;
+  }
+
+  @override
+  void didUpdateWidget(covariant CardListPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialFilter != oldWidget.initialFilter &&
+        widget.initialFilter != _filter) {
+      _filter = widget.initialFilter;
+    }
+  }
+
+  void _setFilter(String value) {
+    if (value == _filter) return;
+    setState(() => _filter = value);
+    GoRouter.maybeOf(
+      context,
+    )?.replace('/decks/${widget.deckId}/cards?filter=$value');
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -94,7 +124,7 @@ class _CardListPageState extends ConsumerState<CardListPage> {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 const Text(
-                                  '加载卡片失败',
+                                  '加载卡片失败，请检查网络后重试',
                                   style: TextStyle(color: KarisColors.cinnabar),
                                 ),
                                 const SizedBox(height: 10),
@@ -259,7 +289,9 @@ class _CardListPageState extends ConsumerState<CardListPage> {
               children: [
                 const Kicker('牌组'),
                 const SizedBox(height: 4),
-                Text(deckName, style: karisDisplay(fontSize: 25)),
+                KarisHeading(
+                  child: Text(deckName, style: karisDisplay(fontSize: 25)),
+                ),
               ],
             ),
           ),
@@ -337,7 +369,7 @@ class _CardListPageState extends ConsumerState<CardListPage> {
                 label: filter.$2,
                 count: filter.$3,
                 active: _filter == filter.$1,
-                onTap: () => setState(() => _filter = filter.$1),
+                onTap: () => _setFilter(filter.$1),
               ),
             ),
         ],
@@ -365,9 +397,11 @@ class _CardListPageState extends ConsumerState<CardListPage> {
     );
     if (count == null || !mounted) return;
     _refreshAfterChange();
+    final message = '已导入 $count 张卡片';
+    announceMessage(context, message);
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(SnackBar(content: Text('已导入 $count 张卡片')));
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   void _refreshAfterChange() {
@@ -429,40 +463,43 @@ class _FilterChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        height: 34,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        decoration: BoxDecoration(
-          color: active ? KarisColors.jadeSoft : KarisColors.surface,
-          border: Border.all(
-            color: active ? KarisColors.jade : KarisColors.hairline,
+    return KarisInteractive(
+      selected: active,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: AnimatedContainer(
+          duration: reducedDuration(context, const Duration(milliseconds: 180)),
+          height: 34,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          decoration: BoxDecoration(
+            color: active ? KarisColors.jadeSoft : KarisColors.surface,
+            border: Border.all(
+              color: active ? KarisColors.jade : KarisColors.hairline,
+            ),
+            borderRadius: BorderRadius.circular(8),
           ),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Row(
-          children: [
-            Text(
-              label,
-              style: TextStyle(
-                color: active ? KarisColors.jade : KarisColors.stone,
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                letterSpacing: 0,
+          child: Row(
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  color: active ? KarisColors.jade : KarisColors.stone,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  letterSpacing: 0,
+                ),
               ),
-            ),
-            const SizedBox(width: 5),
-            Text(
-              '$count',
-              style: karisMono(
-                fontSize: 10,
-                color: active ? KarisColors.jade : KarisColors.stone,
+              const SizedBox(width: 5),
+              Text(
+                '$count',
+                style: karisMono(
+                  fontSize: 10,
+                  color: active ? KarisColors.jade : KarisColors.stone,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -483,53 +520,67 @@ class _CardTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final nextLabel = _nextLabel();
-    return InkWell(
-      onTap: onTap,
-      onLongPress: onDelete,
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(15),
-        decoration: BoxDecoration(
-          color: KarisColors.surface,
-          border: Border.all(color: KarisColors.hairline),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                _StageBadge(stage: card.stage, learning: card.learningMode),
-                const Spacer(),
-                Text(
-                  nextLabel,
-                  style: karisMono(fontSize: 10, color: KarisColors.stone),
+    return KarisInteractive(
+      child: InkWell(
+        onTap: onTap,
+        onLongPress: onDelete,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(15),
+          decoration: BoxDecoration(
+            color: KarisColors.surface,
+            border: Border.all(color: KarisColors.hairline),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  _StageBadge(stage: card.stage, learning: card.learningMode),
+                  const Spacer(),
+                  Text(
+                    nextLabel,
+                    style: karisMono(fontSize: 10, color: KarisColors.stone),
+                  ),
+                  IconButton(
+                    onPressed: onDelete,
+                    tooltip: '删除卡片',
+                    icon: const Icon(
+                      Icons.delete_outline,
+                      size: 17,
+                      color: KarisColors.cinnabar,
+                    ),
+                    style: IconButton.styleFrom(
+                      minimumSize: const Size(36, 36),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 11),
+              RichCardContent(
+                content: card.front,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: KarisColors.ink,
+                  height: 1.5,
                 ),
-              ],
-            ),
-            const SizedBox(height: 11),
-            RichCardContent(
-              content: card.front,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: KarisColors.ink,
-                height: 1.5,
+                maxLines: 2,
               ),
-              maxLines: 2,
-            ),
-            const SizedBox(height: 4),
-            RichCardContent(
-              content: card.back,
-              style: const TextStyle(
-                fontSize: 13,
-                color: KarisColors.stone,
-                height: 1.5,
+              const SizedBox(height: 4),
+              RichCardContent(
+                content: card.back,
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: KarisColors.stone,
+                  height: 1.5,
+                ),
+                maxLines: 1,
               ),
-              maxLines: 1,
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

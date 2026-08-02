@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../app/theme.dart';
 import '../../shared/widgets/section_widgets.dart';
+import '../../shared/widgets/app_semantics.dart';
 import '../providers/auth_provider.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
@@ -17,17 +18,29 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _emailFocus = FocusNode();
+  final _passwordFocus = FocusNode();
   bool _obscurePassword = true;
 
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
+    _emailFocus.dispose();
+    _passwordFocus.dispose();
     super.dispose();
   }
 
   Future<void> _login() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate()) {
+      if (_emailController.text.trim().isEmpty ||
+          !_emailController.text.contains('@')) {
+        _emailFocus.requestFocus();
+      } else {
+        _passwordFocus.requestFocus();
+      }
+      return;
+    }
     await ref
         .read(authProvider.notifier)
         .login(_emailController.text.trim(), _passwordController.text);
@@ -70,7 +83,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                     const SizedBox(height: 24),
                     const Kicker('KARIS REVIEW'),
                     const SizedBox(height: 8),
-                    Text('回到记忆刻度', style: karisDisplay(fontSize: 32)),
+                    KarisHeading(
+                      child: Text('回到记忆刻度', style: karisDisplay(fontSize: 32)),
+                    ),
                     const SizedBox(height: 10),
                     const Text(
                       '登录后开始今天的复习',
@@ -79,7 +94,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                     const SizedBox(height: 32),
                     TextFormField(
                       controller: _emailController,
+                      focusNode: _emailFocus,
                       keyboardType: TextInputType.emailAddress,
+                      autocorrect: false,
+                      enableSuggestions: false,
                       autofillHints: const [AutofillHints.email],
                       decoration: const InputDecoration(
                         labelText: '邮箱',
@@ -96,6 +114,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                     const SizedBox(height: 14),
                     TextFormField(
                       controller: _passwordController,
+                      focusNode: _passwordFocus,
                       obscureText: _obscurePassword,
                       autofillHints: const [AutofillHints.password],
                       decoration: InputDecoration(

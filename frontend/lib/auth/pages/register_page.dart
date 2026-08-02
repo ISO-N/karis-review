@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../app/theme.dart';
 import '../../shared/widgets/section_widgets.dart';
+import '../../shared/widgets/app_semantics.dart';
 import '../providers/auth_provider.dart';
 
 class RegisterPage extends ConsumerStatefulWidget {
@@ -18,6 +19,9 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmController = TextEditingController();
+  final _emailFocus = FocusNode();
+  final _passwordFocus = FocusNode();
+  final _confirmFocus = FocusNode();
   bool _obscurePassword = true;
 
   @override
@@ -25,11 +29,25 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
     _emailController.dispose();
     _passwordController.dispose();
     _confirmController.dispose();
+    _emailFocus.dispose();
+    _passwordFocus.dispose();
+    _confirmFocus.dispose();
     super.dispose();
   }
 
   Future<void> _register() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate()) {
+      final email = _emailController.text.trim();
+      if (email.isEmpty || !email.contains('@')) {
+        _emailFocus.requestFocus();
+      } else if (_passwordController.text.isEmpty ||
+          _passwordController.text.length < 6) {
+        _passwordFocus.requestFocus();
+      } else {
+        _confirmFocus.requestFocus();
+      }
+      return;
+    }
     await ref
         .read(authProvider.notifier)
         .register(_emailController.text.trim(), _passwordController.text);
@@ -72,7 +90,9 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                     const SizedBox(height: 24),
                     const Kicker('KARIS REVIEW'),
                     const SizedBox(height: 8),
-                    Text('创建账号', style: karisDisplay(fontSize: 32)),
+                    KarisHeading(
+                      child: Text('创建账号', style: karisDisplay(fontSize: 32)),
+                    ),
                     const SizedBox(height: 10),
                     const Text(
                       '一个专注的间隔重复复习空间',
@@ -81,7 +101,10 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                     const SizedBox(height: 32),
                     TextFormField(
                       controller: _emailController,
+                      focusNode: _emailFocus,
                       keyboardType: TextInputType.emailAddress,
+                      autocorrect: false,
+                      enableSuggestions: false,
                       autofillHints: const [AutofillHints.newUsername],
                       decoration: const InputDecoration(
                         labelText: '邮箱',
@@ -98,7 +121,10 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                     const SizedBox(height: 14),
                     TextFormField(
                       controller: _passwordController,
+                      focusNode: _passwordFocus,
                       obscureText: _obscurePassword,
+                      autocorrect: false,
+                      enableSuggestions: false,
                       autofillHints: const [AutofillHints.newPassword],
                       decoration: InputDecoration(
                         labelText: '密码',
@@ -125,7 +151,10 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                     const SizedBox(height: 14),
                     TextFormField(
                       controller: _confirmController,
+                      focusNode: _confirmFocus,
                       obscureText: true,
+                      autocorrect: false,
+                      enableSuggestions: false,
                       autofillHints: const [AutofillHints.newPassword],
                       decoration: const InputDecoration(
                         labelText: '确认密码',

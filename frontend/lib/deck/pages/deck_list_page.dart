@@ -7,6 +7,7 @@ import '../../deck/models/deck.dart';
 import '../../deck/providers/deck_provider.dart';
 import '../../deck/widgets/deck_row.dart';
 import '../../shared/widgets/adaptive_scaffold.dart';
+import '../../shared/widgets/app_semantics.dart';
 import '../../shared/widgets/section_widgets.dart';
 
 class DeckListPage extends ConsumerWidget {
@@ -43,7 +44,12 @@ class DeckListPage extends ConsumerWidget {
                           children: [
                             const Kicker('DECKS'),
                             const SizedBox(height: 7),
-                            Text('牌组', style: karisDisplay(fontSize: 27)),
+                            KarisHeading(
+                              child: Text(
+                                '牌组',
+                                style: karisDisplay(fontSize: 27),
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -75,7 +81,7 @@ class DeckListPage extends ConsumerWidget {
                       child: Column(
                         children: [
                           const Text(
-                            '加载失败',
+                            '加载失败，请检查网络后重试',
                             style: TextStyle(color: KarisColors.cinnabar),
                           ),
                           const SizedBox(height: 10),
@@ -98,33 +104,28 @@ class DeckListPage extends ConsumerWidget {
                               label: const Text('创建牌组'),
                             ),
                           )
-                        : Column(
-                            children: [
-                              for (var i = 0; i < decks.length; i++) ...[
-                                DeckRow(
-                                  name: decks[i].name,
-                                  cardCount: decks[i].cardCount,
-                                  dueCount: decks[i].dueCount,
-                                  newCount: decks[i].newCount,
-                                  stageDistribution: decks[i].stageDistribution,
-                                  onTap: () => context.push(
-                                    '/decks/${decks[i].id}/cards',
-                                  ),
-                                  onEdit: () => _showDeckDialog(
-                                    context,
-                                    ref,
-                                    deck: decks[i],
-                                  ),
-                                  onDelete: () => _confirmDeleteDeck(
-                                    context,
-                                    ref,
-                                    decks[i],
-                                  ),
-                                ),
-                                if (i < decks.length - 1)
-                                  const SizedBox(height: 10),
-                              ],
-                            ],
+                        : ListView.separated(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: decks.length,
+                            separatorBuilder: (_, _) =>
+                                const SizedBox(height: 10),
+                            itemBuilder: (context, index) {
+                              final deck = decks[index];
+                              return DeckRow(
+                                name: deck.name,
+                                cardCount: deck.cardCount,
+                                dueCount: deck.dueCount,
+                                newCount: deck.newCount,
+                                stageDistribution: deck.stageDistribution,
+                                onTap: () =>
+                                    context.push('/decks/${deck.id}/cards'),
+                                onEdit: () =>
+                                    _showDeckDialog(context, ref, deck: deck),
+                                onDelete: () =>
+                                    _confirmDeleteDeck(context, ref, deck),
+                              );
+                            },
                           ),
                   ),
                 ],
@@ -150,80 +151,120 @@ class DeckListPage extends ConsumerWidget {
   }
 
   void _showDeckDialog(BuildContext context, WidgetRef ref, {Deck? deck}) {
-    final controller = TextEditingController(text: deck?.name ?? '');
     showDialog<void>(
       context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: Text(deck == null ? '新建牌组' : '重命名牌组'),
-          content: TextField(
-            controller: controller,
-            autofocus: true,
-            maxLength: 100,
-            decoration: const InputDecoration(
-              labelText: '牌组名称',
-              hintText: '例如：日语 N5',
-            ),
-            onSubmitted: (_) => _saveDeck(dialogContext, ref, controller, deck),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('取消'),
-            ),
-            FilledButton(
-              onPressed: () => _saveDeck(dialogContext, ref, controller, deck),
-              child: Text(deck == null ? '创建' : '保存'),
-            ),
-          ],
-        );
-      },
+      builder: (_) => _DeckDialog(deck: deck),
     );
   }
+}
 
-  void _saveDeck(
-    BuildContext dialogContext,
-    WidgetRef ref,
-    TextEditingController controller,
-    Deck? deck,
-  ) {
-    final name = controller.text.trim();
-    if (name.isEmpty) return;
+class _DeckDialog extends ConsumerStatefulWidget {
+  final Deck? deck;
+
+  const _DeckDialog({this.deck});
+
+  @override
+  ConsumerState<_DeckDialog> createState() => _DeckDialogState();
+}
+
+class _DeckDialogState extends ConsumerState<_DeckDialog> {
+  late final TextEditingController _controller;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.deck?.name ?? '');
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    final name = _controller.text.trim();
+    if (name.isEmpty || _saving) return;
+    setState(() => _saving = true);
     final notifier = ref.read(deckListProvider.notifier);
+    final deck = widget.deck;
     if (deck == null) {
-      notifier.createDeck(name);
+      await notifier.createDeck(name);
     } else {
-      notifier.updateDeck(deck.id, name);
+      await notifier.updateDeck(deck.id, name);
     }
-    Navigator.pop(dialogContext);
+    if (!mounted) return;
+    if (ref.read(deckListProvider).hasError) {
+      setState(() => _saving = false);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('保存失败，请检查网络后重试')));
+      return;
+    }
+    Navigator.pop(context);
   }
 
-  void _confirmDeleteDeck(BuildContext context, WidgetRef ref, Deck deck) {
-    showDialog<void>(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text('删除牌组'),
-          content: Text('确定要删除“${deck.name}”吗？牌组内的所有卡片和复习记录也会删除。'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('取消'),
-            ),
-            FilledButton(
-              style: FilledButton.styleFrom(
-                backgroundColor: KarisColors.cinnabar,
-                foregroundColor: KarisColors.surface,
-              ),
-              onPressed: () {
-                ref.read(deckListProvider.notifier).deleteDeck(deck.id);
-                Navigator.pop(dialogContext);
-              },
-              child: const Text('删除'),
-            ),
-          ],
-        );
-      },
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: KarisHeading(child: Text(widget.deck == null ? '新建牌组' : '重命名牌组')),
+      content: TextField(
+        controller: _controller,
+        autofocus: shouldAutoFocus(context),
+        autofillHints: const [AutofillHints.name],
+        maxLength: 100,
+        decoration: const InputDecoration(
+          labelText: '牌组名称',
+          hintText: '例如：日语 N5',
+        ),
+        onSubmitted: (_) => _save(),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _saving ? null : () => Navigator.pop(context),
+          child: const Text('取消'),
+        ),
+        FilledButton(
+          onPressed: _saving ? null : _save,
+          child: _saving
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : Text(widget.deck == null ? '创建' : '保存'),
+        ),
+      ],
     );
   }
+}
+
+void _confirmDeleteDeck(BuildContext context, WidgetRef ref, Deck deck) {
+  showDialog<void>(
+    context: context,
+    builder: (dialogContext) {
+      return AlertDialog(
+        title: const Text('删除牌组'),
+        content: Text('确定要删除“${deck.name}”吗？牌组内的所有卡片和复习记录也会删除。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: KarisColors.cinnabar,
+              foregroundColor: KarisColors.surface,
+            ),
+            onPressed: () {
+              ref.read(deckListProvider.notifier).deleteDeck(deck.id);
+              Navigator.pop(dialogContext);
+            },
+            child: const Text('删除'),
+          ),
+        ],
+      );
+    },
+  );
 }

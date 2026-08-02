@@ -10,6 +10,7 @@ class ReviewSessionState {
   final bool isFlipped;
   final bool isLoading;
   final String? error;
+  final bool ratingFailed;
   final int reviewedCount;
   final int totalCount;
   final ReviewResult? lastResult;
@@ -22,6 +23,7 @@ class ReviewSessionState {
     this.isFlipped = false,
     this.isLoading = false,
     this.error,
+    this.ratingFailed = false,
     this.reviewedCount = 0,
     this.totalCount = 0,
     this.lastResult,
@@ -40,6 +42,7 @@ class ReviewSessionState {
     bool? isFlipped,
     bool? isLoading,
     String? error,
+    bool? ratingFailed,
     int? reviewedCount,
     int? totalCount,
     ReviewResult? lastResult,
@@ -53,6 +56,7 @@ class ReviewSessionState {
       isFlipped: isFlipped ?? this.isFlipped,
       isLoading: isLoading ?? this.isLoading,
       error: error,
+      ratingFailed: ratingFailed ?? this.ratingFailed,
       reviewedCount: reviewedCount ?? this.reviewedCount,
       totalCount: totalCount ?? this.totalCount,
       lastResult: clearLastResult ? null : (lastResult ?? this.lastResult),
@@ -73,7 +77,7 @@ class ReviewNotifier extends StateNotifier<ReviewSessionState> {
     state = ReviewSessionState(
       mode: mode,
       deckId: deckId,
-    ).copyWith(isLoading: true, error: null);
+    ).copyWith(isLoading: true, error: null, ratingFailed: false);
     try {
       final cards = mode == 'new'
           ? await _repository.getNewCards(deckId: deckId, limit: limit)
@@ -86,10 +90,15 @@ class ReviewNotifier extends StateNotifier<ReviewSessionState> {
         reviewedCount: 0,
         totalCount: cards.length,
         error: null,
+        ratingFailed: false,
         clearLastResult: true,
       );
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
+      state = state.copyWith(
+        isLoading: false,
+        error: '队列加载失败，请检查网络后重试',
+        ratingFailed: false,
+      );
     }
   }
 
@@ -106,11 +115,12 @@ class ReviewNotifier extends StateNotifier<ReviewSessionState> {
         currentIndex: state.currentIndex + 1,
         isFlipped: false,
         reviewedCount: state.reviewedCount + 1,
+        ratingFailed: false,
         lastResult: result,
       );
       return result;
     } catch (e) {
-      state = state.copyWith(error: '评分失败: $e');
+      state = state.copyWith(error: '评分失败，请检查网络后重试', ratingFailed: true);
       return null;
     }
   }

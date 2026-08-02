@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../app/theme.dart';
 import '../../shared/widgets/adaptive_scaffold.dart';
+import '../../shared/widgets/app_semantics.dart';
 import '../../shared/widgets/rich_card_content.dart';
 import '../../shared/widgets/section_widgets.dart';
 import '../providers/card_provider.dart';
@@ -49,6 +50,7 @@ class _CardEditorPageState extends ConsumerState<CardEditorPage> {
   late ScrollController _backScrollController;
   _CardSide _side = _CardSide.front;
   bool _isSaving = false;
+  bool _isDirty = false;
 
   @override
   void initState() {
@@ -59,6 +61,13 @@ class _CardEditorPageState extends ConsumerState<CardEditorPage> {
     _backFocusNode = FocusNode();
     _frontScrollController = ScrollController();
     _backScrollController = ScrollController();
+    _frontController.addListener(_markDirty);
+    _backController.addListener(_markDirty);
+  }
+
+  void _markDirty() {
+    if (_isDirty) return;
+    setState(() => _isDirty = true);
   }
 
   quill.QuillController _buildController(String content) {
@@ -86,6 +95,8 @@ class _CardEditorPageState extends ConsumerState<CardEditorPage> {
 
   @override
   void dispose() {
+    _frontController.removeListener(_markDirty);
+    _backController.removeListener(_markDirty);
     _frontController.dispose();
     _backController.dispose();
     _frontFocusNode.dispose();
@@ -104,6 +115,7 @@ class _CardEditorPageState extends ConsumerState<CardEditorPage> {
     final back = _serialize(_backController);
     if (_frontController.document.toPlainText().trim().isEmpty ||
         _backController.document.toPlainText().trim().isEmpty) {
+      announceMessage(context, '正面和反面内容不能为空');
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('正面和反面内容不能为空')));
@@ -111,7 +123,7 @@ class _CardEditorPageState extends ConsumerState<CardEditorPage> {
     }
 
     if (widget.args.localOnly) {
-      if (mounted) Navigator.pop(context, (front, back));
+      if (mounted) _closeWithResult((front, back));
       return;
     }
 
@@ -125,15 +137,60 @@ class _CardEditorPageState extends ConsumerState<CardEditorPage> {
       } else {
         await notifier.updateCard(widget.args.cardId!, front, back);
       }
-      if (mounted) Navigator.pop(context, (front, back));
-    } catch (e) {
+      if (mounted) _closeWithResult((front, back));
+    } catch (_) {
       if (mounted) {
         setState(() => _isSaving = false);
+        announceMessage(context, '保存失败，请检查网络后重试');
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('保存失败: $e')));
+        ).showSnackBar(const SnackBar(content: Text('保存失败，请检查网络后重试')));
       }
     }
+  }
+
+  void _closeWithResult((String, String) result) {
+    setState(() => _isDirty = false);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) Navigator.pop(context, result);
+    });
+  }
+
+  void _popOrGo() {
+    if (context.canPop()) {
+      Navigator.pop(context);
+    } else {
+      context.go('/decks/${widget.args.deckId}/cards');
+    }
+  }
+
+  Future<void> _confirmDiscard() async {
+    if (!_isDirty) {
+      _popOrGo();
+      return;
+    }
+    final leave = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('放弃修改'),
+        content: const Text('当前修改尚未保存，确定要离开吗？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('继续编辑'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('放弃修改'),
+          ),
+        ],
+      ),
+    );
+    if (leave != true || !mounted) return;
+    setState(() => _isDirty = false);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _popOrGo();
+    });
   }
 
   Future<void> _insertLatex(quill.QuillController controller) async {
@@ -145,7 +202,9 @@ class _CardEditorPageState extends ConsumerState<CardEditorPage> {
           title: const Text('插入 LaTeX 公式'),
           content: TextField(
             controller: textController,
-            autofocus: true,
+            autofocus: shouldAutoFocus(ctx),
+            autocorrect: false,
+            enableSuggestions: false,
             decoration: const InputDecoration(
               labelText: '公式',
               hintText: '例如 x^2 + y^2 = z^2',
@@ -183,18 +242,22 @@ class _CardEditorPageState extends ConsumerState<CardEditorPage> {
             children: [
               TextField(
                 controller: languageController,
+                autocorrect: false,
+                enableSuggestions: false,
                 decoration: const InputDecoration(
                   labelText: '语言',
-                  hintText: 'dart, java, python...',
+                  hintText: 'dart, java, python…',
                 ),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: codeController,
                 maxLines: 6,
+                autocorrect: false,
+                enableSuggestions: false,
                 decoration: const InputDecoration(
                   labelText: '代码',
-                  hintText: '粘贴代码...',
+                  hintText: '粘贴代码…',
                 ),
               ),
             ],
@@ -236,51 +299,54 @@ class _CardEditorPageState extends ConsumerState<CardEditorPage> {
   }
 
   void _goBack() {
-    if (context.canPop()) {
-      Navigator.pop(context);
-    } else {
-      context.go('/decks/${widget.args.deckId}/cards');
-    }
+    _confirmDiscard();
   }
 
   @override
   Widget build(BuildContext context) {
     final embedBuilders = const [LatexEmbedBuilder(), CodeEmbedBuilder()];
 
-    return Scaffold(
-      backgroundColor: KarisColors.paper,
-      body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 760),
-            child: Column(
-              children: [
-                _buildHeader(),
-                _buildSideSwitch(),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-                    child: _side == _CardSide.front
-                        ? _buildEditor(
-                            controller: _frontController,
-                            focusNode: _frontFocusNode,
-                            scrollController: _frontScrollController,
-                            embedBuilders: embedBuilders,
-                            onLatex: () => _insertLatex(_frontController),
-                            onCode: () => _insertCode(_frontController),
-                          )
-                        : _buildEditor(
-                            controller: _backController,
-                            focusNode: _backFocusNode,
-                            scrollController: _backScrollController,
-                            embedBuilders: embedBuilders,
-                            onLatex: () => _insertLatex(_backController),
-                            onCode: () => _insertCode(_backController),
-                          ),
+    return PopScope(
+      canPop: !_isDirty || _isSaving,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop || _isSaving) return;
+        _confirmDiscard();
+      },
+      child: Scaffold(
+        backgroundColor: KarisColors.paper,
+        body: SafeArea(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 760),
+              child: Column(
+                children: [
+                  _buildHeader(),
+                  _buildSideSwitch(),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+                      child: _side == _CardSide.front
+                          ? _buildEditor(
+                              controller: _frontController,
+                              focusNode: _frontFocusNode,
+                              scrollController: _frontScrollController,
+                              embedBuilders: embedBuilders,
+                              onLatex: () => _insertLatex(_frontController),
+                              onCode: () => _insertCode(_frontController),
+                            )
+                          : _buildEditor(
+                              controller: _backController,
+                              focusNode: _backFocusNode,
+                              scrollController: _backScrollController,
+                              embedBuilders: embedBuilders,
+                              onLatex: () => _insertLatex(_backController),
+                              onCode: () => _insertCode(_backController),
+                            ),
+                    ),
                   ),
-                ),
-                _buildFooter(),
-              ],
+                  _buildFooter(),
+                ],
+              ),
             ),
           ),
         ),
@@ -305,10 +371,12 @@ class _CardEditorPageState extends ConsumerState<CardEditorPage> {
               children: [
                 const Kicker('卡片'),
                 const SizedBox(height: 4),
-                Text(
-                  widget.args.title ??
-                      (widget.args.cardId == null ? '新建卡片' : '编辑卡片'),
-                  style: karisDisplay(fontSize: 22),
+                KarisHeading(
+                  child: Text(
+                    widget.args.title ??
+                        (widget.args.cardId == null ? '新建卡片' : '编辑卡片'),
+                    style: karisDisplay(fontSize: 22),
+                  ),
                 ),
               ],
             ),
@@ -347,7 +415,7 @@ class _CardEditorPageState extends ConsumerState<CardEditorPage> {
         border: Border(top: BorderSide(color: KarisColors.hairline)),
       ),
       child: KarisPrimaryButton(
-        label: _isSaving ? '保存中...' : '保存',
+        label: _isSaving ? '保存中…' : '保存',
         icon: Icons.save_outlined,
         onPressed: _isSaving ? null : _save,
       ),
@@ -386,7 +454,7 @@ class _CardEditorPageState extends ConsumerState<CardEditorPage> {
                 config: quill.QuillEditorConfig(
                   scrollable: true,
                   expands: true,
-                  placeholder: '输入内容...',
+                  placeholder: '输入内容…',
                   padding: const EdgeInsets.all(12),
                   embedBuilders: embedBuilders,
                 ),
@@ -599,38 +667,47 @@ class _CardEditorPageState extends ConsumerState<CardEditorPage> {
           runSpacing: 12,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            for (final color in _editorColorPresets)
-              InkWell(
-                onTap: () => Navigator.pop(ctx, _EditorColorResult(color)),
-                borderRadius: BorderRadius.circular(8),
-                child: Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: color,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: KarisColors.hairline),
+            for (var i = 0; i < _editorColorPresets.length; i++)
+              KarisInteractive(
+                label: _editorColorLabels[i],
+                child: InkWell(
+                  onTap: () => Navigator.pop(
+                    ctx,
+                    _EditorColorResult(_editorColorPresets[i]),
+                  ),
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: _editorColorPresets[i],
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: KarisColors.hairline),
+                    ),
                   ),
                 ),
               ),
-            Tooltip(
-              message: '清除颜色',
-              child: InkWell(
-                onTap: () =>
-                    Navigator.pop(ctx, const _EditorColorResult.clear()),
-                borderRadius: BorderRadius.circular(8),
-                child: Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: KarisColors.paper,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: KarisColors.hairline),
-                  ),
-                  child: const Icon(
-                    Icons.format_color_reset,
-                    size: 18,
-                    color: KarisColors.stone,
+            KarisInteractive(
+              label: '清除颜色',
+              child: Tooltip(
+                message: '清除颜色',
+                child: InkWell(
+                  onTap: () =>
+                      Navigator.pop(ctx, const _EditorColorResult.clear()),
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: KarisColors.paper,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: KarisColors.hairline),
+                    ),
+                    child: const Icon(
+                      Icons.format_color_reset,
+                      size: 18,
+                      color: KarisColors.stone,
+                    ),
                   ),
                 ),
               ),
@@ -679,4 +756,14 @@ const List<Color> _editorColorPresets = [
   Color(0xFF3B6EA5),
   Color(0xFF8A4F9D),
   Color(0xFF66716B),
+];
+
+const List<String> _editorColorLabels = [
+  '墨色',
+  '朱红',
+  '翡翠',
+  '琥珀',
+  '蓝色',
+  '紫色',
+  '灰色',
 ];
