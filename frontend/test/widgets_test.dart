@@ -147,6 +147,27 @@ void main() {
       expect(find.text('2 张 · 待复习 1'), findsOneWidget);
     });
 
+    testWidgets('deck list opens styled action sheet', (tester) async {
+      final repo = MockDeckRepository();
+      when(
+        () => repo.getDecks(),
+      ).thenAnswer((_) async => [Deck.fromJson(deckJson())]);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: deckOverrides(repo),
+          child: const MaterialApp(home: DeckListPage()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('牌组操作'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('重命名'), findsOneWidget);
+      expect(find.text('删除'), findsOneWidget);
+    });
+
     testWidgets('deck list renders empty state', (tester) async {
       final emptyRepo = MockDeckRepository();
       when(() => emptyRepo.getDecks()).thenAnswer((_) async => []);
@@ -354,6 +375,44 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('今日复习完成'), findsOneWidget);
+    });
+
+    testWidgets('mobile review fills card and returns to front from answer', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final repo = MockReviewRepository();
+      when(
+        () => repo.getDueCards(deckId: null),
+      ).thenAnswer((_) async => [ReviewCard.fromJson(reviewCardJson())]);
+      final router = GoRouter(
+        initialLocation: '/review',
+        routes: [
+          GoRoute(path: '/review', builder: (_, _) => const ReviewPage()),
+        ],
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: reviewOverrides(repo, const ReviewSessionState()),
+          child: MaterialApp.router(routerConfig: router),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('忘记'), findsNothing);
+      await tester.tap(find.byType(ReviewFlipCard));
+      await tester.pumpAndSettle();
+      expect(find.text('忘记'), findsOneWidget);
+
+      await tester.tap(find.byType(ReviewFlipCard));
+      await tester.pumpAndSettle();
+      expect(find.text('忘记'), findsNothing);
+      expect(find.text('正面'), findsWidgets);
+      expect(tester.takeException(), isNull);
     });
   });
 
@@ -674,17 +733,40 @@ void main() {
   });
 
   group('Shared widgets', () {
-    testWidgets('metric tile renders label and value', (tester) async {
+    testWidgets('metric tile keeps equal height on narrow screens', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(390, 844));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
       await tester.pumpWidget(
         const MaterialApp(
           home: Scaffold(
-            body: MetricTile(label: '今日', value: '3', icon: Icons.today),
+            body: Row(
+              children: [
+                Expanded(
+                  child: MetricTile(label: '卡片', value: '1'),
+                ),
+                SizedBox(width: 8),
+                Expanded(
+                  child: MetricTile(label: '今日待复习', value: '2'),
+                ),
+                SizedBox(width: 8),
+                Expanded(
+                  child: MetricTile(label: '已掌握', value: '3'),
+                ),
+              ],
+            ),
           ),
         ),
       );
 
-      expect(find.text('今日'), findsOneWidget);
-      expect(find.text('3'), findsOneWidget);
+      final heights = tester
+          .widgetList<MetricTile>(find.byType(MetricTile))
+          .map((widget) => tester.getSize(find.byWidget(widget)).height)
+          .toSet();
+      expect(heights, {96.0});
+      expect(find.text('今日待复习'), findsOneWidget);
     });
 
     testWidgets(
