@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:karisreview/auth/models/login_request.dart';
 import 'package:karisreview/auth/models/login_response.dart';
+import 'package:karisreview/auth/models/register_request.dart';
 import 'package:karisreview/auth/pages/login_page.dart';
 import 'package:karisreview/auth/pages/register_page.dart';
 import 'package:karisreview/card/pages/card_list_page.dart';
@@ -39,6 +40,12 @@ void main() {
     await initializeDateFormatting('zh_CN');
     registerFallbackValue(
       LoginRequest(email: 'fallback@example.com', password: 'fallback'),
+    );
+    registerFallbackValue(
+      RegisterRequest(
+        email: 'fallback@example.com',
+        password: 'fallback',
+      ),
     );
   });
 
@@ -90,13 +97,54 @@ void main() {
       );
       await tester.pumpAndSettle();
 
+      expect(find.text('邀请码'), findsNothing);
+
       await tester.enterText(find.byType(TextFormField).at(0), 'a@b.c');
       await tester.enterText(find.byType(TextFormField).at(1), 'secret');
       await tester.enterText(find.byType(TextFormField).at(2), 'secret');
       await tester.tap(find.text('注册'));
       await tester.pumpAndSettle();
 
-      verify(() => repo.register(any())).called(1);
+      final captured = verify(() => repo.register(captureAny())).captured;
+      final request = captured.single as RegisterRequest;
+      expect(request.inviteCode, isNull);
+    });
+
+    testWidgets('register requires and sends invite code when enabled', (
+      tester,
+    ) async {
+      final repo = MockAuthRepository();
+      when(() => repo.isLoggedIn()).thenAnswer((_) async => false);
+      when(
+        () => repo.register(any()),
+      ).thenAnswer((_) async => loginResponse('a@b.c'));
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: authOverrides(repo, inviteCodeRequired: true),
+          child: const MaterialApp(home: RegisterPage()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('邀请码'), findsOneWidget);
+
+      await tester.enterText(find.byType(TextFormField).at(0), 'a@b.c');
+      await tester.enterText(find.byType(TextFormField).at(1), 'secret');
+      await tester.enterText(find.byType(TextFormField).at(2), 'secret');
+      await tester.tap(find.text('注册'));
+      await tester.pump();
+
+      expect(find.text('请输入邀请码'), findsOneWidget);
+      verifyNever(() => repo.register(any()));
+
+      await tester.enterText(find.byType(TextFormField).at(3), ' code ');
+      await tester.tap(find.text('注册'));
+      await tester.pumpAndSettle();
+
+      final captured = verify(() => repo.register(captureAny())).captured;
+      final request = captured.single as RegisterRequest;
+      expect(request.inviteCode, 'code');
     });
   });
 

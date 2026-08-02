@@ -79,6 +79,28 @@
 
 ## 2. 认证模块
 
+### GET /api/auth/config
+
+获取注册公开配置，用于前端决定是否显示邀请码输入框。
+
+**Response (200):**
+
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": {
+    "invite_code_required": false
+  }
+}
+```
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| invite_code_required | boolean | 注册是否必须填写邀请码 |
+
+---
+
 ### POST /api/auth/register
 
 注册新用户。
@@ -88,7 +110,8 @@
 ```json
 {
   "email": "user@example.com",
-  "password": "securePassword123"
+  "password": "securePassword123",
+  "invite_code": "可选邀请码"
 }
 ```
 
@@ -96,6 +119,7 @@
 |------|------|------|------|
 | email | string | 是 | 邮箱地址 |
 | password | string | 是 | 密码（6-128 位） |
+| invite_code | string | 启用邀请码时必填 | 注册邀请码；未启用时忽略 |
 
 **Response (200):**
 
@@ -113,7 +137,7 @@
 }
 ```
 
-**错误码：** 400（邮箱已注册/邮箱格式无效/密码太短）
+**错误码：** 400（邮箱已注册/邮箱格式无效/密码太短/请输入邀请码/邀请码无效）
 
 ---
 

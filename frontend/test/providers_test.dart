@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:karisreview/auth/models/login_request.dart';
 import 'package:karisreview/auth/models/login_response.dart';
+import 'package:karisreview/auth/models/register_request.dart';
 import 'package:karisreview/auth/providers/auth_provider.dart';
 import 'package:karisreview/card/models/card.dart';
 import 'package:karisreview/card/providers/card_provider.dart';
@@ -28,6 +29,12 @@ void main() {
     registerFallbackValue(
       LoginRequest(email: 'fallback@example.com', password: 'fallback'),
     );
+    registerFallbackValue(
+      RegisterRequest(
+        email: 'fallback@example.com',
+        password: 'fallback',
+      ),
+    );
   });
 
   group('AuthNotifier', () {
@@ -47,6 +54,26 @@ void main() {
       expect(notifier.state.isAuthenticated, isTrue);
       expect(notifier.state.user?.email, 'a@b.c');
       verify(() => repo.login(any())).called(1);
+    });
+
+    test('register forwards invite code', () async {
+      final repo = MockAuthRepository();
+      when(() => repo.isLoggedIn()).thenAnswer((_) async => false);
+      when(() => repo.register(any())).thenAnswer(
+        (_) async => LoginResponse.fromJson({
+          'token': 't',
+          'user': {'id': 'u1', 'email': 'a@b.c'},
+        }),
+      );
+      final notifier = AuthNotifier(repo);
+
+      await notifier.register('a@b.c', 'secret', inviteCode: 'code');
+
+      expect(notifier.state.isAuthenticated, isTrue);
+      final captured = verify(() => repo.register(captureAny())).captured;
+      final request = captured.single as RegisterRequest;
+      expect(request.email, 'a@b.c');
+      expect(request.inviteCode, 'code');
     });
 
     test('login exposes backend error message', () async {

@@ -12,8 +12,10 @@ class AuthSettingsSystemTest extends SystemTestSupport {
 
     @Test
     void registerLoginAndSettingsFlowWorkOverRealApi() {
-        TestAccount account = register("auth");
+        JsonNode config = data("GET", "/auth/config", null, null);
+        assertEquals(false, config.get("invite_code_required").asBoolean());
 
+        TestAccount account = register("auth");
         JsonNode settings = data("GET", "/settings", account.token(), null);
         assertEquals(account.email(), text(settings, "email"));
         assertEquals("04:00:00", text(settings, "refresh_time"));

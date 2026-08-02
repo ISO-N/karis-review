@@ -55,7 +55,10 @@ Android release 包名为 `top.kariscode.karisreview`，debug 包名为 `top.kar
 关键点：
 
 - **用户身份获取**：`JwtAuthenticationFilter`（`config/`）解析 Token 后把 `UUID userId` 放进 `SecurityContextHolder`；Controller 用 `@AuthenticationPrincipal UUID userId` 拿到当前用户。所有业务查询都以 `userId` 过滤，实体用 `UUID` 外键字段（如 `card.getDeckId()`）而非 JPA 关联对象。
+- **注册邀请码**：`auth.invite.enabled` 与 `auth.invite.code` 控制，默认关闭；开启时注册必须先通过邀请码校验，前端通过公开 `GET /api/auth/config` 获取 `invite_code_required` 决定是否显示输入框。
 - **统一响应**：所有接口返回 `common/dto/ApiResponse`（`code`/`message`/`data`）；业务错误抛 `BusinessException(code, message)`，由 `common/exception/GlobalExceptionHandler` 统一处理。
+- **权限边界**：`SecurityConfig` 放行 `/api/auth/config`、`/api/auth/register`、`/api/auth/login` 以及 OpenAPI 文档路径（`/v3/api-docs/**`、`/swagger-ui/**`、`/swagger-ui.html`），其余全部要求认证。跨域配置在 `CorsConfig`（全放开）。
+- **API 文档**：集成 Springdoc OpenAPI 3，配置了 JWT Bearer 安全方案；登录/注册/注册配置接口豁免认证要求，生产 profile 关闭文档。
 - **权限边界**：`SecurityConfig` 放行 `/api/auth/register`、`/api/auth/login` 以及 OpenAPI 文档路径（`/v3/api-docs/**`、`/swagger-ui/**`、`/swagger-ui.html`），其余全部要求认证。跨域配置在 `CorsConfig`（全放开）。
 - **API 文档**：集成 Springdoc OpenAPI 3，配置了 JWT Bearer 安全方案；登录/注册接口豁免认证要求，生产 profile 关闭文档。
 - **"今天"的定义**：不是自然日。`common/util/DateUtils.calculateToday(refreshTime)` 依据用户设置的 `refresh_time`（默认 04:00）计算"今天"范围——当前时间在刷新点之前时算前一天。所有到期判断（due、stats、学习模式插入位置）都基于此。
@@ -104,6 +107,6 @@ Android release 包名为 `top.kariscode.karisreview`，debug 包名为 `top.kar
 
 ## 文档
 
-`docs/README.md` 是文档索引：需求（`docs/requirements/`）、架构/数据库/API 设计（`docs/design/`）。需求文档里有 27 条用户需求，改功能前先对照。API 细节以 `docs/design/api.md` 为准（含所有接口的请求/响应示例）。
+`docs/README.md` 是文档索引：需求（`docs/requirements/`）、架构/数据库/API 设计（`docs/design/`）。需求文档里有 28 条用户需求，改功能前先对照。API 细节以 `docs/design/api.md` 为准（含所有接口的请求/响应示例）。
 
 代码语义变更（字段、算法、接口、表结构等）时，须同步更新对应文档（本文件、docs/ 下相关文档、迁移脚本）。

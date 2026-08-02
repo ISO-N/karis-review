@@ -62,7 +62,7 @@ GitHub Packages 中该包最多保留最新两个镜像，旧版本由 CI 自动
 
 ```bash
 cp .env.prod.example .env.prod
-# 编辑 .env.prod：POSTGRES_PASSWORD、JWT_SECRET；私有镜像再填 GHCR_USERNAME、GHCR_TOKEN
+# 编辑 .env.prod：POSTGRES_PASSWORD、JWT_SECRET；启用邀请码时再设置 AUTH_INVITE_ENABLED=true、AUTH_INVITE_CODE；私有镜像再填 GHCR_USERNAME、GHCR_TOKEN
 ./deploy.sh
 ```
 
@@ -70,7 +70,7 @@ cp .env.prod.example .env.prod
 
 ## 功能
 
-- 邮箱注册、登录、退出
+- 邮箱注册、登录、退出（支持可选邀请码开关）
 - 牌组与卡片管理
 - 富文本卡片编辑（粗体、斜体、列表、标题、LaTeX、代码高亮）
 - 学习模式与复习模式，基于 Stage 0-8 的间隔重复算法

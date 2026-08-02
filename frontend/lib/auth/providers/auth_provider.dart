@@ -3,9 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../offline/providers.dart';
 import '../../shared/api/api_client.dart';
 import '../../sync/providers.dart';
-import '../repositories/auth_repository.dart';
+import '../models/auth_config.dart';
 import '../models/login_request.dart';
 import '../models/login_response.dart';
+import '../models/register_request.dart';
+import '../repositories/auth_repository.dart';
 
 class AuthState {
   final bool isAuthenticated;
@@ -59,11 +61,19 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
-  Future<void> register(String email, String password) async {
+  Future<void> register(
+    String email,
+    String password, {
+    String? inviteCode,
+  }) async {
     state = state.copyWith(isLoading: true, error: null);
     try {
       final response = await _repository.register(
-        LoginRequest(email: email, password: password),
+        RegisterRequest(
+          email: email,
+          password: password,
+          inviteCode: inviteCode,
+        ),
       );
       state = state.copyWith(
         isAuthenticated: true,
@@ -177,4 +187,8 @@ final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
   );
   ApiClient.onUnauthorized = notifier.handleUnauthorized;
   return notifier;
+});
+
+final authConfigProvider = FutureProvider<AuthConfig>((ref) {
+  return AuthRepository().getAuthConfig();
 });

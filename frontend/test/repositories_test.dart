@@ -1,6 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:karisreview/auth/models/login_request.dart';
+import 'package:karisreview/auth/models/register_request.dart';
 import 'package:karisreview/auth/repositories/auth_repository.dart';
 import 'package:karisreview/card/repositories/card_repository.dart';
 import 'package:karisreview/deck/repositories/deck_repository.dart';
@@ -22,6 +22,19 @@ void main() {
   });
 
   group('AuthRepository', () {
+    test('gets auth config', () async {
+      final client = FakeApiClient();
+      client.onGet = (path, query) async {
+        expect(path, apiPath('/auth/config'));
+        return okResponse({'invite_code_required': true});
+      };
+      final repository = AuthRepository(client: client);
+
+      final config = await repository.getAuthConfig();
+
+      expect(config.inviteCodeRequired, isTrue);
+    });
+
     test('registers, saves token, and parses user', () async {
       final client = FakeApiClient();
       client.onPost = (path, data) async {
@@ -35,12 +48,39 @@ void main() {
       final repository = AuthRepository(client: client);
 
       final response = await repository.register(
-        LoginRequest(email: 'a@b.c', password: 'secret'),
+        RegisterRequest(email: 'a@b.c', password: 'secret'),
       );
 
       expect(response.token, 'token-1');
       expect(response.user.email, 'a@b.c');
       expect(await ApiClient.getToken(), 'token-1');
+    });
+
+    test('register sends invite code when provided', () async {
+      final client = FakeApiClient();
+      client.onPost = (path, data) async {
+        expect(path, apiPath('/auth/register'));
+        expect(data, {
+          'email': 'a@b.c',
+          'password': 'secret',
+          'invite_code': 'invite-1',
+        });
+        return okResponse({
+          'token': 'token-2',
+          'user': {'id': 'u1', 'email': 'a@b.c'},
+        });
+      };
+      final repository = AuthRepository(client: client);
+
+      await repository.register(
+        RegisterRequest(
+          email: 'a@b.c',
+          password: 'secret',
+          inviteCode: 'invite-1',
+        ),
+      );
+
+      expect(await ApiClient.getToken(), 'token-2');
     });
   });
 

@@ -70,7 +70,8 @@ top.kariscode.karisreview
 │   ├── SecurityConfig.java              # Spring Security 配置
 │   ├── CorsConfig.java                  # 跨域配置
 │   ├── JacksonConfig.java               # JSON 序列化配置
-│   └── OpenApiConfig.java               # OpenAPI 3 + JWT Bearer 配置
+│   ├── OpenApiConfig.java               # OpenAPI 3 + JWT Bearer 配置
+│   └── InviteCodeConfig.java            # 注册邀请码开关与校验
 │
 ├── common/
 │   ├── exception/
@@ -87,6 +88,7 @@ top.kariscode.karisreview
 │   ├── entity/User.java
 │   ├── repository/UserRepository.java
 │   ├── dto/
+│   │   ├── AuthConfigResponse.java
 │   │   ├── RegisterRequest.java
 │   │   ├── LoginRequest.java
 │   │   └── LoginResponse.java
@@ -177,8 +179,10 @@ lib/
 │   │   ├── login_page.dart
 │   │   └── register_page.dart
 │   └── models/
+│       ├── auth_config.dart
 │       ├── login_request.dart
-│       └── login_response.dart
+│       ├── login_response.dart
+│       └── register_request.dart
 │
 ├── deck/
 │   ├── deck_provider.dart
@@ -254,8 +258,9 @@ lib/
 
 - 使用 `springdoc-openapi-starter-webmvc-ui` 自动生成 OpenAPI 3 文档。
 - 默认地址：`/v3/api-docs`、`/swagger-ui.html`。
-- 受保护 Controller 用 `@SecurityRequirement` 声明 `bearerAuth` JWT 安全方案；登录/注册接口不要求。
-- `SecurityConfig` 放行 `/v3/api-docs/**`、`/swagger-ui/**`、`/swagger-ui.html`。
+- 受保护 Controller 用 `@SecurityRequirement` 声明 `bearerAuth` JWT 安全方案；登录/注册/注册配置接口不要求。
+- 注册公开配置接口 `GET /api/auth/config` 只返回 `invite_code_required`，不暴露邀请码本身。
+- `SecurityConfig` 放行 `/api/auth/config`、`/v3/api-docs/**`、`/swagger-ui/**`、`/swagger-ui.html`。
 - 生产环境使用 `prod` profile 时关闭文档。
 
 ## 6. 模块间依赖关系

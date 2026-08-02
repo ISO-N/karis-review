@@ -191,6 +191,7 @@
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
+| GET | /api/auth/config | 获取注册公开配置（如是否要求邀请码） |
 | POST | /api/auth/register | 邮箱注册 |
 | POST | /api/auth/login | 登录，返回 Token |
 | POST | /api/auth/logout | 登出 |

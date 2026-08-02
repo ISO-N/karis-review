@@ -12,14 +12,17 @@ import top.kariscode.karisreview.auth.dto.RegisterRequest;
 import top.kariscode.karisreview.auth.entity.User;
 import top.kariscode.karisreview.auth.repository.UserRepository;
 import top.kariscode.karisreview.common.exception.BusinessException;
+import top.kariscode.karisreview.config.InviteCodeConfig;
 import top.kariscode.karisreview.config.JwtProvider;
 
 import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -41,13 +44,15 @@ class AuthServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new AuthService(userRepository, passwordEncoder, jwtProvider);
+        service = new AuthService(userRepository, passwordEncoder, jwtProvider,
+                new InviteCodeConfig(false, ""));
     }
 
     @Test
     void registerHashesPasswordAndReturnsToken() {
         UUID userId = UUID.randomUUID();
         RegisterRequest request = request("new@example.com", "password123");
+        request.setInviteCode("ignored-when-disabled");
         when(userRepository.existsByEmail(request.getEmail())).thenReturn(false);
         when(passwordEncoder.encode(request.getPassword())).thenReturn("hashed");
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> {
@@ -76,6 +81,63 @@ class AuthServiceTest {
         assertEquals(400, exception.getCode());
         assertEquals("邮箱已被注册", exception.getMessage());
         verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void registerRejectsMissingInviteCodeWhenEnabled() {
+        AuthService enabledService = service(true, "test-code");
+        RegisterRequest request = request("new@example.com", "password123");
+
+        BusinessException exception = assertThrows(
+                BusinessException.class, () -> enabledService.register(request));
+
+        assertEquals(400, exception.getCode());
+        assertEquals("请输入邀请码", exception.getMessage());
+        verify(userRepository, never()).existsByEmail(any());
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void registerRejectsWrongInviteCodeWhenEnabled() {
+        AuthService enabledService = service(true, "test-code");
+        RegisterRequest request = request("new@example.com", "password123");
+        request.setInviteCode("wrong-code");
+
+        BusinessException exception = assertThrows(
+                BusinessException.class, () -> enabledService.register(request));
+
+        assertEquals(400, exception.getCode());
+        assertEquals("邀请码无效", exception.getMessage());
+        verify(userRepository, never()).existsByEmail(any());
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void registerAcceptsInviteCodeWhenEnabled() {
+        AuthService enabledService = service(true, "test-code");
+        UUID userId = UUID.randomUUID();
+        RegisterRequest request = request("new@example.com", "password123");
+        request.setInviteCode(" test-code ");
+        when(userRepository.existsByEmail(request.getEmail())).thenReturn(false);
+        when(passwordEncoder.encode(request.getPassword())).thenReturn("hashed");
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> {
+            User user = invocation.getArgument(0);
+            user.setId(userId);
+            return user;
+        });
+        when(jwtProvider.generateToken(userId, request.getEmail())).thenReturn("token");
+
+        LoginResponse response = enabledService.register(request);
+
+        assertEquals("token", response.getToken());
+        assertEquals(userId, response.getUser().getId());
+        verify(userRepository).save(any(User.class));
+    }
+
+    @Test
+    void authConfigReportsInviteCodeRequirement() {
+        assertFalse(service.getAuthConfig().isInviteCodeRequired());
+        assertTrue(service(true, "test-code").getAuthConfig().isInviteCodeRequired());
     }
 
     @Test
@@ -145,5 +207,10 @@ class AuthServiceTest {
         request.setEmail(email);
         request.setPassword(password);
         return request;
+    }
+
+    private AuthService service(boolean enabled, String code) {
+        return new AuthService(userRepository, passwordEncoder, jwtProvider,
+                new InviteCodeConfig(enabled, code));
     }
 }
