@@ -4,7 +4,7 @@ FROM maven:3.9-eclipse-temurin-21 AS build
 WORKDIR /workspace
 COPY backend/pom.xml pom.xml
 RUN mvn -B -q dependency:go-offline
-COPY proto proto
+COPY proto /proto
 COPY backend/src src
 RUN mvn -B -DskipTests package
 
