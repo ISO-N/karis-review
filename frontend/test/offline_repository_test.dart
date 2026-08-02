@@ -238,7 +238,7 @@ void main() {
           'stage_before': 0,
           'stage_after': 1,
           'is_new_card': true,
-          'reviewed_at': '2025-08-10T12:00:00Z',
+          'reviewed_at': '2025-08-10T12:00:00',
         },
         {
           'id': 'log-review',
@@ -247,7 +247,7 @@ void main() {
           'stage_before': 2,
           'stage_after': 3,
           'is_new_card': false,
-          'reviewed_at': '2025-08-09T12:00:00Z',
+          'reviewed_at': '2025-08-09T12:00:00',
         },
         {
           'id': 'log-before-refresh',
@@ -256,7 +256,7 @@ void main() {
           'stage_before': 3,
           'stage_after': 2,
           'is_new_card': false,
-          'reviewed_at': '2025-08-10T03:00:00Z',
+          'reviewed_at': '2025-08-10T03:00:00',
         },
       ],
     );
