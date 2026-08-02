@@ -216,6 +216,8 @@
 |------|------|------|
 | GET | /api/decks/{deckId}/cards | 获取牌组内所有卡片 |
 | POST | /api/decks/{deckId}/cards | 创建卡片 |
+| POST | /api/decks/{deckId}/cards/import/preview | 解析并预览卡片 JSON 数组 |
+| POST | /api/decks/{deckId}/cards/import | 导入卡片到当前牌组 |
 | PUT | /api/cards/{cardId} | 编辑卡片 |
 | DELETE | /api/cards/{cardId} | 删除卡片 |
 
@@ -266,6 +268,8 @@
 |------|---------|
 | SQ-07 | 数据库定期自动备份 |
 | SQ-08 | 用户数据导出格式为 JSON，可读可解析 |
+
+> 卡片快捷导入 JSON 格式：`[{"front":"...","back":"..."}]`，单次最多 1000 张。
 
 ### 5.4 兼容性
 

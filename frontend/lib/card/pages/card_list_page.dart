@@ -6,6 +6,7 @@ import '../../app/theme.dart';
 import '../../card/models/card.dart';
 import '../../card/providers/card_provider.dart';
 import '../../card/widgets/card_editor_sheet.dart';
+import '../../card/widgets/card_import_sheet.dart';
 import '../../deck/providers/deck_provider.dart';
 import '../../shared/utils/date_utils.dart';
 import '../../shared/widgets/adaptive_scaffold.dart';
@@ -198,6 +199,12 @@ class _CardListPageState extends ConsumerState<CardListPage> {
               ],
             ),
           ),
+          const SizedBox(width: 8),
+          KarisIconButton(
+            icon: Icons.upload_file_outlined,
+            tooltip: '导入卡片',
+            onPressed: () => _openImport(context),
+          ),
           KarisIconButton(
             icon: Icons.replay,
             tooltip: '复习当前牌组',
@@ -288,6 +295,27 @@ class _CardListPageState extends ConsumerState<CardListPage> {
           ref.invalidate(cardListProvider(CardListArgs(widget.deckId, _filter)));
           ref.invalidate(deckStatsProvider(widget.deckId));
           ref.invalidate(deckListProvider);
+        },
+      ),
+    );
+  }
+
+  void _openImport(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => CardImportSheet(
+        deckId: widget.deckId,
+        onImported: (count) {
+          ref.invalidate(
+            cardListProvider(CardListArgs(widget.deckId, _filter)),
+          );
+          ref.invalidate(deckStatsProvider(widget.deckId));
+          ref.invalidate(deckListProvider);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('已导入 $count 张卡片')),
+          );
         },
       ),
     );
