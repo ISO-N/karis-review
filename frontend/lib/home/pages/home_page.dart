@@ -9,6 +9,7 @@ import '../../deck/models/deck.dart';
 import '../../deck/providers/deck_provider.dart';
 import '../../deck/widgets/deck_row.dart';
 import '../../shared/widgets/adaptive_scaffold.dart';
+import '../../shared/widgets/app_semantics.dart';
 import '../../shared/widgets/section_widgets.dart';
 import '../../shared/widgets/stage_ruler.dart';
 import '../../stats/models/stats.dart';
@@ -127,7 +128,9 @@ class _HomeHeader extends StatelessWidget {
             children: [
               const Kicker('KARIS REVIEW · 今日'),
               const SizedBox(height: 7),
-              Text(today, style: karisDisplay(fontSize: 27)),
+              KarisHeading(
+                child: Text(today, style: karisDisplay(fontSize: 27)),
+              ),
             ],
           ),
         ),
@@ -277,13 +280,13 @@ class _HomeMainColumn extends StatelessWidget {
   }
 }
 
-class _DeckSection extends StatelessWidget {
+class _DeckSection extends ConsumerWidget {
   final AsyncValue<List<Deck>> decksAsync;
 
   const _DeckSection({required this.decksAsync});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -306,9 +309,20 @@ class _DeckSection extends StatelessWidget {
           ),
           error: (error, _) => Padding(
             padding: const EdgeInsets.symmetric(vertical: 24),
-            child: Text(
-              '加载牌组失败',
-              style: TextStyle(color: KarisColors.cinnabar, fontSize: 13),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '加载牌组失败，请检查网络后重试',
+                  style: TextStyle(color: KarisColors.cinnabar, fontSize: 13),
+                ),
+                const SizedBox(height: 8),
+                TextButton(
+                  onPressed: () =>
+                      ref.read(deckListProvider.notifier).loadDecks(),
+                  child: const Text('重试'),
+                ),
+              ],
             ),
           ),
           data: (decks) {
@@ -324,20 +338,22 @@ class _DeckSection extends StatelessWidget {
                 ),
               );
             }
-            return Column(
-              children: [
-                for (var i = 0; i < decks.length; i++) ...[
-                  DeckRow(
-                    name: decks[i].name,
-                    cardCount: decks[i].cardCount,
-                    dueCount: decks[i].dueCount,
-                    newCount: decks[i].newCount,
-                    stageDistribution: decks[i].stageDistribution,
-                    onTap: () => context.push('/decks/${decks[i].id}/cards'),
-                  ),
-                  if (i < decks.length - 1) const SizedBox(height: 10),
-                ],
-              ],
+            return ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: decks.length,
+              separatorBuilder: (_, _) => const SizedBox(height: 10),
+              itemBuilder: (context, index) {
+                final deck = decks[index];
+                return DeckRow(
+                  name: deck.name,
+                  cardCount: deck.cardCount,
+                  dueCount: deck.dueCount,
+                  newCount: deck.newCount,
+                  stageDistribution: deck.stageDistribution,
+                  onTap: () => context.push('/decks/${deck.id}/cards'),
+                );
+              },
             );
           },
         ),
