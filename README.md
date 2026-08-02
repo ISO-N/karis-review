@@ -40,6 +40,34 @@ cd frontend
 flutter build web --release --dart-define=API_BASE_URL=https://review.kariscode.top/api
 ```
 
+## CI 与镜像发布
+
+GitHub Actions 会在 PR 和 `main` 分支自动运行：
+
+- 后端：`./mvnw test`（CI 使用 PostgreSQL 16 服务）
+- 前端：`flutter analyze`、`flutter test`
+
+合并到 `main` 后，CI 会把后端构建并发布到 GitHub Packages：
+
+```text
+ghcr.io/iso-n/karis-review-backend:latest
+ghcr.io/iso-n/karis-review-backend:sha-<commit-sha>
+```
+
+GitHub Packages 中该包只保留最新两个版本，旧版本由 CI 自动删除。
+
+## 生产部署
+
+生产环境通过 [docker-compose.prod.yaml](docker-compose.prod.yaml) 启动后端 API 与 PostgreSQL：
+
+```bash
+cp .env.prod.example .env.prod
+# 编辑 .env.prod：POSTGRES_PASSWORD、JWT_SECRET；私有镜像再填 GHCR_USERNAME、GHCR_TOKEN
+./deploy.sh
+```
+
+`deploy.sh` 会拉取最新镜像、创建或更新容器并清理本地悬空镜像。后端默认监听 `http://<服务器地址>:8080/api`。
+
 ## 功能
 
 - 邮箱注册、登录、退出

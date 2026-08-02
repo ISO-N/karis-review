@@ -27,3 +27,7 @@ Thumbs.db
 # Local database / temp
 *.log
 *.pid
+
+# Production environment
+.env
+.env.prod
