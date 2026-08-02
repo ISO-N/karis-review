@@ -74,6 +74,8 @@ class ReviewRepository {
   }
 
   bool _unsupported(DioException e) {
-    return e.response?.statusCode == 406 || e.response?.statusCode == 415;
+    return e.response?.statusCode == 401 ||
+        e.response?.statusCode == 406 ||
+        e.response?.statusCode == 415;
   }
 }
