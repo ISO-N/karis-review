@@ -38,7 +38,11 @@ class OverviewStats {
 
   static List<int> _parseDistribution(dynamic value) {
     final result = List.filled(9, 0);
-    if (value is Map) {
+    if (value is List) {
+      for (var i = 0; i < value.length && i < 9; i++) {
+        result[i] = (value[i] as num?)?.toInt() ?? 0;
+      }
+    } else if (value is Map) {
       for (final entry in value.entries) {
         final index = int.tryParse('${entry.key}');
         if (index != null && index >= 0 && index < 9) {
@@ -93,7 +97,11 @@ class DeckStats {
 
   static List<int> _parseDistribution(dynamic value) {
     final result = List.filled(9, 0);
-    if (value is Map) {
+    if (value is List) {
+      for (var i = 0; i < value.length && i < 9; i++) {
+        result[i] = (value[i] as num?)?.toInt() ?? 0;
+      }
+    } else if (value is Map) {
       for (final entry in value.entries) {
         final index = int.tryParse('${entry.key}');
         if (index != null && index >= 0 && index < 9) {

@@ -2238,6 +2238,18 @@ class $SyncMetaTable extends SyncMeta
     requiredDuringInsert: false,
     defaultValue: const Constant(0),
   );
+  static const VerificationMeta _lastEventCursorMeta = const VerificationMeta(
+    'lastEventCursor',
+  );
+  @override
+  late final GeneratedColumn<BigInt> lastEventCursor = GeneratedColumn<BigInt>(
+    'last_event_cursor',
+    aliasedName,
+    false,
+    type: DriftSqlType.bigInt,
+    requiredDuringInsert: false,
+    defaultValue: Constant(BigInt.zero),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     userId,
@@ -2245,6 +2257,7 @@ class $SyncMetaTable extends SyncMeta
     refreshTime,
     lastBootstrapAt,
     clockOffsetMs,
+    lastEventCursor,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -2299,6 +2312,15 @@ class $SyncMetaTable extends SyncMeta
         ),
       );
     }
+    if (data.containsKey('last_event_cursor')) {
+      context.handle(
+        _lastEventCursorMeta,
+        lastEventCursor.isAcceptableOrUnknown(
+          data['last_event_cursor']!,
+          _lastEventCursorMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -2328,6 +2350,10 @@ class $SyncMetaTable extends SyncMeta
         DriftSqlType.int,
         data['${effectivePrefix}clock_offset_ms'],
       )!,
+      lastEventCursor: attachedDatabase.typeMapping.read(
+        DriftSqlType.bigInt,
+        data['${effectivePrefix}last_event_cursor'],
+      )!,
     );
   }
 
@@ -2343,12 +2369,14 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
   final String refreshTime;
   final DateTime? lastBootstrapAt;
   final int clockOffsetMs;
+  final BigInt lastEventCursor;
   const SyncMetaData({
     required this.userId,
     this.email,
     required this.refreshTime,
     this.lastBootstrapAt,
     required this.clockOffsetMs,
+    required this.lastEventCursor,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -2362,6 +2390,7 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
       map['last_bootstrap_at'] = Variable<DateTime>(lastBootstrapAt);
     }
     map['clock_offset_ms'] = Variable<int>(clockOffsetMs);
+    map['last_event_cursor'] = Variable<BigInt>(lastEventCursor);
     return map;
   }
 
@@ -2376,6 +2405,7 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
           ? const Value.absent()
           : Value(lastBootstrapAt),
       clockOffsetMs: Value(clockOffsetMs),
+      lastEventCursor: Value(lastEventCursor),
     );
   }
 
@@ -2390,6 +2420,7 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
       refreshTime: serializer.fromJson<String>(json['refreshTime']),
       lastBootstrapAt: serializer.fromJson<DateTime?>(json['lastBootstrapAt']),
       clockOffsetMs: serializer.fromJson<int>(json['clockOffsetMs']),
+      lastEventCursor: serializer.fromJson<BigInt>(json['lastEventCursor']),
     );
   }
   @override
@@ -2401,6 +2432,7 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
       'refreshTime': serializer.toJson<String>(refreshTime),
       'lastBootstrapAt': serializer.toJson<DateTime?>(lastBootstrapAt),
       'clockOffsetMs': serializer.toJson<int>(clockOffsetMs),
+      'lastEventCursor': serializer.toJson<BigInt>(lastEventCursor),
     };
   }
 
@@ -2410,6 +2442,7 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
     String? refreshTime,
     Value<DateTime?> lastBootstrapAt = const Value.absent(),
     int? clockOffsetMs,
+    BigInt? lastEventCursor,
   }) => SyncMetaData(
     userId: userId ?? this.userId,
     email: email.present ? email.value : this.email,
@@ -2418,6 +2451,7 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
         ? lastBootstrapAt.value
         : this.lastBootstrapAt,
     clockOffsetMs: clockOffsetMs ?? this.clockOffsetMs,
+    lastEventCursor: lastEventCursor ?? this.lastEventCursor,
   );
   SyncMetaData copyWithCompanion(SyncMetaCompanion data) {
     return SyncMetaData(
@@ -2432,6 +2466,9 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
       clockOffsetMs: data.clockOffsetMs.present
           ? data.clockOffsetMs.value
           : this.clockOffsetMs,
+      lastEventCursor: data.lastEventCursor.present
+          ? data.lastEventCursor.value
+          : this.lastEventCursor,
     );
   }
 
@@ -2442,14 +2479,21 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
           ..write('email: $email, ')
           ..write('refreshTime: $refreshTime, ')
           ..write('lastBootstrapAt: $lastBootstrapAt, ')
-          ..write('clockOffsetMs: $clockOffsetMs')
+          ..write('clockOffsetMs: $clockOffsetMs, ')
+          ..write('lastEventCursor: $lastEventCursor')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode =>
-      Object.hash(userId, email, refreshTime, lastBootstrapAt, clockOffsetMs);
+  int get hashCode => Object.hash(
+    userId,
+    email,
+    refreshTime,
+    lastBootstrapAt,
+    clockOffsetMs,
+    lastEventCursor,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -2458,7 +2502,8 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
           other.email == this.email &&
           other.refreshTime == this.refreshTime &&
           other.lastBootstrapAt == this.lastBootstrapAt &&
-          other.clockOffsetMs == this.clockOffsetMs);
+          other.clockOffsetMs == this.clockOffsetMs &&
+          other.lastEventCursor == this.lastEventCursor);
 }
 
 class SyncMetaCompanion extends UpdateCompanion<SyncMetaData> {
@@ -2467,6 +2512,7 @@ class SyncMetaCompanion extends UpdateCompanion<SyncMetaData> {
   final Value<String> refreshTime;
   final Value<DateTime?> lastBootstrapAt;
   final Value<int> clockOffsetMs;
+  final Value<BigInt> lastEventCursor;
   final Value<int> rowid;
   const SyncMetaCompanion({
     this.userId = const Value.absent(),
@@ -2474,6 +2520,7 @@ class SyncMetaCompanion extends UpdateCompanion<SyncMetaData> {
     this.refreshTime = const Value.absent(),
     this.lastBootstrapAt = const Value.absent(),
     this.clockOffsetMs = const Value.absent(),
+    this.lastEventCursor = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   SyncMetaCompanion.insert({
@@ -2482,6 +2529,7 @@ class SyncMetaCompanion extends UpdateCompanion<SyncMetaData> {
     this.refreshTime = const Value.absent(),
     this.lastBootstrapAt = const Value.absent(),
     this.clockOffsetMs = const Value.absent(),
+    this.lastEventCursor = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : userId = Value(userId);
   static Insertable<SyncMetaData> custom({
@@ -2490,6 +2538,7 @@ class SyncMetaCompanion extends UpdateCompanion<SyncMetaData> {
     Expression<String>? refreshTime,
     Expression<DateTime>? lastBootstrapAt,
     Expression<int>? clockOffsetMs,
+    Expression<BigInt>? lastEventCursor,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -2498,6 +2547,7 @@ class SyncMetaCompanion extends UpdateCompanion<SyncMetaData> {
       if (refreshTime != null) 'refresh_time': refreshTime,
       if (lastBootstrapAt != null) 'last_bootstrap_at': lastBootstrapAt,
       if (clockOffsetMs != null) 'clock_offset_ms': clockOffsetMs,
+      if (lastEventCursor != null) 'last_event_cursor': lastEventCursor,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -2508,6 +2558,7 @@ class SyncMetaCompanion extends UpdateCompanion<SyncMetaData> {
     Value<String>? refreshTime,
     Value<DateTime?>? lastBootstrapAt,
     Value<int>? clockOffsetMs,
+    Value<BigInt>? lastEventCursor,
     Value<int>? rowid,
   }) {
     return SyncMetaCompanion(
@@ -2516,6 +2567,7 @@ class SyncMetaCompanion extends UpdateCompanion<SyncMetaData> {
       refreshTime: refreshTime ?? this.refreshTime,
       lastBootstrapAt: lastBootstrapAt ?? this.lastBootstrapAt,
       clockOffsetMs: clockOffsetMs ?? this.clockOffsetMs,
+      lastEventCursor: lastEventCursor ?? this.lastEventCursor,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -2538,6 +2590,9 @@ class SyncMetaCompanion extends UpdateCompanion<SyncMetaData> {
     if (clockOffsetMs.present) {
       map['clock_offset_ms'] = Variable<int>(clockOffsetMs.value);
     }
+    if (lastEventCursor.present) {
+      map['last_event_cursor'] = Variable<BigInt>(lastEventCursor.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -2552,6 +2607,7 @@ class SyncMetaCompanion extends UpdateCompanion<SyncMetaData> {
           ..write('refreshTime: $refreshTime, ')
           ..write('lastBootstrapAt: $lastBootstrapAt, ')
           ..write('clockOffsetMs: $clockOffsetMs, ')
+          ..write('lastEventCursor: $lastEventCursor, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -3680,6 +3736,7 @@ typedef $$SyncMetaTableCreateCompanionBuilder =
       Value<String> refreshTime,
       Value<DateTime?> lastBootstrapAt,
       Value<int> clockOffsetMs,
+      Value<BigInt> lastEventCursor,
       Value<int> rowid,
     });
 typedef $$SyncMetaTableUpdateCompanionBuilder =
@@ -3689,6 +3746,7 @@ typedef $$SyncMetaTableUpdateCompanionBuilder =
       Value<String> refreshTime,
       Value<DateTime?> lastBootstrapAt,
       Value<int> clockOffsetMs,
+      Value<BigInt> lastEventCursor,
       Value<int> rowid,
     });
 
@@ -3723,6 +3781,11 @@ class $$SyncMetaTableFilterComposer
 
   ColumnFilters<int> get clockOffsetMs => $composableBuilder(
     column: $table.clockOffsetMs,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<BigInt> get lastEventCursor => $composableBuilder(
+    column: $table.lastEventCursor,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -3760,6 +3823,11 @@ class $$SyncMetaTableOrderingComposer
     column: $table.clockOffsetMs,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<BigInt> get lastEventCursor => $composableBuilder(
+    column: $table.lastEventCursor,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$SyncMetaTableAnnotationComposer
@@ -3789,6 +3857,11 @@ class $$SyncMetaTableAnnotationComposer
 
   GeneratedColumn<int> get clockOffsetMs => $composableBuilder(
     column: $table.clockOffsetMs,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<BigInt> get lastEventCursor => $composableBuilder(
+    column: $table.lastEventCursor,
     builder: (column) => column,
   );
 }
@@ -3829,6 +3902,7 @@ class $$SyncMetaTableTableManager
                 Value<String> refreshTime = const Value.absent(),
                 Value<DateTime?> lastBootstrapAt = const Value.absent(),
                 Value<int> clockOffsetMs = const Value.absent(),
+                Value<BigInt> lastEventCursor = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => SyncMetaCompanion(
                 userId: userId,
@@ -3836,6 +3910,7 @@ class $$SyncMetaTableTableManager
                 refreshTime: refreshTime,
                 lastBootstrapAt: lastBootstrapAt,
                 clockOffsetMs: clockOffsetMs,
+                lastEventCursor: lastEventCursor,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -3845,6 +3920,7 @@ class $$SyncMetaTableTableManager
                 Value<String> refreshTime = const Value.absent(),
                 Value<DateTime?> lastBootstrapAt = const Value.absent(),
                 Value<int> clockOffsetMs = const Value.absent(),
+                Value<BigInt> lastEventCursor = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => SyncMetaCompanion.insert(
                 userId: userId,
@@ -3852,6 +3928,7 @@ class $$SyncMetaTableTableManager
                 refreshTime: refreshTime,
                 lastBootstrapAt: lastBootstrapAt,
                 clockOffsetMs: clockOffsetMs,
+                lastEventCursor: lastEventCursor,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

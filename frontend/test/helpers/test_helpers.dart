@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:protobuf/protobuf.dart' as pb;
 import 'package:karisreview/auth/providers/auth_provider.dart';
 import 'package:karisreview/auth/repositories/auth_repository.dart';
 import 'package:karisreview/card/providers/card_provider.dart';
@@ -52,6 +53,8 @@ class FakeApiClient extends ApiClient {
   Future<Response> Function(String path, Object? data)? onPost;
   Future<Response> Function(String path, Object? data)? onPut;
   Future<Response> Function(String path)? onDelete;
+  Future<List<int>> Function(String path, Map<String, dynamic>? query)? onGetProto;
+  Future<List<int>> Function(String path, Map<String, dynamic>? query, List<int> body)? onPostProto;
 
   @override
   Future<Response> get(String path, {Map<String, dynamic>? queryParameters}) {
@@ -61,6 +64,30 @@ class FakeApiClient extends ApiClient {
   @override
   Future<Response> post(String path, {Object? data}) {
     return onPost?.call(path, data) ?? Future.value(okResponse({}));
+  }
+
+  @override
+  Future<T> getProto<T extends pb.GeneratedMessage>(
+      String path, {
+    Map<String, dynamic>? queryParameters,
+    required T Function(List<int>) parse,
+  }) async {
+    final handler = onGetProto;
+    if (handler == null) throw UnimplementedError('未配置 getProto');
+    final bytes = await handler(path, queryParameters);
+    return parse(bytes);
+  }
+
+  @override
+  Future<T> postProto<T extends pb.GeneratedMessage>(
+    String path, {
+    required List<int> data,
+    required T Function(List<int>) parse,
+  }) async {
+    final handler = onPostProto;
+    if (handler == null) throw UnimplementedError('未配置 postProto');
+    final bytes = await handler(path, null, data);
+    return parse(bytes);
   }
 
   @override
@@ -105,8 +132,8 @@ Map<String, dynamic> deckJson({
     'due_count': dueCount,
     'new_count': 1,
     'mastered_count': 0,
-    'stage_distribution': {'0': 1, '1': 1},
-    'due_stage_distribution': {'0': 1},
+    'stage_distribution': [1, 1, 0, 0, 0, 0, 0, 0, 0],
+    'due_stage_distribution': [1, 0, 0, 0, 0, 0, 0, 0, 0],
     'created_at': '2025-08-01T10:00:00Z',
   };
 }
@@ -130,7 +157,6 @@ Map<String, dynamic> cardJson({
     'consecutive_familiar': 0,
     'learning_step': 0,
     'reentry_stage': null,
-    'learning_goal': null,
     'due': false,
     'created_at': '2025-08-01T10:00:00Z',
   };
@@ -149,12 +175,9 @@ Map<String, dynamic> reviewCardJson({
     'stage': 0,
     'learning_mode': false,
     'consecutive_familiar': 0,
-    'learning_goal': 5,
     'reentry_stage': null,
     'next_review_date': null,
-    'current_interval_days': 0,
-    'familiar_interval_days': 1,
-    'vague_interval_days': 0,
+    'review_version': 0,
   };
 }
 
@@ -183,8 +206,8 @@ Map<String, dynamic> overviewStatsJson() {
     'learned_today': 1,
     'mastered_cards': 2,
     'learning_cards': 8,
-    'stage_distribution': {'0': 8, '5': 2},
-    'due_stage_distribution': {'0': 3},
+    'stage_distribution': [8, 0, 0, 0, 0, 2, 0, 0, 0],
+    'due_stage_distribution': [3, 0, 0, 0, 0, 0, 0, 0, 0],
   };
 }
 
@@ -198,8 +221,8 @@ Map<String, dynamic> deckStatsJson() {
     'new_cards': 1,
     'learning_cards': 0,
     'mastered_cards': 0,
-    'stage_distribution': {'0': 2},
-    'due_stage_distribution': {'0': 1},
+    'stage_distribution': [2, 0, 0, 0, 0, 0, 0, 0, 0],
+    'due_stage_distribution': [1, 0, 0, 0, 0, 0, 0, 0, 0],
   };
 }
 

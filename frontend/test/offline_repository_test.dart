@@ -4,6 +4,7 @@ import 'package:karisreview/card/models/card.dart';
 import 'package:karisreview/offline/database/app_database.dart';
 import 'package:karisreview/offline/local_scheduling_engine.dart';
 import 'package:karisreview/offline/offline_repository.dart';
+import 'package:karisreview/shared/proto/karis_review.pb.dart' as proto;
 import 'package:karisreview/sync/repositories/sync_repository.dart';
 import 'package:karisreview/sync/sync_service.dart';
 
@@ -274,47 +275,49 @@ void main() {
 
   test('sync bootstrap restores is_new_card into local stats', () async {
     final api = FakeApiClient();
-    api.onGet = (path, query) async => okResponse({
-      'server_time': '2025-08-10T12:00:00Z',
-      'user': {'id': 'user-1', 'email': 'a@b.c', 'refresh_time': '04:00:00'},
-      'decks': [
-        {
-          'id': 'deck-1',
-          'name': '日语',
-          'created_at': '2025-08-01T00:00:00Z',
-          'updated_at': '2025-08-01T00:00:00Z',
-          'cards': [
-            {
-              'id': 'card-1',
-              'deck_id': 'deck-1',
-              'front': '单词',
-              'back': '释义',
-              'stage': 1,
-              'consecutive_familiar': 0,
-              'next_review_date': '2025-08-11',
-              'learning_mode': false,
-              'reentry_stage': null,
-              'learning_step': 0,
-              'review_version': 1,
-              'created_at': '2025-08-01T00:00:00Z',
-              'updated_at': '2025-08-10T12:00:00Z',
-            },
-          ],
-        },
-      ],
-      'review_logs': [
-        {
-          'id': 'log-new',
-          'card_id': 'card-1',
-          'rating': 'FAMILIAR',
-          'stage_before': 0,
-          'stage_after': 1,
-          'new_card': true,
-          'is_new_card': true,
-          'reviewed_at': '2025-08-10T12:00:00',
-        },
-      ],
-    });
+    api.onGetProto = (path, query) async {
+      expect(query, {'event_cursor': 0});
+      return proto.SyncResponse(
+        serverTime: '2025-08-10T12:00:00Z',
+        user: proto.User(
+          id: 'user-1',
+          email: 'a@b.c',
+          refreshTime: '04:00:00',
+        ),
+        decks: [
+          proto.Deck(
+            id: 'deck-1',
+            name: '日语',
+            createdAt: '2025-08-01T00:00:00Z',
+            updatedAt: '2025-08-01T00:00:00Z',
+            cards: [
+              proto.Card(
+                id: 'card-1',
+                deckId: 'deck-1',
+                front: '单词',
+                back: '释义',
+                stage: 1,
+                learningMode: false,
+                nextReviewDate: '2025-08-11',
+                createdAt: '2025-08-01T00:00:00Z',
+                updatedAt: '2025-08-10T12:00:00Z',
+              ),
+            ],
+          ),
+        ],
+        reviewLogs: [
+          proto.ReviewLog(
+            id: 'log-new',
+            cardId: 'card-1',
+            rating: 'FAMILIAR',
+            stageBefore: 0,
+            stageAfter: 1,
+            reviewedAt: '2025-08-10T12:00:00',
+            isNewCard: true,
+          ),
+        ],
+      ).writeToBuffer();
+    };
 
     final sync = SyncService(SyncRepository(client: api), offline);
     await sync.bootstrap(userId: 'user-1');
@@ -322,5 +325,103 @@ void main() {
     final stats = await offline.getOverviewStats('user-1');
     expect(stats.learnedToday, 1);
     expect(stats.reviewedToday, 0);
+  });
+
+  test('applyDelta upserts changed cards and deletes entities', () async {
+    await offline.saveBootstrap(
+      userId: 'user-1',
+      email: 'a@b.c',
+      refreshTime: '04:00:00',
+      serverTime: DateTime.utc(2025, 8, 10, 12),
+      decks: [
+        {
+          'id': 'deck-1',
+          'name': '旧名',
+          'created_at': '2025-08-01T00:00:00Z',
+          'updated_at': '2025-08-01T00:00:00Z',
+          'cards': [
+            {
+              'id': 'card-1',
+              'deck_id': 'deck-1',
+              'front': '旧正面',
+              'back': '旧反面',
+              'stage': 0,
+              'consecutive_familiar': 0,
+              'next_review_date': null,
+              'learning_mode': false,
+              'reentry_stage': null,
+              'learning_step': 0,
+              'review_version': 0,
+              'created_at': '2025-08-01T00:00:00Z',
+              'updated_at': '2025-08-01T00:00:00Z',
+            },
+          ],
+        },
+      ],
+      reviewLogs: [],
+      eventCursor: 1,
+    );
+
+    await offline.applyDelta(userId: 'user-1', data: {
+      'decks': [],
+      'changed_cards': [
+        {
+          'id': 'card-1',
+          'deck_id': 'deck-1',
+          'front': '新正面',
+          'back': '新反面',
+          'stage': 1,
+          'consecutive_familiar': 0,
+          'next_review_date': '2025-08-11',
+          'learning_mode': false,
+          'reentry_stage': null,
+          'learning_step': 0,
+          'review_version': 1,
+          'created_at': '2025-08-01T00:00:00Z',
+          'updated_at': '2025-08-10T12:00:00Z',
+        },
+      ],
+      'review_logs': [],
+      'deleted_deck_ids': ['deck-1'],
+      'deleted_card_ids': [],
+      'deleted_review_log_ids': [],
+      'event_cursor': 2,
+      'has_more': false,
+      'reset_required': false,
+    });
+
+    expect(await offline.getDecks('user-1'), isEmpty);
+    expect(await offline.getCards('user-1'), isEmpty);
+    final meta = await offline.getSyncMeta('user-1');
+    expect(meta?.lastEventCursor.toInt(), 2);
+  });
+
+  test('refresh shares one inflight delta request', () async {
+    await offline.saveBootstrap(
+      userId: 'user-1',
+      email: 'a@b.c',
+      refreshTime: '04:00:00',
+      serverTime: DateTime.utc(2025, 8, 10, 12),
+      decks: [],
+      reviewLogs: [],
+      eventCursor: 1,
+    );
+    var calls = 0;
+    final api = FakeApiClient();
+    api.onGetProto = (path, query) async {
+      calls += 1;
+      return proto.SyncResponse(
+        serverTime: '2025-08-10T12:00:01Z',
+        user: proto.User(
+          id: 'user-1',
+          email: 'a@b.c',
+          refreshTime: '04:00:00',
+        ),
+        hasMore: false,
+      ).writeToBuffer();
+    };
+    final sync = SyncService(SyncRepository(client: api), offline);
+    await Future.wait([sync.refresh(), sync.refresh()]);
+    expect(calls, 1);
   });
 }

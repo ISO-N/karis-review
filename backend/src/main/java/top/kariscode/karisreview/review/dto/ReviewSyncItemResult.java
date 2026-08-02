@@ -7,16 +7,14 @@ public class ReviewSyncItemResult {
 
     private String clientRequestId;
     private String status;
-    private RateResponse result;
     private ReviewCardResponse currentCard;
 
     public ReviewSyncItemResult() {}
 
     public ReviewSyncItemResult(String clientRequestId, String status,
-                                RateResponse result, ReviewCardResponse currentCard) {
+                                ReviewCardResponse currentCard) {
         this.clientRequestId = clientRequestId;
         this.status = status;
-        this.result = result;
         this.currentCard = currentCard;
     }
 
@@ -24,8 +22,6 @@ public class ReviewSyncItemResult {
     public void setClientRequestId(String clientRequestId) { this.clientRequestId = clientRequestId; }
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
-    public RateResponse getResult() { return result; }
-    public void setResult(RateResponse result) { this.result = result; }
     public ReviewCardResponse getCurrentCard() { return currentCard; }
     public void setCurrentCard(ReviewCardResponse currentCard) { this.currentCard = currentCard; }
 }

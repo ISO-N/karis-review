@@ -207,9 +207,23 @@ CREATE TABLE backup_snapshots (
 CREATE INDEX idx_backup_snapshots_user_id ON backup_snapshots(user_id);
 ```
 
-## 4. Flyway 迁移脚本结构
+### 3.7 sync_events
 
-```
+`sync_events` 保存用户数据变更事件，用于前端增量同步。
+
+| 字段 | 类型 | 约束 | 说明 |
+|------|------|------|------|
+| id | UUID | PK, DEFAULT gen_random_uuid() | 主键 |
+| user_id | UUID | NOT NULL, FK → users(id) ON DELETE CASCADE | 所属用户 |
+| entity_type | VARCHAR(20) | NOT NULL | 实体类型：decks/cards/review_logs/users |
+| entity_id | UUID | NOT NULL | 实体 ID |
+| event_type | VARCHAR(10) | NOT NULL | CREATED/UPDATED/DELETED |
+| event_seq | BIGSERIAL | NOT NULL, UNIQUE | 单调事件游标 |
+| occurred_at | TIMESTAMP | NOT NULL, DEFAULT NOW() | 发生时间 |
+
+数据库触发器自动写入事件，覆盖牌组、卡片、复习日志、用户设置变更；删除用户时级联删除事件，不再为用户删除写入事件。
+
+## 4. Flyway 迁移脚本结构
 src/main/resources/db/migration/
 ├── V1__create_users_table.sql
 ├── V2__create_decks_table.sql
@@ -218,7 +232,8 @@ src/main/resources/db/migration/
 ├── V5__create_backup_snapshots_table.sql
 ├── V6__add_learning_step_to_cards.sql
 ├── V7__add_new_card_flag_to_review_logs.sql
-└── V8__add_review_lock_and_sessions.sql
+├── V8__add_review_lock_and_sessions.sql
+└── V9__add_sync_events.sql
 
 ## 5. 关键查询说明
 

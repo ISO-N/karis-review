@@ -278,6 +278,14 @@ settings ──► auth, common
 
 后端新增 `sync` 模块提供 `/api/sync/bootstrap`；`review` 模块提供 `/api/review/sessions` 和 `/api/review/sync`。`sync` 依赖 `auth/deck/card/review`，不引入循环依赖。
 
+`sync_events` 表由数据库触发器记录牌组、卡片、复习日志和用户设置的创建/更新/删除事件。客户端保存单调 `event_cursor`，增量请求只拉取变更实体、新增日志和删除 ID；游标不可用时通过 `reset_required` 回退全量同步。
+
+## 7.1 传输优化
+
+- 服务端开启 gzip 压缩，稳定列表/统计接口返回私有 ETag 并支持 304。
+- 同步 Bootstrap、复习会话/分页、复习队列、评分同步支持同 URL Protobuf 内容协商；默认 JSON，客户端生产请求优先使用 Protobuf。
+- 前端 `SyncService` 对刷新做单飞行与冷却，评分同步做防抖批量提交，避免重复下载和重复请求。
+
 ## 8. 跨设备评分锁
 
 `cards.review_version` 是 JPA `@Version` 乐观锁字段。评分和同步接口在事务内用 `PESSIMISTIC_WRITE` 锁住卡片并校验版本，旧设备提交会得到冲突，不会重复排期。

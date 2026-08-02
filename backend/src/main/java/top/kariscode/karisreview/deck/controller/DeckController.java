@@ -2,10 +2,13 @@ package top.kariscode.karisreview.deck.controller;
 
 import jakarta.validation.Valid;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import org.springframework.http.CacheControl;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import top.kariscode.karisreview.common.dto.ApiResponse;
+import top.kariscode.karisreview.common.etag.UserEtagService;
 import top.kariscode.karisreview.deck.dto.DeckCreateRequest;
 import top.kariscode.karisreview.deck.dto.DeckResponse;
 import top.kariscode.karisreview.deck.dto.DeckUpdateRequest;
@@ -20,15 +23,30 @@ import java.util.UUID;
 public class DeckController {
 
     private final DeckService deckService;
+    private final UserEtagService etagService;
 
-    public DeckController(DeckService deckService) {
+    public DeckController(DeckService deckService, UserEtagService etagService) {
         this.deckService = deckService;
+        this.etagService = etagService;
     }
 
     @GetMapping
-    public ResponseEntity<ApiResponse<List<DeckResponse>>> getDecks(@AuthenticationPrincipal UUID userId) {
+    public ResponseEntity<ApiResponse<List<DeckResponse>>> getDecks(
+            @AuthenticationPrincipal UUID userId,
+            @RequestHeader(name = "If-None-Match", required = false) String ifNoneMatch) {
+        String etag = etagService.decksEtag(userId);
+        if (matches(ifNoneMatch, etag)) {
+            return ResponseEntity.status(HttpStatus.NOT_MODIFIED).eTag(etag).build();
+        }
         List<DeckResponse> decks = deckService.getUserDecks(userId);
-        return ResponseEntity.ok(ApiResponse.success(decks));
+        return ResponseEntity.ok()
+                .eTag(etag)
+                .cacheControl(CacheControl.noCache().cachePrivate())
+                .body(ApiResponse.success(decks));
+    }
+
+    private boolean matches(String ifNoneMatch, String etag) {
+        return ifNoneMatch != null && ("*".equals(ifNoneMatch) || ifNoneMatch.equals(etag));
     }
 
     @PostMapping

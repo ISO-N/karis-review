@@ -16,6 +16,7 @@ import top.kariscode.karisreview.config.SecurityConfig;
 import top.kariscode.karisreview.sync.dto.BootstrapResponse;
 import top.kariscode.karisreview.sync.dto.BootstrapReviewLog;
 import top.kariscode.karisreview.sync.dto.BootstrapUser;
+import top.kariscode.karisreview.sync.service.SyncProtoMapper;
 import top.kariscode.karisreview.sync.service.SyncService;
 
 import java.time.LocalDateTime;
@@ -24,6 +25,7 @@ import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
 
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -40,6 +42,9 @@ class SyncControllerTest {
     private SyncService syncService;
 
     @MockitoBean
+    private SyncProtoMapper syncProtoMapper;
+
+    @MockitoBean
     private JwtProvider jwtProvider;
 
     @Test
@@ -53,7 +58,7 @@ class SyncControllerTest {
                 new BootstrapUser(userId, "a@b.c", "04:00:00"),
                 List.of(),
                 List.of(log));
-        when(syncService.getBootstrap(userId)).thenReturn(response);
+        when(syncService.getBootstrap(eq(userId), eq(0L))).thenReturn(response);
 
         mockMvc.perform(get("/api/sync/bootstrap").with(authentication(userId)))
                 .andExpect(status().isOk())

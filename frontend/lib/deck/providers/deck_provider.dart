@@ -32,7 +32,7 @@ class DeckListNotifier extends StateNotifier<AsyncValue<List<Deck>>> {
           state = AsyncValue.data(await _repository.getDecks());
           return;
         }
-        await sync!.bootstrap(userId: meta.userId);
+        await sync!.refresh();
         state = AsyncValue.data(await offline!.getDeckSummaries(meta.userId));
       } catch (e, st) {
         if (previous == null) {

@@ -144,7 +144,14 @@ final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
     AuthRepository(),
     onAuthenticated: (user) async {
       try {
-        await ref.read(syncServiceProvider).bootstrap(userId: user.id);
+        final offline = ref.read(offlineRepositoryProvider);
+        final meta = await offline.getActiveSyncMeta();
+        final sync = ref.read(syncServiceProvider);
+        if (meta == null || meta.userId != user.id) {
+          await sync.bootstrap(userId: user.id);
+        } else {
+          await sync.refresh();
+        }
       } catch (_) {}
     },
     restoreUser: () async {

@@ -1,6 +1,6 @@
 package top.kariscode.karisreview.stats.dto;
 
-import java.util.Map;
+import java.util.List;
 
 public class DeckStatsResponse {
 
@@ -12,8 +12,8 @@ public class DeckStatsResponse {
     private long newCards;
     private long learningCards;
     private long masteredCards;
-    private Map<String, Long> stageDistribution;
-    private Map<String, Long> dueStageDistribution;
+    private List<Long> stageDistribution;
+    private List<Long> dueStageDistribution;
 
     public String getDeckId() { return deckId; }
     public void setDeckId(String deckId) { this.deckId = deckId; }
@@ -31,8 +31,8 @@ public class DeckStatsResponse {
     public void setLearningCards(long learningCards) { this.learningCards = learningCards; }
     public long getMasteredCards() { return masteredCards; }
     public void setMasteredCards(long masteredCards) { this.masteredCards = masteredCards; }
-    public Map<String, Long> getStageDistribution() { return stageDistribution; }
-    public void setStageDistribution(Map<String, Long> stageDistribution) { this.stageDistribution = stageDistribution; }
-    public Map<String, Long> getDueStageDistribution() { return dueStageDistribution; }
-    public void setDueStageDistribution(Map<String, Long> dueStageDistribution) { this.dueStageDistribution = dueStageDistribution; }
+    public List<Long> getStageDistribution() { return stageDistribution; }
+    public void setStageDistribution(List<Long> stageDistribution) { this.stageDistribution = stageDistribution; }
+    public List<Long> getDueStageDistribution() { return dueStageDistribution; }
+    public void setDueStageDistribution(List<Long> dueStageDistribution) { this.dueStageDistribution = dueStageDistribution; }
 }

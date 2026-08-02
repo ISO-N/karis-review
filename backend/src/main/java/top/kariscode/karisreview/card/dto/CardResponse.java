@@ -19,7 +19,6 @@ public class CardResponse {
     private int consecutiveFamiliar;
     private int learningStep;
     private Integer reentryStage;
-    private Integer learningGoal;
     private boolean due;
     private LocalDateTime createdAt;
     private long reviewVersion;
@@ -27,15 +26,15 @@ public class CardResponse {
     public CardResponse(UUID id, UUID deckId, String front, String back, int stage,
                         LocalDate nextReviewDate, boolean learningMode,
                         int consecutiveFamiliar, int learningStep, Integer reentryStage,
-                        Integer learningGoal, boolean due, LocalDateTime createdAt) {
+                        boolean due, LocalDateTime createdAt) {
         this(id, deckId, front, back, stage, nextReviewDate, learningMode,
-                consecutiveFamiliar, learningStep, reentryStage, learningGoal, due, createdAt, 0);
+                consecutiveFamiliar, learningStep, reentryStage, due, createdAt, 0);
     }
 
     public CardResponse(UUID id, UUID deckId, String front, String back, int stage,
                         LocalDate nextReviewDate, boolean learningMode,
                         int consecutiveFamiliar, int learningStep, Integer reentryStage,
-                        Integer learningGoal, boolean due, LocalDateTime createdAt,
+                        boolean due, LocalDateTime createdAt,
                         long reviewVersion) {
         this.id = id;
         this.deckId = deckId;
@@ -47,7 +46,6 @@ public class CardResponse {
         this.consecutiveFamiliar = consecutiveFamiliar;
         this.learningStep = learningStep;
         this.reentryStage = reentryStage;
-        this.learningGoal = learningGoal;
         this.due = due;
         this.createdAt = createdAt;
         this.reviewVersion = reviewVersion;
@@ -73,8 +71,6 @@ public class CardResponse {
     public void setLearningStep(int learningStep) { this.learningStep = learningStep; }
     public Integer getReentryStage() { return reentryStage; }
     public void setReentryStage(Integer reentryStage) { this.reentryStage = reentryStage; }
-    public Integer getLearningGoal() { return learningGoal; }
-    public void setLearningGoal(Integer learningGoal) { this.learningGoal = learningGoal; }
     public boolean isDue() { return due; }
     public void setDue(boolean due) { this.due = due; }
     public LocalDateTime getCreatedAt() { return createdAt; }

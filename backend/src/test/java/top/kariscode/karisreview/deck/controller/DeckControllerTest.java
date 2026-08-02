@@ -11,6 +11,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import top.kariscode.karisreview.common.exception.BusinessException;
+import top.kariscode.karisreview.common.etag.UserEtagService;
 import top.kariscode.karisreview.config.JacksonConfig;
 import top.kariscode.karisreview.config.JwtAuthenticationFilter;
 import top.kariscode.karisreview.config.JwtProvider;
@@ -47,12 +48,16 @@ class DeckControllerTest {
     private DeckService deckService;
 
     @MockitoBean
+    private UserEtagService etagService;
+
+    @MockitoBean
     private JwtProvider jwtProvider;
 
     @Test
     void getDecksReturnsList() throws Exception {
         UUID userId = UUID.randomUUID();
         when(deckService.getUserDecks(userId)).thenReturn(List.of(response("日语")));
+        when(etagService.decksEtag(userId)).thenReturn("W/\"test-etag\"");
 
         mockMvc.perform(get("/api/decks").with(authentication(userId)))
                 .andExpect(status().isOk())
@@ -126,7 +131,8 @@ class DeckControllerTest {
     private DeckResponse response(String name) {
         return new DeckResponse(
                 UUID.randomUUID(), name, 1, 0, 0, 0,
-                Map.of("0", 1L), Map.of("0", 0L), LocalDateTime.now());
+                List.of(1L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L),
+                List.of(0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L), LocalDateTime.now());
     }
 
     private RequestPostProcessor authentication(UUID userId) {

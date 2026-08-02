@@ -61,7 +61,7 @@ class CardListNotifier extends StateNotifier<AsyncValue<List<FlashCard>>> {
           );
           return;
         }
-        await sync!.bootstrap(userId: meta.userId);
+        await sync!.refresh();
         state = AsyncValue.data(await _localCards(meta.userId));
       } catch (e, st) {
         if (previous == null) {

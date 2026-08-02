@@ -144,7 +144,7 @@ class CardControllerTest {
         UUID id = responseId();
         return new CardResponse(
                 id, UUID.randomUUID(), front, back, 0, null, false,
-                0, 0, null, null, false, LocalDateTime.now());
+                0, 0, null, false, LocalDateTime.now());
     }
 
     private UUID responseId() {

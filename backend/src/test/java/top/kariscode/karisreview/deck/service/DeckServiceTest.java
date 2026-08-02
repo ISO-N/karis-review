@@ -75,8 +75,8 @@ class DeckServiceTest {
         assertEquals(1, response.getDueCount());
         assertEquals(2, response.getNewCount());
         assertEquals(1, response.getMasteredCount());
-        assertEquals(2L, response.getStageDistribution().get("3"));
-        assertEquals(1L, response.getDueStageDistribution().get("0"));
+        assertEquals(2L, response.getStageDistribution().get(3));
+        assertEquals(1L, response.getDueStageDistribution().get(0));
     }
 
     @Test

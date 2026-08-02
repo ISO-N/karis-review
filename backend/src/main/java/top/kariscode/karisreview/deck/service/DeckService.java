@@ -15,9 +15,8 @@ import top.kariscode.karisreview.auth.repository.UserRepository;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
-import java.util.LinkedHashMap;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -81,23 +80,22 @@ public class DeckService {
         int dueCount = cardRepository.countDueByDeckId(deckId, today);
         int newCount = (int) cardRepository.countByDeckIdAndStageAndLearningModeFalse(deckId, 0);
         int masteredCount = (int) cardRepository.countByDeckIdAndStageGreaterThanEqual(deckId, 5);
-        Map<String, Long> stageDistribution = distributionFromRows(
+        List<Long> stageDistribution = distributionFromRows(
                 cardRepository.countByStageGroupedByDeck(deckId));
-        Map<String, Long> dueStageDistribution = distributionFromRows(
+        List<Long> dueStageDistribution = distributionFromRows(
                 cardRepository.countDueByStageGroupedByDeck(deckId, today));
         return new DeckResponse(deck.getId(), deck.getName(), cardCount, dueCount,
                 newCount, masteredCount, stageDistribution, dueStageDistribution,
                 deck.getCreatedAt());
     }
 
-    private Map<String, Long> distributionFromRows(List<Object[]> rows) {
-        Map<String, Long> distribution = new LinkedHashMap<>();
-        for (int i = 0; i <= 8; i++) {
-            distribution.put(String.valueOf(i), 0L);
-        }
+    private List<Long> distributionFromRows(List<Object[]> rows) {
+        List<Long> distribution = new ArrayList<>(List.of(0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L));
         for (Object[] row : rows) {
-            String stage = String.valueOf(((Number) row[0]).intValue());
-            distribution.merge(stage, ((Number) row[1]).longValue(), Long::sum);
+            int stage = ((Number) row[0]).intValue();
+            if (stage >= 0 && stage <= 8) {
+                distribution.set(stage, distribution.get(stage) + ((Number) row[1]).longValue());
+            }
         }
         return distribution;
     }

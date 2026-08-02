@@ -1,4 +1,6 @@
 class ReviewCard {
+  static const List<int> _intervals = [0, 1, 2, 4, 7, 15, 30, 90, 180];
+
   final String id;
   final String deckId;
   final String front;
@@ -7,12 +9,8 @@ class ReviewCard {
   final bool learningMode;
   final int consecutiveFamiliar;
   final int learningStep;
-  final int learningGoal;
   final int? reentryStage;
   final String? nextReviewDate;
-  final int currentIntervalDays;
-  final int familiarIntervalDays;
-  final int vagueIntervalDays;
   final int reviewVersion;
 
   ReviewCard({
@@ -24,14 +22,33 @@ class ReviewCard {
     required this.learningMode,
     required this.consecutiveFamiliar,
     this.learningStep = 0,
-    this.learningGoal = 5,
     this.reentryStage,
     this.nextReviewDate,
-    this.currentIntervalDays = 0,
-    this.familiarIntervalDays = 0,
-    this.vagueIntervalDays = 0,
     this.reviewVersion = 0,
   });
+
+  int get learningGoal =>
+      learningMode ? (reentryStage != null && reentryStage! > 0 ? 3 : 5) : 5;
+
+  int get currentIntervalDays => _intervals[stage.clamp(0, 8)];
+
+  int get familiarIntervalDays {
+    if (learningMode) {
+      final threshold = reentryStage != null && reentryStage! > 0 ? 3 : 5;
+      if (consecutiveFamiliar + 1 >= threshold) {
+        final target = reentryStage;
+        if (target != null && target > 0) {
+          return _intervals[target] - _intervals[target - 1];
+        }
+        return _intervals[1];
+      }
+      return 0;
+    }
+    if (stage >= 8) return _intervals[8];
+    return _intervals[stage + 1];
+  }
+
+  int get vagueIntervalDays => stage <= 1 ? 0 : _intervals[stage];
 
   factory ReviewCard.fromJson(Map<String, dynamic> json) {
     return ReviewCard(
@@ -43,14 +60,8 @@ class ReviewCard {
       learningMode: json['learning_mode'] as bool? ?? false,
       consecutiveFamiliar: (json['consecutive_familiar'] as num?)?.toInt() ?? 0,
       learningStep: (json['learning_step'] as num?)?.toInt() ?? 0,
-      learningGoal: (json['learning_goal'] as num?)?.toInt() ?? 5,
       reentryStage: (json['reentry_stage'] as num?)?.toInt(),
       nextReviewDate: json['next_review_date'] as String?,
-      currentIntervalDays:
-          (json['current_interval_days'] as num?)?.toInt() ?? 0,
-      familiarIntervalDays:
-          (json['familiar_interval_days'] as num?)?.toInt() ?? 0,
-      vagueIntervalDays: (json['vague_interval_days'] as num?)?.toInt() ?? 0,
       reviewVersion: (json['review_version'] as num?)?.toInt() ?? 0,
     );
   }

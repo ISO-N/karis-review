@@ -33,7 +33,7 @@ class StatsNotifier extends StateNotifier<AsyncValue<OverviewStats?>> {
           state = AsyncValue.data(await _repository.getOverview());
           return;
         }
-        await sync!.bootstrap(userId: meta.userId);
+        await sync!.refresh();
         state = AsyncValue.data(await offline!.getOverviewStats(meta.userId));
       } catch (e, st) {
         if (previous == null) {

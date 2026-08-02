@@ -23,6 +23,7 @@ import top.kariscode.karisreview.review.dto.ReviewSessionPageResponse;
 import top.kariscode.karisreview.review.dto.ReviewSyncItemResult;
 import top.kariscode.karisreview.review.dto.ReviewSyncRequest;
 import top.kariscode.karisreview.review.dto.ReviewSyncResponse;
+import top.kariscode.karisreview.review.service.ReviewProtoMapper;
 import top.kariscode.karisreview.review.service.ReviewService;
 
 import java.time.LocalDate;
@@ -48,6 +49,9 @@ class ReviewControllerTest {
 
     @MockitoBean
     private ReviewService reviewService;
+
+    @MockitoBean
+    private ReviewProtoMapper protoMapper;
 
     @MockitoBean
     private JwtProvider jwtProvider;
@@ -137,7 +141,7 @@ class ReviewControllerTest {
     void syncRatingsReturnsPerItemResults() throws Exception {
         UUID userId = UUID.randomUUID();
         ReviewSyncResponse response = new ReviewSyncResponse(
-                1, 0, 0, List.of(new ReviewSyncItemResult("request-1", "SYNCED", null, null)));
+                1, 0, 0, List.of(new ReviewSyncItemResult("request-1", "SYNCED", null)));
         when(reviewService.syncRatings(eq(userId), any(ReviewSyncRequest.class)))
                 .thenReturn(response);
 
@@ -154,7 +158,7 @@ class ReviewControllerTest {
     private ReviewCardResponse reviewCard() {
         return new ReviewCardResponse(
                 UUID.randomUUID(), UUID.randomUUID(), "正面", "反面",
-                0, false, 0, 5, null, null, 0, 1, 0);
+                0, false, 0, null, null, 0, 0);
     }
 
     private RequestPostProcessor authentication(UUID userId) {
