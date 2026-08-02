@@ -74,7 +74,7 @@ Karis Review 的产品定位是“极简、专注的间隔重复闪卡复习”�
 - 二级页面不显示底部导航，使用左上角返回按钮回到上级。
 - 首页结构：日期标题 → 今日待复习 → 记忆刻度 → 牌组列表；“开始”按钮靠右并垂直居中，点击后进入学习/复习选择界面。
 - 复习页：进度条 → 卡片 → 三个评分按钮。
-- 新建卡片使用底部弹层，单手可达。
+- 新建/编辑卡片与快捷导入使用独立二级页面；卡片正反面通过分段切换，避免两面同时堆叠。
 
 ### 4.2 平板：940 × 680
 
@@ -160,7 +160,7 @@ const hairline = Color(0xFFDCE3DB);
 | UR-24 复习趋势 | 统计页趋势图 |
 | UQ-01 简洁清爽 | 单焦点首页与细线分层 |
 | UQ-02 移动/桌面一致 | 同一数据模型，手机/平板自适应 |
-| UQ-04 单手操作 | 手机悬浮药丸导航与底部弹层 |
+| UQ-04 单手操作 | 手机悬浮药丸导航与独立编辑/导入页面，正反面分段切换 |
 
 ## 9. 交付物
 
@@ -168,7 +168,7 @@ const hairline = Color(0xFFDCE3DB);
 - `docs/frontend-design/styles.css`：原型样式，包含手机/平板断点、悬浮导航与动效。
 - `docs/frontend-design/app.js`：原型交互逻辑，包含页面切换、翻卡评分、弹层和设备切换。
 - `docs/frontend-design.md`：本设计说明。
-- `docs/frontend-design/screenshots/mobile/`：Flutter Web 手机布局页面与组件截图。
-- `docs/frontend-design/screenshots/tablet/`：Flutter Web 平板布局页面与组件截图。
-- `tools/screenshots/`：可重复运行的 Playwright 截图工具，自动注册演示账号并生成两组截图。
+- `docs/frontend-design/screenshots/mobile/`：Flutter Web 手机布局页面与组件截图（15 张）。
+- `docs/frontend-design/screenshots/tablet/`：Flutter Web 平板布局页面与组件截图（15 张）。
+- `tools/screenshots/`：可重复运行的 Playwright 截图工具，自动注册演示账号并生成手机、平板各 15 张截图。
 - `docs/README.md`：文档索引新增本设计说明入口。

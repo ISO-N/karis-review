@@ -85,7 +85,8 @@ flutter build web --release --dart-define=API_BASE_URL=https://review.kariscode.
 - **API 客户端**：`shared/api/api_client.dart` 的 Dio 单例，拦截器自动附加 Token（SharedPreferences 存储）并在 401 时清除。基础 URL 与端点常量在 `shared/api/api_endpoints.dart`。
 - **路由/鉴权**：`app/router.dart` 的 GoRouter 监听 `authProvider` 做重定向（未登录 → `/login`，已登录访问登录页 → `/decks`）。`/review/due` 与 `/review/new` 共用 `ReviewPage`，用 `filter` 参数区分学习/复习模式，牌组筛选走 `deck_id` query 参数。
 - **富文本**：卡片正反面存 Quill Delta JSON 字符串（`flutter_quill` 编辑器，LaTeX 和代码块是自定义 custom block embed）。`shared/widgets/rich_card_content.dart` 渲染时自动识别——内容以 `[` 开头且可解析为 JSON 列表则按 Delta 渲染，否则按轻量 Markdown 解析（`**粗体**`、`*斜体*`、`` `行内代码` ``、`# 标题`、`- 列表`、`$$...$$` 行间公式、`$...$` 行内公式、` ``` 代码块 ````），并对 Delta/普通文本两种格式都做了容错处理。
-- **卡片快捷导入**：`card/widgets/card_import_sheet.dart` 支持粘贴 JSON 或选择 `.json` 文件；解析和最终导入都走后端，预览阶段可编辑/删除行，不支持新增和排序。
+- **卡片编辑**：`card/pages/card_editor_page.dart` 为独立页面，正面/反面通过分段切换编辑，不把两面同时堆在一个界面里。
+- **卡片快捷导入**：`card/pages/card_import_page.dart` 为独立页面，支持粘贴 JSON 或选择 `.json` 文件；解析和最终导入都走后端，预览阶段可编辑/删除行，不支持新增和排序。
 - **评分流程**：`review/providers/review_provider.dart` 维护 `ReviewSessionState`（卡片队列、当前索引、是否翻面），评分后推进索引。
 - 另有 `shared/widgets/loading_widget.dart`、`error_widget.dart` 等通用组件。
 

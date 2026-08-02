@@ -26,7 +26,7 @@
 - 模型测试：`models_test.dart` 覆盖牌组、卡片、复习结果、统计、导入预览等 JSON 解析。
 - Repository 测试：`repositories_test.dart` 用 Fake ApiClient 验证请求路径、参数、请求体和响应解析。
 - Provider 测试：`providers_test.dart` 覆盖 Auth、Deck、Card、Review、Stats、Settings 的状态转换与错误路径。
-- Widget 测试：`widgets_test.dart` 覆盖登录/注册、首页、牌组、卡片、开始流程、复习翻面与评分、导入预览、统计、设置和共享组件。
+- Widget 测试：`widgets_test.dart` 覆盖登录/注册、首页、牌组、卡片列表、卡片编辑正反面切换、导入页面、开始流程、复习翻面与评分、统计、设置和共享组件。
 
 ## 运行命令
 

@@ -194,9 +194,9 @@ lib/
 │   ├── card_provider.dart
 │   ├── card_repository.dart
 │   ├── pages/
-│   │   └── card_list_page.dart
-│   ├── widgets/
-│   │   └── card_editor_sheet.dart
+│   │   ├── card_list_page.dart
+│   │   ├── card_editor_page.dart
+│   │   └── card_import_page.dart
 │   └── models/
 │       └── card.dart
 │
