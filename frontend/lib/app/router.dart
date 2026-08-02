@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../auth/pages/login_page.dart';
+import '../shared/utils/motion.dart';
 import '../auth/pages/register_page.dart';
 import '../auth/providers/auth_provider.dart';
 import '../card/pages/card_editor_page.dart';
@@ -16,14 +17,22 @@ import '../settings/pages/settings_page.dart';
 import '../stats/pages/stats_page.dart';
 
 CustomTransitionPage<Object?> _fadeSlidePage(
+  BuildContext context,
   GoRouterState state,
   Widget child,
 ) {
   return CustomTransitionPage<Object?>(
     key: state.pageKey,
-    transitionDuration: const Duration(milliseconds: 260),
-    reverseTransitionDuration: const Duration(milliseconds: 220),
+    transitionDuration: reducedDuration(
+      context,
+      const Duration(milliseconds: 260),
+    ),
+    reverseTransitionDuration: reducedDuration(
+      context,
+      const Duration(milliseconds: 220),
+    ),
     transitionsBuilder: (context, animation, secondaryAnimation, child) {
+      if (MediaQuery.disableAnimationsOf(context)) return child;
       final curved = CurvedAnimation(
         parent: animation,
         curve: Curves.easeOutCubic,
@@ -62,29 +71,38 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/login',
         pageBuilder: (context, state) =>
-            _fadeSlidePage(state, const LoginPage()),
+            _fadeSlidePage(context, state, const LoginPage()),
       ),
       GoRoute(
         path: '/register',
         pageBuilder: (context, state) =>
-            _fadeSlidePage(state, const RegisterPage()),
+            _fadeSlidePage(context, state, const RegisterPage()),
       ),
       GoRoute(
         path: '/home',
         pageBuilder: (context, state) =>
-            _fadeSlidePage(state, const HomePage()),
+            _fadeSlidePage(context, state, const HomePage()),
       ),
       GoRoute(
         path: '/decks',
         pageBuilder: (context, state) =>
-            _fadeSlidePage(state, const DeckListPage()),
+            _fadeSlidePage(context, state, const DeckListPage()),
       ),
       GoRoute(
         path: '/decks/:deckId/cards',
-        pageBuilder: (context, state) => _fadeSlidePage(
-          state,
-          CardListPage(deckId: state.pathParameters['deckId']!),
-        ),
+        pageBuilder: (context, state) {
+          final filter = state.uri.queryParameters['filter'];
+          return _fadeSlidePage(
+            context,
+            state,
+            CardListPage(
+              deckId: state.pathParameters['deckId']!,
+              initialFilter: filter == 'due' || filter == 'learning'
+                  ? filter!
+                  : 'all',
+            ),
+          );
+        },
       ),
       GoRoute(
         path: '/decks/:deckId/cards/editor',
@@ -101,35 +119,45 @@ final routerProvider = Provider<GoRouter>((ref) {
                   localOnly: extra.localOnly,
                 )
               : CardEditorArgs(deckId: deckId);
-          return _fadeSlidePage(state, CardEditorPage(args: args));
+          return _fadeSlidePage(context, state, CardEditorPage(args: args));
         },
       ),
       GoRoute(
         path: '/decks/:deckId/cards/import',
         pageBuilder: (context, state) => _fadeSlidePage(
+          context,
           state,
           CardImportPage(deckId: state.pathParameters['deckId']!),
         ),
       ),
       GoRoute(
         path: '/start',
-        pageBuilder: (context, state) =>
-            _fadeSlidePage(state, const StartFlowPage()),
+        pageBuilder: (context, state) {
+          final query = state.uri.queryParameters;
+          return _fadeSlidePage(
+            context,
+            state,
+            StartFlowPage(
+              initialMode: query['mode'] == 'new' ? 'new' : 'due',
+              initialDeckId: query['deck_id'],
+            ),
+          );
+        },
       ),
       GoRoute(
         path: '/review',
         pageBuilder: (context, state) =>
-            _fadeSlidePage(state, const ReviewPage()),
+            _fadeSlidePage(context, state, const ReviewPage()),
       ),
       GoRoute(
         path: '/stats',
         pageBuilder: (context, state) =>
-            _fadeSlidePage(state, const StatsPage()),
+            _fadeSlidePage(context, state, const StatsPage()),
       ),
       GoRoute(
         path: '/settings',
         pageBuilder: (context, state) =>
-            _fadeSlidePage(state, const SettingsPage()),
+            _fadeSlidePage(context, state, const SettingsPage()),
       ),
     ],
   );

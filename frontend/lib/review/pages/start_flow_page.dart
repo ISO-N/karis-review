@@ -6,18 +6,55 @@ import '../../app/theme.dart';
 import '../../deck/models/deck.dart';
 import '../../deck/providers/deck_provider.dart';
 import '../../shared/widgets/adaptive_scaffold.dart';
+import '../../shared/utils/motion.dart';
+import '../../shared/widgets/app_semantics.dart';
 import '../../shared/widgets/section_widgets.dart';
 
 class StartFlowPage extends ConsumerStatefulWidget {
-  const StartFlowPage({super.key});
+  final String initialMode;
+  final String? initialDeckId;
+
+  const StartFlowPage({
+    super.key,
+    this.initialMode = 'due',
+    this.initialDeckId,
+  });
 
   @override
   ConsumerState<StartFlowPage> createState() => _StartFlowPageState();
 }
 
 class _StartFlowPageState extends ConsumerState<StartFlowPage> {
-  String _mode = 'due';
-  String _scope = 'all';
+  late String _mode;
+  late String _scope;
+
+  @override
+  void initState() {
+    super.initState();
+    _mode = widget.initialMode == 'new' ? 'new' : 'due';
+    _scope = widget.initialDeckId ?? 'all';
+  }
+
+  @override
+  void didUpdateWidget(covariant StartFlowPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final nextMode = widget.initialMode == 'new' ? 'new' : 'due';
+    final nextScope = widget.initialDeckId ?? 'all';
+    if (nextMode != _mode || nextScope != _scope) {
+      _mode = nextMode;
+      _scope = nextScope;
+    }
+  }
+
+  void _setMode(String value) {
+    setState(() => _mode = value);
+    GoRouter.maybeOf(context)?.replace('/start?mode=$value&deck_id=$_scope');
+  }
+
+  void _setScope(String value) {
+    setState(() => _scope = value);
+    GoRouter.maybeOf(context)?.replace('/start?mode=$_mode&deck_id=$value');
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -42,7 +79,7 @@ class _StartFlowPageState extends ConsumerState<StartFlowPage> {
                 error: (error, _) => EmptyState(
                   icon: Icons.error_outline,
                   title: '加载牌组失败',
-                  message: '$error',
+                  message: '加载牌组失败，请检查网络后重试',
                 ),
                 data: (decks) {
                   final totalCount = _totalCount(decks);
@@ -63,9 +100,11 @@ class _StartFlowPageState extends ConsumerState<StartFlowPage> {
                               children: [
                                 const Kicker('开始'),
                                 const SizedBox(height: 4),
-                                Text(
-                                  _mode == 'new' ? '开始学习' : '开始复习',
-                                  style: karisDisplay(fontSize: 26),
+                                KarisHeading(
+                                  child: Text(
+                                    _mode == 'new' ? '开始学习' : '开始复习',
+                                    style: karisDisplay(fontSize: 26),
+                                  ),
                                 ),
                               ],
                             ),
@@ -82,10 +121,7 @@ class _StartFlowPageState extends ConsumerState<StartFlowPage> {
                       const SizedBox(height: 22),
                       const SectionHeader(title: '学习方式', trailing: '选择队列'),
                       const SizedBox(height: 14),
-                      _ModeSwitch(
-                        mode: _mode,
-                        onChanged: (value) => setState(() => _mode = value),
-                      ),
+                      _ModeSwitch(mode: _mode, onChanged: _setMode),
                       const SizedBox(height: 24),
                       SectionHeader(
                         title: '范围',
@@ -108,26 +144,33 @@ class _StartFlowPageState extends ConsumerState<StartFlowPage> {
                             label: const Text('创建牌组'),
                           ),
                         )
-                      else ...[
-                        _ScopeOption(
-                          name: '全部卡组',
-                          meta: _countLabel(totalCount),
-                          active: _scope == 'all',
-                          onTap: () => setState(() => _scope = 'all'),
+                      else
+                        ListView.separated(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: decks.length + 1,
+                          separatorBuilder: (_, _) =>
+                              const SizedBox(height: 10),
+                          itemBuilder: (context, index) {
+                            if (index == 0) {
+                              return _ScopeOption(
+                                name: '全部卡组',
+                                meta: _countLabel(totalCount),
+                                active: _scope == 'all',
+                                onTap: () => _setScope('all'),
+                              );
+                            }
+                            final deck = decks[index - 1];
+                            return _ScopeOption(
+                              name: deck.name,
+                              meta: _countLabel(
+                                _mode == 'new' ? deck.newCount : deck.dueCount,
+                              ),
+                              active: _scope == deck.id,
+                              onTap: () => _setScope(deck.id),
+                            );
+                          },
                         ),
-                        const SizedBox(height: 10),
-                        for (final deck in decks) ...[
-                          _ScopeOption(
-                            name: deck.name,
-                            meta: _countLabel(
-                              _mode == 'new' ? deck.newCount : deck.dueCount,
-                            ),
-                            active: _scope == deck.id,
-                            onTap: () => setState(() => _scope = deck.id),
-                          ),
-                          const SizedBox(height: 10),
-                        ],
-                      ],
                       const SizedBox(height: 26),
                       KarisPrimaryButton(
                         label: _mode == 'new' ? '开始学习' : '开始复习',
@@ -213,34 +256,37 @@ class _ModeOption extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        curve: Curves.easeOut,
-        height: 48,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: active ? KarisColors.surface : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
-          boxShadow: active
-              ? [
-                  BoxShadow(
-                    color: const Color(0xFF161F1B).withValues(alpha: 0.08),
-                    blurRadius: 10,
-                    offset: const Offset(0, 2),
-                  ),
-                ]
-              : null,
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: active ? KarisColors.ink : KarisColors.stone,
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            letterSpacing: 0,
+    return KarisInteractive(
+      selected: active,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: AnimatedContainer(
+          duration: reducedDuration(context, const Duration(milliseconds: 180)),
+          curve: Curves.easeOut,
+          height: 48,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: active ? KarisColors.surface : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+            boxShadow: active
+                ? [
+                    BoxShadow(
+                      color: const Color(0xFF161F1B).withValues(alpha: 0.08),
+                      blurRadius: 10,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              color: active ? KarisColors.ink : KarisColors.stone,
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0,
+            ),
           ),
         ),
       ),
@@ -263,69 +309,72 @@ class _ScopeOption extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        width: double.infinity,
-        constraints: const BoxConstraints(minHeight: 62),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: BoxDecoration(
-          color: active ? KarisColors.jadeSoft : KarisColors.surface,
-          border: Border.all(
-            color: active ? KarisColors.jade : KarisColors.hairline,
+    return KarisInteractive(
+      selected: active,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          width: double.infinity,
+          constraints: const BoxConstraints(minHeight: 62),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: active ? KarisColors.jadeSoft : KarisColors.surface,
+            border: Border.all(
+              color: active ? KarisColors.jade : KarisColors.hairline,
+            ),
+            borderRadius: BorderRadius.circular(8),
           ),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 18,
-              height: 18,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: active ? KarisColors.jade : KarisColors.hairline,
-                  width: 1.5,
+          child: Row(
+            children: [
+              Container(
+                width: 18,
+                height: 18,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: active ? KarisColors.jade : KarisColors.hairline,
+                    width: 1.5,
+                  ),
+                ),
+                child: active
+                    ? Padding(
+                        padding: const EdgeInsets.all(4),
+                        child: DecoratedBox(
+                          decoration: const BoxDecoration(
+                            color: KarisColors.jade,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      )
+                    : null,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: KarisColors.ink,
+                        letterSpacing: 0,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      meta,
+                      style: karisMono(fontSize: 10, color: KarisColors.stone),
+                    ),
+                  ],
                 ),
               ),
-              child: active
-                  ? Padding(
-                      padding: const EdgeInsets.all(4),
-                      child: DecoratedBox(
-                        decoration: const BoxDecoration(
-                          color: KarisColors.jade,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                    )
-                  : null,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: KarisColors.ink,
-                      letterSpacing: 0,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    meta,
-                    style: karisMono(fontSize: 10, color: KarisColors.stone),
-                  ),
-                ],
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

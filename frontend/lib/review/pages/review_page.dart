@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../app/theme.dart';
 import '../../shared/widgets/adaptive_scaffold.dart';
+import '../../shared/utils/motion.dart';
+import '../../shared/widgets/app_semantics.dart';
 import '../../shared/widgets/rich_card_content.dart';
 import '../../shared/widgets/section_widgets.dart';
 import '../../shared/widgets/stage_ruler.dart';
@@ -46,7 +48,7 @@ class _ReviewPageState extends ConsumerState<ReviewPage> {
       body: SafeArea(
         child: state.isLoading
             ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
-            : state.error != null
+            : state.error != null && !state.ratingFailed
             ? EmptyState(
                 icon: Icons.error_outline,
                 title: '队列加载失败',
@@ -104,7 +106,17 @@ class _ReviewPageState extends ConsumerState<ReviewPage> {
 
   Future<void> _rate(String rating) async {
     final result = await ref.read(reviewProvider.notifier).rate(rating);
-    if (result == null || !mounted) return;
+    if (result == null) {
+      if (mounted) {
+        announceMessage(context, '评分失败，请检查网络后重试');
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('评分失败，请检查网络后重试')));
+      }
+      return;
+    }
+    if (!mounted) return;
     final label = switch (rating) {
       'FORGET' => '忘记',
       'VAGUE' => '模糊',
@@ -115,9 +127,11 @@ class _ReviewPageState extends ConsumerState<ReviewPage> {
         ? KarisTheme.intervalLabel(result.nextIntervalDays)
         : (rating == 'FAMILIAR' && result.learningMode ? '继续' : '重学');
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    final message = '已评分：$label · 下次 $interval';
+    announceMessage(context, message);
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(SnackBar(content: Text('已评分：$label · 下次 $interval')));
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   void _reload(ReviewSessionState state) {
@@ -169,7 +183,9 @@ class _ReviewStage extends ConsumerWidget {
                       children: [
                         const Kicker('队列'),
                         const SizedBox(height: 4),
-                        Text(title, style: karisDisplay(fontSize: 25)),
+                        KarisHeading(
+                          child: Text(title, style: karisDisplay(fontSize: 25)),
+                        ),
                       ],
                     ),
                   ),
@@ -209,7 +225,10 @@ class _ReviewStage extends ConsumerWidget {
                   child: ConstrainedBox(
                     constraints: BoxConstraints(maxWidth: isTablet ? 520 : 360),
                     child: AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 240),
+                      duration: reducedDuration(
+                        context,
+                        const Duration(milliseconds: 240),
+                      ),
                       switchInCurve: Curves.easeOutCubic,
                       switchOutCurve: Curves.easeIn,
                       transitionBuilder: (child, animation) {
@@ -328,12 +347,14 @@ class _QueuePanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            '今日队列',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0,
+          KarisHeading(
+            child: Text(
+              '今日队列',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0,
+              ),
             ),
           ),
           const SizedBox(height: 14),
@@ -592,39 +613,41 @@ class _RatingButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        constraints: const BoxConstraints(minHeight: 74),
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-        decoration: BoxDecoration(
-          color: KarisColors.surface,
-          border: Border.all(color: color.withValues(alpha: 0.38)),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, color: color, size: 18),
-            const SizedBox(height: 3),
-            Text(
-              label,
-              style: TextStyle(
-                color: color,
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0,
+    return KarisInteractive(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 74),
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+          decoration: BoxDecoration(
+            color: KarisColors.surface,
+            border: Border.all(color: color.withValues(alpha: 0.38)),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, color: color, size: 18),
+              const SizedBox(height: 3),
+              Text(
+                label,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0,
+                ),
               ),
-            ),
-            Text(
-              sub,
-              style: karisMono(
-                fontSize: 10,
-                color: color.withValues(alpha: 0.75),
+              Text(
+                sub,
+                style: karisMono(
+                  fontSize: 10,
+                  color: color.withValues(alpha: 0.75),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -658,10 +681,12 @@ class _CompleteView extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 16),
-            Text(
-              state.mode == 'new' ? '本轮学习完成' : '今日复习完成',
-              style: karisDisplay(fontSize: 28),
-              textAlign: TextAlign.center,
+            KarisHeading(
+              child: Text(
+                state.mode == 'new' ? '本轮学习完成' : '今日复习完成',
+                style: karisDisplay(fontSize: 28),
+                textAlign: TextAlign.center,
+              ),
             ),
             const SizedBox(height: 8),
             Text(
