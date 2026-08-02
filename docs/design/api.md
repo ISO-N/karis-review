@@ -43,7 +43,14 @@
 - Token 有效期：7 天
 - 注册/登录接口不需要认证，其余接口均需认证
 
-### 1.5 分页
+### 1.5 传输与缓存约定
+
+- 服务端默认启用 gzip 压缩，覆盖 JSON 与 `application/x-protobuf` 响应。
+- `/api/decks`、`/api/stats/overview`、`/api/stats/deck/{deckId}` 返回私有 ETag；客户端携带 `If-None-Match` 时未变化响应为 304。
+- 高流量接口支持同 URL 内容协商：默认 JSON，客户端携带 `Accept: application/x-protobuf` 时返回 Protobuf；POST 请求同步携带 `Content-Type: application/x-protobuf`。
+- 高流量 Protobuf 接口包括：同步 Bootstrap、复习会话创建/分页、复习队列、评分同步。错误响应在 Protobuf 路径返回 `ApiError`。
+
+### 1.6 分页
 
 列表接口支持分页，请求参数：
 
@@ -237,14 +244,8 @@
       "due_count": 5,
       "new_count": 3,
       "mastered_count": 20,
-      "stage_distribution": {
-        "0": 5, "1": 8, "2": 6, "3": 7, "4": 5,
-        "5": 4, "6": 3, "7": 2, "8": 2
-      },
-      "due_stage_distribution": {
-        "0": 1, "1": 2, "2": 1, "3": 1, "4": 0,
-        "5": 0, "6": 0, "7": 0, "8": 0
-      },
+      "stage_distribution": [5, 8, 6, 7, 5, 4, 3, 2, 2],
+      "due_stage_distribution": [1, 2, 1, 1, 0, 0, 0, 0, 0],
       "created_at": "2025-07-01T10:00:00Z"
     }
   ]
@@ -257,8 +258,8 @@
 | due_count | int | 今日待复习卡片数 |
 | new_count | int | 可学习的新卡数（Stage 0 且非重学） |
 | mastered_count | int | 已掌握卡片数（Stage ≥ 5） |
-| stage_distribution | map<string,int> | 各阶段卡片数量分布（0-8） |
-| due_stage_distribution | map<string,int> | 今日到期卡片阶段分布（0-8） |
+| stage_distribution | array<int> | 各阶段卡片数量分布（0-8） |
+| due_stage_distribution | array<int> | 今日到期卡片阶段分布（0-8） |
 
 ---
 
@@ -291,14 +292,8 @@
     "due_count": 0,
     "new_count": 0,
     "mastered_count": 0,
-    "stage_distribution": {
-      "0": 0, "1": 0, "2": 0, "3": 0, "4": 0,
-      "5": 0, "6": 0, "7": 0, "8": 0
-    },
-    "due_stage_distribution": {
-      "0": 0, "1": 0, "2": 0, "3": 0, "4": 0,
-      "5": 0, "6": 0, "7": 0, "8": 0
-    },
+    "stage_distribution": [0, 0, 0, 0, 0, 0, 0, 0, 0],
+    "due_stage_distribution": [0, 0, 0, 0, 0, 0, 0, 0, 0],
     "created_at": "2025-08-01T10:00:00Z"
   }
 }
@@ -331,14 +326,8 @@
     "due_count": 5,
     "new_count": 3,
     "mastered_count": 20,
-    "stage_distribution": {
-      "0": 5, "1": 8, "2": 6, "3": 7, "4": 5,
-      "5": 4, "6": 3, "7": 2, "8": 2
-    },
-    "due_stage_distribution": {
-      "0": 1, "1": 2, "2": 1, "3": 1, "4": 0,
-      "5": 0, "6": 0, "7": 0, "8": 0
-    },
+    "stage_distribution": [5, 8, 6, 7, 5, 4, 3, 2, 2],
+    "due_stage_distribution": [1, 2, 1, 1, 0, 0, 0, 0, 0],
     "created_at": "2025-07-01T10:00:00Z"
   }
 }
@@ -401,7 +390,6 @@
         "consecutive_familiar": 0,
         "learning_step": 0,
         "reentry_stage": null,
-        "learning_goal": null,
         "due": false,
         "created_at": "2025-07-01T10:00:00Z"
       }
@@ -451,7 +439,6 @@
     "consecutive_familiar": 0,
     "learning_step": 0,
     "reentry_stage": null,
-    "learning_goal": null,
     "due": false,
     "created_at": "2025-08-01T10:00:00Z"
   }
@@ -626,13 +613,9 @@
       "stage": 3,
       "learning_mode": false,
       "consecutive_familiar": 0,
-      "learning_goal": 5,
       "reentry_stage": null,
       "next_review_date": "2025-08-02",
       "learning_step": 0,
-      "current_interval_days": 4,
-      "familiar_interval_days": 7,
-      "vague_interval_days": 4,
       "review_version": 0
     }
   ]
@@ -640,6 +623,7 @@
 ```
 
 > 复习队列中**处于重学模式**的卡片（FORGET/VAGUE 后以 2^n 间距插入的卡片）也会出现在此列表中。
+> 前端根据 `stage`、`learning_mode`、`consecutive_familiar`、`reentry_stage` 本地推导 `learning_goal` 与熟悉/模糊/当前间隔，接口不再重复传输这些字段。
 
 ---
 
@@ -670,13 +654,9 @@
       "stage": 0,
       "learning_mode": false,
       "consecutive_familiar": 0,
-      "learning_goal": 5,
       "reentry_stage": null,
       "next_review_date": null,
       "learning_step": 0,
-      "current_interval_days": 0,
-      "familiar_interval_days": 1,
-      "vague_interval_days": 0,
       "review_version": 0
     }
   ]
@@ -817,14 +797,8 @@
     "learned_today": 3,
     "mastered_cards": 120,
     "learning_cards": 80,
-    "stage_distribution": {
-      "0": 20, "1": 28, "2": 25, "3": 22, "4": 20,
-      "5": 18, "6": 16, "7": 15, "8": 12
-    },
-    "due_stage_distribution": {
-      "0": 3, "1": 5, "2": 4, "3": 3, "4": 2,
-      "5": 1, "6": 0, "7": 0, "8": 0
-    }
+    "stage_distribution": [20, 28, 25, 22, 20, 18, 16, 15, 12],
+    "due_stage_distribution": [3, 5, 4, 3, 2, 1, 0, 0, 0],
   }
 }
 ```
@@ -836,8 +810,8 @@
 | learned_today | int | 今日新学数（新卡 FAMILIAR） |
 | mastered_cards | int | 已掌握卡片（Stage ≥ 5） |
 | learning_cards | int | 学习中卡片（Stage 0-4） |
-| stage_distribution | map<string,int> | 全部卡片阶段分布（0-8） |
-| due_stage_distribution | map<string,int> | 今日到期卡片阶段分布（0-8） |
+| stage_distribution | array<int> | 全部卡片阶段分布（0-8） |
+| due_stage_distribution | array<int> | 今日到期卡片阶段分布（0-8） |
 
 ---
 
@@ -862,21 +836,8 @@
     "new_cards": 4,
     "learning_cards": 2,
     "mastered_cards": 18,
-    "stage_distribution": {
-      "0": 5,
-      "1": 8,
-      "2": 6,
-      "3": 7,
-      "4": 5,
-      "5": 4,
-      "6": 3,
-      "7": 2,
-      "8": 2
-    },
-    "due_stage_distribution": {
-      "0": 1, "1": 2, "2": 1, "3": 1, "4": 0,
-      "5": 0, "6": 0, "7": 0, "8": 0
-    }
+    "stage_distribution": [5, 8, 6, 7, 5, 4, 3, 2, 2],
+    "due_stage_distribution": [1, 2, 1, 1, 0, 0, 0, 0, 0],
   }
 }
 ```
@@ -891,8 +852,8 @@
 | new_cards | int | 可学习的新卡数 |
 | learning_cards | int | 重学中的卡片数 |
 | mastered_cards | int | 已掌握卡片数 |
-| stage_distribution | map<string,int> | 各阶段卡片数量分布（0-8） |
-| due_stage_distribution | map<string,int> | 今日到期卡片阶段分布（0-8） |
+| stage_distribution | array<int> | 各阶段卡片数量分布（0-8） |
+| due_stage_distribution | array<int> | 今日到期卡片阶段分布（0-8） |
 
 ---
 
@@ -1062,12 +1023,35 @@
 }
 ```
 
-**Response 条目状态：** `SYNCED`、`ALREADY_SYNCED`、`CONFLICT`、`CARD_NOT_FOUND`。冲突时返回 `current_card` 与最新 `review_version`。
+**Response 条目状态：** `SYNCED`、`ALREADY_SYNCED`、`CONFLICT`、`CARD_NOT_FOUND`。成功条目只返回 `client_request_id` 与 `status`；冲突条目额外返回 `current_card` 与最新 `review_version`。
 
 ### GET /api/sync/bootstrap
 
-返回当前用户全量离线快照：`server_time`、用户设置、牌组及全部卡片、复习日志。卡片包含 `review_version`、`learning_step`、`created_at`、`updated_at`；复习日志包含 `id`、`card_id`、`rating`、`stage_before`、`stage_after`、`is_new_card`、`reviewed_at`。
+返回当前用户离线同步数据。无 `event_cursor` 或 `event_cursor=0` 时返回全量快照；携带上次事件游标时返回增量。
 
+**Query Parameters:**
+
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| event_cursor | long | 0 | 上次同步返回的 `event_cursor`；0 表示全量 Bootstrap |
+
+**Response 字段：**
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| server_time | string | 服务端 UTC 时间 |
+| user | object | 用户邮箱与刷新时间 |
+| decks | array | 全量时为牌组嵌套卡片；增量时为变更牌组 |
+| changed_cards | array | 增量时发生创建/更新的卡片 |
+| review_logs | array | 全量时全部日志；增量时新增日志 |
+| deleted_deck_ids | array | 增量时被删除的牌组 ID |
+| deleted_card_ids | array | 增量时被删除的卡片 ID |
+| deleted_review_log_ids | array | 增量时被删除的复习日志 ID |
+| event_cursor | long | 本次已处理到的事件游标，客户端应保存并用于下次请求 |
+| has_more | bool | 是否还有后续事件页 |
+| reset_required | bool | 服务端事件已清理或游标不可用时要求客户端重新全量同步 |
+
+该接口支持 `Accept: application/x-protobuf`；Protobuf 路径直接返回 `SyncResponse`，JSON 路径保持统一包装。
 
 - 所有复习队列和卡片响应都返回 `review_version`。
 - 单卡评分请求可携带 `client_request_id` 与 `review_version`；版本不一致返回 409。
