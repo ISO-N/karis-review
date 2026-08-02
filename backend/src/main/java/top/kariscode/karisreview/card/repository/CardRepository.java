@@ -3,8 +3,12 @@ package top.kariscode.karisreview.card.repository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
+import jakarta.persistence.LockModeType;
+import top.kariscode.karisreview.card.entity.Card;
 import org.springframework.stereotype.Repository;
 import top.kariscode.karisreview.card.entity.Card;
 
@@ -22,6 +26,10 @@ public interface CardRepository extends JpaRepository<Card, UUID> {
     Page<Card> findByDeckIdAndNextReviewDateNotNullAndNextReviewDateLessThanEqualOrderByNextReviewDateAsc(
             UUID deckId, LocalDate today, Pageable pageable);
     Optional<Card> findByIdAndUserId(UUID id, UUID userId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT c FROM Card c WHERE c.id = :id AND c.userId = :userId")
+    Optional<Card> findByIdAndUserIdForUpdate(@Param("id") UUID id, @Param("userId") UUID userId);
     long countByDeckId(UUID deckId);
     long countByUserId(UUID userId);
     long countByDeckIdAndLearningModeTrue(UUID deckId);

@@ -22,11 +22,21 @@ public class CardResponse {
     private Integer learningGoal;
     private boolean due;
     private LocalDateTime createdAt;
+    private long reviewVersion;
 
     public CardResponse(UUID id, UUID deckId, String front, String back, int stage,
                         LocalDate nextReviewDate, boolean learningMode,
                         int consecutiveFamiliar, int learningStep, Integer reentryStage,
                         Integer learningGoal, boolean due, LocalDateTime createdAt) {
+        this(id, deckId, front, back, stage, nextReviewDate, learningMode,
+                consecutiveFamiliar, learningStep, reentryStage, learningGoal, due, createdAt, 0);
+    }
+
+    public CardResponse(UUID id, UUID deckId, String front, String back, int stage,
+                        LocalDate nextReviewDate, boolean learningMode,
+                        int consecutiveFamiliar, int learningStep, Integer reentryStage,
+                        Integer learningGoal, boolean due, LocalDateTime createdAt,
+                        long reviewVersion) {
         this.id = id;
         this.deckId = deckId;
         this.front = front;
@@ -40,6 +50,7 @@ public class CardResponse {
         this.learningGoal = learningGoal;
         this.due = due;
         this.createdAt = createdAt;
+        this.reviewVersion = reviewVersion;
     }
 
     public UUID getId() { return id; }
@@ -68,4 +79,6 @@ public class CardResponse {
     public void setDue(boolean due) { this.due = due; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+    public long getReviewVersion() { return reviewVersion; }
+    public void setReviewVersion(long reviewVersion) { this.reviewVersion = reviewVersion; }
 }

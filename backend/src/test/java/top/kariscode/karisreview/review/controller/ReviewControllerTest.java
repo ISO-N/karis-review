@@ -18,6 +18,11 @@ import top.kariscode.karisreview.config.SecurityConfig;
 import top.kariscode.karisreview.review.dto.RateRequest;
 import top.kariscode.karisreview.review.dto.RateResponse;
 import top.kariscode.karisreview.review.dto.ReviewCardResponse;
+import top.kariscode.karisreview.review.dto.ReviewSessionCreateRequest;
+import top.kariscode.karisreview.review.dto.ReviewSessionPageResponse;
+import top.kariscode.karisreview.review.dto.ReviewSyncItemResult;
+import top.kariscode.karisreview.review.dto.ReviewSyncRequest;
+import top.kariscode.karisreview.review.dto.ReviewSyncResponse;
 import top.kariscode.karisreview.review.service.ReviewService;
 
 import java.time.LocalDate;
@@ -25,7 +30,9 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -49,7 +56,7 @@ class ReviewControllerTest {
     void getDueCardsReturnsQueue() throws Exception {
         UUID userId = UUID.randomUUID();
         UUID deckId = UUID.randomUUID();
-        when(reviewService.getDueCards(userId, deckId)).thenReturn(List.of(reviewCard()));
+        when(reviewService.getDueCards(eq(userId), eq(deckId), anyInt())).thenReturn(List.of(reviewCard()));
 
         mockMvc.perform(get("/api/review/due").with(authentication(userId))
                         .param("deck_id", deckId.toString()))
@@ -60,7 +67,7 @@ class ReviewControllerTest {
     @Test
     void getNewCardsReturnsAllQueue() throws Exception {
         UUID userId = UUID.randomUUID();
-        when(reviewService.getNewCards(userId, null)).thenReturn(List.of(reviewCard()));
+        when(reviewService.getNewCards(eq(userId), isNull(), anyInt())).thenReturn(List.of(reviewCard()));
 
         mockMvc.perform(get("/api/review/new").with(authentication(userId)))
                 .andExpect(status().isOk())
@@ -107,6 +114,41 @@ class ReviewControllerTest {
                         .content("{\"rating\":\"FAMILIAR\"}"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.message").value("卡片不存在"));
+    }
+
+    @Test
+    void createSessionReturnsFirstPage() throws Exception {
+        UUID userId = UUID.randomUUID();
+        ReviewSessionPageResponse response = new ReviewSessionPageResponse(
+                UUID.randomUUID(), "due", null, 10, 37, 10, true, List.of(reviewCard()));
+        when(reviewService.createSession(eq(userId), any(ReviewSessionCreateRequest.class)))
+                .thenReturn(response);
+
+        mockMvc.perform(post("/api/review/sessions")
+                        .with(authentication(userId))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"mode\":\"due\",\"batch_size\":10}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.has_more").value(true))
+                .andExpect(jsonPath("$.data.total").value(37));
+    }
+
+    @Test
+    void syncRatingsReturnsPerItemResults() throws Exception {
+        UUID userId = UUID.randomUUID();
+        ReviewSyncResponse response = new ReviewSyncResponse(
+                1, 0, 0, List.of(new ReviewSyncItemResult("request-1", "SYNCED", null, null)));
+        when(reviewService.syncRatings(eq(userId), any(ReviewSyncRequest.class)))
+                .thenReturn(response);
+
+        mockMvc.perform(post("/api/review/sync")
+                        .with(authentication(userId))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"items\":[{\"client_request_id\":\"request-1\"," +
+                                "\"card_id\":\"00000000-0000-0000-0000-000000000001\"," +
+                                "\"rating\":\"FAMILIAR\",\"rated_at\":\"2025-08-02T12:00:00\",\"review_version\":0}]}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.synced").value(1));
     }
 
     private ReviewCardResponse reviewCard() {

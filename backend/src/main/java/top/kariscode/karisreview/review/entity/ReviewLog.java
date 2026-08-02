@@ -30,6 +30,9 @@ public class ReviewLog {
     @Column(name = "is_new_card", nullable = false)
     private boolean newCard;
 
+    @Column(name = "client_request_id")
+    private String clientRequestId;
+
     @Column(name = "reviewed_at", nullable = false, updatable = false)
     private LocalDateTime reviewedAt;
 
@@ -54,6 +57,8 @@ public class ReviewLog {
     public void setStageAfter(int stageAfter) { this.stageAfter = stageAfter; }
     public boolean isNewCard() { return newCard; }
     public void setNewCard(boolean newCard) { this.newCard = newCard; }
+    public String getClientRequestId() { return clientRequestId; }
+    public void setClientRequestId(String clientRequestId) { this.clientRequestId = clientRequestId; }
     public LocalDateTime getReviewedAt() { return reviewedAt; }
     public void setReviewedAt(LocalDateTime reviewedAt) { this.reviewedAt = reviewedAt; }
 }
