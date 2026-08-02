@@ -27,6 +27,9 @@ public class ReviewLog {
     @Column(name = "stage_after", nullable = false)
     private int stageAfter;
 
+    @Column(name = "is_new_card", nullable = false)
+    private boolean newCard;
+
     @Column(name = "reviewed_at", nullable = false, updatable = false)
     private LocalDateTime reviewedAt;
 
@@ -49,6 +52,8 @@ public class ReviewLog {
     public void setStageBefore(int stageBefore) { this.stageBefore = stageBefore; }
     public int getStageAfter() { return stageAfter; }
     public void setStageAfter(int stageAfter) { this.stageAfter = stageAfter; }
+    public boolean isNewCard() { return newCard; }
+    public void setNewCard(boolean newCard) { this.newCard = newCard; }
     public LocalDateTime getReviewedAt() { return reviewedAt; }
     public void setReviewedAt(LocalDateTime reviewedAt) { this.reviewedAt = reviewedAt; }
 }

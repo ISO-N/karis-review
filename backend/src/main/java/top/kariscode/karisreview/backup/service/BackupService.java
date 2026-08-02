@@ -98,6 +98,7 @@ public class BackupService {
             logNode.put("rating", log.getRating());
             logNode.put("stage_before", log.getStageBefore());
             logNode.put("stage_after", log.getStageAfter());
+            logNode.put("is_new_card", log.isNewCard());
             logNode.put("reviewed_at", log.getReviewedAt().toString());
         }
 
@@ -208,6 +209,7 @@ public class BackupService {
                 log.setRating(logNode.has("rating") ? logNode.get("rating").asText() : "FAMILIAR");
                 log.setStageBefore(logNode.has("stage_before") ? logNode.get("stage_before").asInt() : 0);
                 log.setStageAfter(logNode.has("stage_after") ? logNode.get("stage_after").asInt() : 0);
+                log.setNewCard(logNode.has("is_new_card") && logNode.get("is_new_card").asBoolean());
                 if (logNode.has("reviewed_at") && !logNode.get("reviewed_at").isNull()) {
                     try {
                         log.setReviewedAt(LocalDateTime.parse(logNode.get("reviewed_at").asText()));

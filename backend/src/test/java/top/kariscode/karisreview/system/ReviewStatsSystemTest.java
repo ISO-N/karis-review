@@ -21,8 +21,8 @@ class ReviewStatsSystemTest extends SystemTestSupport {
         String card1 = text(createCard(userA.token(), deckId, "单词一", "释义一"), "id");
         String card2 = text(createCard(userA.token(), deckId, "单词二", "释义二"), "id");
 
-        JsonNode limited = data("GET", "/review/new?limit=1", userA.token(), null);
-        assertEquals(1, limited.size());
+        JsonNode newQueue = data("GET", "/review/new", userA.token(), null);
+        assertEquals(2, newQueue.size());
 
         JsonNode rated = data("POST", "/review/" + card1 + "/rate", userA.token(),
                 Map.of("rating", "FAMILIAR"));
@@ -37,7 +37,8 @@ class ReviewStatsSystemTest extends SystemTestSupport {
         JsonNode overview = data("GET", "/stats/overview", userA.token(), null);
         assertEquals(2, overview.get("total_cards").asInt());
         assertEquals(1, overview.get("total_decks").asInt());
-        assertTrue(overview.get("reviewed_today").asInt() >= 2);
+        assertEquals(0, overview.get("reviewed_today").asInt());
+        assertEquals(2, overview.get("learned_today").asInt());
         assertEquals(0, data("GET", "/review/new", userB.token(), null).size());
     }
 
@@ -85,6 +86,10 @@ class ReviewStatsSystemTest extends SystemTestSupport {
         assertEquals(4, completedVague.get("stage_after").asInt());
         assertEquals(DateUtils.calculateToday(LocalTime.of(4, 0)).plusDays(3).toString(),
                 text(completedVague, "next_review_date"));
+
+        JsonNode overview = data("GET", "/stats/overview", user.token(), null);
+        assertEquals(9, overview.get("reviewed_today").asInt());
+        assertEquals(0, overview.get("learned_today").asInt());
     }
 
     @Test
@@ -98,11 +103,12 @@ class ReviewStatsSystemTest extends SystemTestSupport {
         JsonNode deckStats = data("GET", "/stats/deck/" + deckId, user.token(), null);
         assertEquals("统计牌组", text(deckStats, "deck_name"));
         assertEquals(1, deckStats.get("total_cards").asInt());
-        assertEquals(1, deckStats.get("reviewed_today").asInt());
+        assertEquals(0, deckStats.get("reviewed_today").asInt());
 
         JsonNode trend = data("GET", "/stats/trend?days=7", user.token(), null);
         assertEquals(7, trend.size());
-        assertTrue(trend.get(trend.size() - 1).get("reviewed").asInt() >= 1);
+        assertEquals(0, trend.get(trend.size() - 1).get("reviewed").asInt());
+        assertEquals(1, trend.get(trend.size() - 1).get("learned").asInt());
     }
 
     private JsonNode createDeck(String token, String name) {

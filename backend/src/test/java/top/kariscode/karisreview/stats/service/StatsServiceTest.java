@@ -150,25 +150,27 @@ class StatsServiceTest {
         when(userRepository.findById(userId)).thenReturn(Optional.of(user()));
         when(reviewLogRepository.findByUserIdAndReviewedAtAfter(userId, start))
                 .thenReturn(List.of(
-                        log(userId, "FAMILIAR", 0, logTime),
-                        log(userId, "FAMILIAR", 1, logTime),
-                        log(userId, "VAGUE", 2, logTime),
-                        log(userId, "FORGET", 3, logTime)));
+                        log(userId, "FAMILIAR", 0, logTime, true),
+                        log(userId, "FAMILIAR", 1, logTime, false),
+                        log(userId, "VAGUE", 2, logTime, false),
+                        log(userId, "FORGET", 3, logTime, false)));
 
         List<TrendStatsResponse> trend = service.getTrend(userId, 5);
 
         assertEquals(5, trend.size());
-        assertEquals(4, trend.get(2).getReviewed());
+        assertEquals(3, trend.get(2).getReviewed());
         assertEquals(1, trend.get(2).getLearned());
         assertEquals(0, trend.get(0).getReviewed());
         assertEquals(today, trend.get(4).getDate());
     }
 
-    private ReviewLog log(UUID userId, String rating, int stageBefore, LocalDateTime time) {
+    private ReviewLog log(UUID userId, String rating, int stageBefore, LocalDateTime time,
+                          boolean newCard) {
         ReviewLog log = new ReviewLog();
         log.setUserId(userId);
         log.setRating(rating);
         log.setStageBefore(stageBefore);
+        log.setNewCard(newCard);
         log.setReviewedAt(time);
         return log;
     }

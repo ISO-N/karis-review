@@ -25,6 +25,7 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.mockito.ArgumentCaptor;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -76,7 +77,7 @@ class ReviewServiceTest {
     }
 
     @Test
-    void getNewCardsRespectsLimit() {
+    void getNewCardsReturnsAllNewCards() {
         UUID userId = UUID.randomUUID();
         UUID deckId = UUID.randomUUID();
         when(cardRepository.findNewCards(userId, deckId)).thenReturn(List.of(
@@ -84,11 +85,10 @@ class ReviewServiceTest {
                 card("2", deckId, userId, 0, false, 0),
                 card("3", deckId, userId, 0, false, 0)));
 
-        List<ReviewCardResponse> queue = service.getNewCards(userId, deckId, 2);
+        List<ReviewCardResponse> queue = service.getNewCards(userId, deckId);
 
-        assertEquals(2, queue.size());
+        assertEquals(3, queue.size());
     }
-
     @Test
     void rateFamiliarSavesCardAndReviewLog() {
         UUID userId = UUID.randomUUID();
@@ -107,7 +107,9 @@ class ReviewServiceTest {
         assertEquals(cardId, response.getCardId());
         assertEquals(1, response.getStageAfter());
         assertEquals(1, response.getNextIntervalDays());
-        verify(reviewLogRepository).save(any(ReviewLog.class));
+        ArgumentCaptor<ReviewLog> captor = ArgumentCaptor.forClass(ReviewLog.class);
+        verify(reviewLogRepository).save(captor.capture());
+        assertTrue(captor.getValue().isNewCard());
     }
 
     @Test
@@ -127,6 +129,9 @@ class ReviewServiceTest {
 
         assertTrue(response.isLearningMode());
         assertEquals(0, response.getStageAfter());
+        ArgumentCaptor<ReviewLog> captor = ArgumentCaptor.forClass(ReviewLog.class);
+        verify(reviewLogRepository).save(captor.capture());
+        assertTrue(!captor.getValue().isNewCard());
     }
 
     @Test

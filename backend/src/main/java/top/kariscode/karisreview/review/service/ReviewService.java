@@ -49,11 +49,8 @@ public class ReviewService {
         return interleaveLearningCards(dueCards, learningCards);
     }
 
-    public List<ReviewCardResponse> getNewCards(UUID userId, UUID deckId, int limit) {
+    public List<ReviewCardResponse> getNewCards(UUID userId, UUID deckId) {
         List<Card> newCards = cardRepository.findNewCards(userId, deckId);
-        if (newCards.size() > limit) {
-            newCards = newCards.subList(0, limit);
-        }
         return newCards.stream()
                 .map(this::toReviewCardResponse)
                 .toList();
@@ -66,7 +63,7 @@ public class ReviewService {
 
         LocalTime refreshTime = getRefreshTime(userId);
         String rating = request.getRating();
-
+        boolean wasNewCard = card.getStage() == 0 && !card.isLearningMode();
         SchedulingEngine.RatingResult result;
         switch (rating) {
             case "FORGET" -> result = schedulingEngine.rateForget(card, refreshTime);
@@ -83,6 +80,7 @@ public class ReviewService {
         log.setRating(rating);
         log.setStageBefore(result.getStageBefore());
         log.setStageAfter(result.getStageAfter());
+        log.setNewCard(wasNewCard);
         reviewLogRepository.save(log);
 
         LocalDate today = DateUtils.calculateToday(refreshTime);

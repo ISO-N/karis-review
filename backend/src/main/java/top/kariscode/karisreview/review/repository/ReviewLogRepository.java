@@ -16,18 +16,17 @@ public interface ReviewLogRepository extends JpaRepository<ReviewLog, UUID> {
     List<ReviewLog> findByUserIdOrderByReviewedAtDesc(UUID userId);
 
     @Query("SELECT COUNT(r) FROM ReviewLog r WHERE r.userId = :userId " +
-           "AND r.reviewedAt >= :startOfDay AND r.reviewedAt < :endOfDay")
+           "AND r.reviewedAt >= :startOfDay AND r.reviewedAt < :endOfDay " +
+           "AND r.newCard = false")
     long countReviewedToday(@Param("userId") UUID userId,
                             @Param("startOfDay") LocalDateTime startOfDay,
                             @Param("endOfDay") LocalDateTime endOfDay);
-
     @Query("SELECT COUNT(r) FROM ReviewLog r WHERE r.userId = :userId " +
            "AND r.reviewedAt >= :startOfDay AND r.reviewedAt < :endOfDay " +
-           "AND r.rating = 'FAMILIAR' AND r.stageBefore = 0")
+           "AND r.newCard = true AND r.rating = 'FAMILIAR'")
     long countLearnedToday(@Param("userId") UUID userId,
                            @Param("startOfDay") LocalDateTime startOfDay,
                            @Param("endOfDay") LocalDateTime endOfDay);
-
     @Query("SELECT r FROM ReviewLog r WHERE r.userId = :userId " +
            "AND r.reviewedAt >= :start " +
            "ORDER BY r.reviewedAt ASC")
@@ -35,17 +34,17 @@ public interface ReviewLogRepository extends JpaRepository<ReviewLog, UUID> {
                                                     @Param("start") LocalDateTime start);
 
     @Query("SELECT FUNCTION('DATE', r.reviewedAt) as reviewDate, " +
-           "COUNT(r) as cnt, " +
-           "SUM(CASE WHEN r.rating = 'FAMILIAR' AND r.stageBefore = 0 THEN 1 ELSE 0 END) as learned " +
+           "SUM(CASE WHEN r.newCard = false THEN 1 ELSE 0 END) as cnt, " +
+           "SUM(CASE WHEN r.newCard = true AND r.rating = 'FAMILIAR' THEN 1 ELSE 0 END) as learned " +
            "FROM ReviewLog r WHERE r.userId = :userId " +
            "AND r.reviewedAt >= :start " +
            "GROUP BY FUNCTION('DATE', r.reviewedAt) " +
            "ORDER BY FUNCTION('DATE', r.reviewedAt) ASC")
     List<Object[]> findDailyTrend(@Param("userId") UUID userId,
                                   @Param("start") LocalDateTime start);
-
     @Query("SELECT COUNT(r) FROM ReviewLog r WHERE r.userId = :userId " +
            "AND r.reviewedAt >= :startOfDay AND r.reviewedAt < :endOfDay " +
+           "AND r.newCard = false " +
            "AND r.cardId IN (SELECT c.id FROM Card c WHERE c.deckId = :deckId)")
     long countReviewedTodayForDeck(@Param("userId") UUID userId,
                                    @Param("deckId") UUID deckId,
