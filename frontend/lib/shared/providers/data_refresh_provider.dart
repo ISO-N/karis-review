@@ -53,7 +53,7 @@ class DataRefreshController {
     final serverNow = DateTime.now().toUtc().add(
       Duration(milliseconds: meta.clockOffsetMs),
     );
-    final delay = nextDailyRefreshDelay(serverNow.toLocal(), meta.refreshTime);
+    final delay = nextDailyRefreshDelay(serverNow, meta.refreshTime);
     _dailyTimer = Timer(delay, () {
       unawaited(_onDailyRefresh());
     });

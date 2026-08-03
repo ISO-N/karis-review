@@ -112,29 +112,29 @@ void main() {
   group('nextDailyRefreshDelay', () {
     test('uses today boundary before refresh time', () {
       expect(
-        nextDailyRefreshDelay(DateTime(2025, 1, 1, 3), '04:00:00'),
+        nextDailyRefreshDelay(DateTime.utc(2025, 1, 1, 19), '04:00:00'),
         const Duration(hours: 1),
       );
     });
 
     test('uses tomorrow boundary at or after refresh time', () {
       expect(
-        nextDailyRefreshDelay(DateTime(2025, 1, 1, 4), '04:00:00'),
+        nextDailyRefreshDelay(DateTime.utc(2025, 1, 1, 20), '04:00:00'),
         const Duration(hours: 24),
       );
       expect(
-        nextDailyRefreshDelay(DateTime(2025, 1, 1, 5), '04:00:00'),
+        nextDailyRefreshDelay(DateTime.utc(2025, 1, 1, 21), '04:00:00'),
         const Duration(hours: 23),
       );
     });
 
     test('supports custom refresh time', () {
       expect(
-        nextDailyRefreshDelay(DateTime(2025, 1, 1, 3, 29), '03:30:00'),
+        nextDailyRefreshDelay(DateTime.utc(2025, 1, 1, 19, 29), '03:30:00'),
         const Duration(minutes: 1),
       );
       expect(
-        nextDailyRefreshDelay(DateTime(2025, 1, 1, 3, 31), '03:30:00'),
+        nextDailyRefreshDelay(DateTime.utc(2025, 1, 1, 19, 31), '03:30:00'),
         const Duration(hours: 23, minutes: 59),
       );
     });

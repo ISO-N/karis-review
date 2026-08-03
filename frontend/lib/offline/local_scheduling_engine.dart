@@ -1,5 +1,6 @@
 import '../card/models/card.dart';
 import '../review/models/review_card.dart';
+import '../shared/utils/app_timezone.dart';
 
 class LocalRatingOutcome {
   final FlashCard card;
@@ -176,21 +177,21 @@ class LocalSchedulingEngine {
   }
 
   static DateTime _calculateToday(DateTime nowUtc, String refreshTime) {
-    final localNow = nowUtc.toLocal();
+    final businessNow = serverUtcToBusiness(nowUtc);
     final parts = refreshTime.split(':');
     final hour = int.tryParse(parts.isNotEmpty ? parts[0] : '4') ?? 4;
     final minute = parts.length > 1 ? int.tryParse(parts[1]) ?? 0 : 0;
-    final boundary = DateTime(
-      localNow.year,
-      localNow.month,
-      localNow.day,
+    final boundary = DateTime.utc(
+      businessNow.year,
+      businessNow.month,
+      businessNow.day,
       hour,
       minute,
     );
-    if (localNow.isBefore(boundary)) {
-      return DateTime(localNow.year, localNow.month, localNow.day - 1);
+    if (businessNow.isBefore(boundary)) {
+      return DateTime(businessNow.year, businessNow.month, businessNow.day - 1);
     }
-    return DateTime(localNow.year, localNow.month, localNow.day);
+    return DateTime(businessNow.year, businessNow.month, businessNow.day);
   }
 
   static String _plusDays(DateTime date, int days) {

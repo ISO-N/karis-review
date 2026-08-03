@@ -506,4 +506,31 @@ void main() {
     await Future.wait([sync.refresh(), sync.refresh()]);
     expect(calls, 1);
   });
+
+  test('no-zone reviewed_at is interpreted as Asia/Shanghai wall time', () async {
+    await offline.saveBootstrap(
+      userId: 'user-1',
+      email: 'a@b.c',
+      refreshTime: '04:00:00',
+      serverTime: DateTime.utc(2025, 8, 10, 12),
+      decks: [],
+      reviewLogs: [
+        {
+          'id': 'log-before-refresh',
+          'card_id': 'card-1',
+          'rating': 'FAMILIAR',
+          'stage_before': 2,
+          'stage_after': 3,
+          'is_new_card': false,
+          'reviewed_at': '2025-08-10T03:00:00',
+        },
+      ],
+    );
+
+    final trend = await offline.getTrend('user-1', days: 2);
+    expect(trend[0].date, '2025-08-09');
+    expect(trend[0].reviewed, 1);
+    expect(trend[1].date, '2025-08-10');
+    expect(trend[1].reviewed, 0);
+  });
 }
