@@ -11,11 +11,13 @@ import '../../shared/widgets/app_semantics.dart';
 import '../../shared/widgets/section_widgets.dart';
 import '../../stats/providers/stats_provider.dart';
 
+import '../../l10n/app_localizations.dart';
 class DeckListPage extends ConsumerWidget {
   const DeckListPage({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = KarisReviewLocalizations.of(context)!;
     final decksAsync = ref.watch(deckListProvider);
     final isTablet = MediaQuery.sizeOf(context).width >= 600;
     return AdaptiveAppScaffold(
@@ -44,10 +46,10 @@ class DeckListPage extends ConsumerWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const Kicker('DECKS'),
-                            const SizedBox(height: 7),
+                            SizedBox(height: 7),
                             KarisHeading(
                               child: Text(
-                                '牌组',
+                                l10n.navDecks,
                                 style: karisDisplay(fontSize: 27),
                               ),
                             ),
@@ -56,20 +58,20 @@ class DeckListPage extends ConsumerWidget {
                       ),
                       KarisIconButton(
                         icon: Icons.add,
-                        tooltip: '新建牌组',
+                        tooltip: l10n.deckCreateTitle,
                         onPressed: () => _showDeckDialog(context, ref),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 18),
+                  SizedBox(height: 18),
                   SectionHeader(
-                    title: '全部牌组',
+                    title: l10n.deckListTitle,
                     trailing: decksAsync.maybeWhen(
                       data: (decks) => '${decks.length} 个牌组',
                       orElse: () => '',
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  SizedBox(height: 12),
                   decksAsync.when(
                     loading: () => const Padding(
                       padding: EdgeInsets.symmetric(vertical: 60),
@@ -81,15 +83,15 @@ class DeckListPage extends ConsumerWidget {
                       padding: const EdgeInsets.symmetric(vertical: 40),
                       child: Column(
                         children: [
-                          const Text(
-                            '加载失败，请检查网络后重试',
+                          Text(
+          l10n.errorLoadFailed,
                             style: TextStyle(color: KarisColors.cinnabar),
                           ),
-                          const SizedBox(height: 10),
+                          SizedBox(height: 10),
                           TextButton(
                             onPressed: () =>
                                 ref.read(deckListProvider.notifier).loadDecks(),
-                            child: const Text('重试'),
+                            child: Text(l10n.errorRetry),
                           ),
                         ],
                       ),
@@ -97,12 +99,12 @@ class DeckListPage extends ConsumerWidget {
                     data: (decks) => decks.isEmpty
                         ? EmptyState(
                             icon: Icons.layers_outlined,
-                            title: '还没有牌组',
-                            message: '创建第一个牌组，开始记录你的复习队列',
+                            title: l10n.homeNoDecksTitle,
+                            message: l10n.homeNoDecksMessage,
                             action: FilledButton.icon(
                               onPressed: () => _showDeckDialog(context, ref),
                               icon: const Icon(Icons.add, size: 17),
-                              label: const Text('创建牌组'),
+                              label: Text(l10n.deckCreateButton),
                             ),
                           )
                         : ListView.separated(
@@ -110,7 +112,7 @@ class DeckListPage extends ConsumerWidget {
                             physics: const NeverScrollableScrollPhysics(),
                             itemCount: decks.length,
                             separatorBuilder: (_, _) =>
-                                const SizedBox(height: 10),
+                                SizedBox(height: 10),
                             itemBuilder: (context, index) {
                               final deck = decks[index];
                               return DeckRow(
@@ -169,6 +171,7 @@ class _DeckDialog extends ConsumerStatefulWidget {
 }
 
 class _DeckDialogState extends ConsumerState<_DeckDialog> {
+  KarisReviewLocalizations get l10n => KarisReviewLocalizations.of(context)!;
   late final TextEditingController _controller;
   bool _saving = false;
 
@@ -200,7 +203,7 @@ class _DeckDialogState extends ConsumerState<_DeckDialog> {
       setState(() => _saving = false);
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('保存失败，请检查网络后重试')));
+      ).showSnackBar(SnackBar(content: Text(l10n.errorSaveFailed)));
       return;
     }
     ref.invalidate(statsProvider);
@@ -211,15 +214,15 @@ class _DeckDialogState extends ConsumerState<_DeckDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: KarisHeading(child: Text(widget.deck == null ? '新建牌组' : '重命名牌组')),
+      title: KarisHeading(child: Text(widget.deck == null ? l10n.deckCreateTitle : l10n.deckRenameTitle)),
       content: TextField(
         controller: _controller,
         autofocus: shouldAutoFocus(context),
         autofillHints: const [AutofillHints.name],
         maxLength: 100,
-        decoration: const InputDecoration(
-          labelText: '牌组名称',
-          hintText: '例如：日语 N5',
+        decoration: InputDecoration(
+          labelText: l10n.deckNameLabel,
+          hintText: l10n.deckNameHint,
         ),
         onSubmitted: (_) => _save(),
       ),
@@ -231,12 +234,12 @@ class _DeckDialogState extends ConsumerState<_DeckDialog> {
         FilledButton(
           onPressed: _saving ? null : _save,
           child: _saving
-              ? const SizedBox(
+              ? SizedBox(
                   width: 20,
                   height: 20,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              : Text(widget.deck == null ? '创建' : '保存'),
+              : Text(widget.deck == null ? l10n.deckCreateButton : l10n.deckSaveButton),
         ),
       ],
     );
@@ -244,11 +247,12 @@ class _DeckDialogState extends ConsumerState<_DeckDialog> {
 }
 
 void _confirmDeleteDeck(BuildContext context, WidgetRef ref, Deck deck) {
+  final l10n = KarisReviewLocalizations.of(context)!;
   showDialog<void>(
     context: context,
     builder: (dialogContext) {
       return AlertDialog(
-        title: const Text('删除牌组'),
+        title: Text(l10n.deckDeleteTitle),
         content: Text('确定要删除“${deck.name}”吗？牌组内的所有卡片和复习记录也会删除。'),
         actions: [
           TextButton(
@@ -266,7 +270,7 @@ void _confirmDeleteDeck(BuildContext context, WidgetRef ref, Deck deck) {
               ref.invalidate(trendProvider(30));
               if (dialogContext.mounted) Navigator.pop(dialogContext);
             },
-            child: const Text('删除'),
+            child: Text(l10n.deckDeleteLabel),
           ),
         ],
       );

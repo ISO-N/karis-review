@@ -127,7 +127,7 @@ public class ReviewController {
             @AuthenticationPrincipal UUID userId,
             @PathVariable UUID sessionId) {
         reviewService.deleteSession(userId, sessionId);
-        return ResponseEntity.ok(ApiResponse.success("复习会话已关闭", null));
+        return ResponseEntity.ok(ApiResponse.success("review.session.closed", null));
     }
 
     @PostMapping(value = "/sync",

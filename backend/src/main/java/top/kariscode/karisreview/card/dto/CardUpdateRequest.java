@@ -4,10 +4,10 @@ import jakarta.validation.constraints.NotBlank;
 
 public class CardUpdateRequest {
 
-    @NotBlank(message = "正面内容不能为空")
+    @NotBlank(message = "{validation.card.front.notblank}")
     private String front;
 
-    @NotBlank(message = "反面内容不能为空")
+    @NotBlank(message = "{validation.card.back.notblank}")
     private String back;
 
     public String getFront() { return front; }

@@ -36,7 +36,7 @@ public class ProtobufHttpMessageConverter extends AbstractHttpMessageConverter<M
             return (Message) parseFrom.invoke(null, inputMessage.getBody());
         } catch (ReflectiveOperationException e) {
             throw new HttpMessageNotReadableException(
-                    "无法解析 Protobuf 请求体", e, inputMessage);
+                    "server.protobuf.parse.failed", e, inputMessage);
         }
     }
 

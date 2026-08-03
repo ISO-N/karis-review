@@ -35,6 +35,6 @@ public class SettingsController {
             @AuthenticationPrincipal UUID userId,
             @Valid @RequestBody UpdateSettingsRequest request) {
         UserSettingsResponse settings = settingsService.updateSettings(userId, request);
-        return ResponseEntity.ok(ApiResponse.success("设置已更新", settings));
+        return ResponseEntity.ok(ApiResponse.success("settings.updated", settings));
     }
 }

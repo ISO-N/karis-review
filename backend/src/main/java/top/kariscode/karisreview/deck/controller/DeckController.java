@@ -54,7 +54,7 @@ public class DeckController {
             @AuthenticationPrincipal UUID userId,
             @Valid @RequestBody DeckCreateRequest request) {
         DeckResponse deck = deckService.createDeck(userId, request);
-        return ResponseEntity.ok(ApiResponse.success("牌组已创建", deck));
+        return ResponseEntity.ok(ApiResponse.success("deck.created", deck));
     }
 
     @PutMapping("/{deckId}")
@@ -63,7 +63,7 @@ public class DeckController {
             @PathVariable UUID deckId,
             @Valid @RequestBody DeckUpdateRequest request) {
         DeckResponse deck = deckService.updateDeck(userId, deckId, request);
-        return ResponseEntity.ok(ApiResponse.success("牌组已更新", deck));
+        return ResponseEntity.ok(ApiResponse.success("deck.updated", deck));
     }
 
     @DeleteMapping("/{deckId}")
@@ -71,6 +71,6 @@ public class DeckController {
             @AuthenticationPrincipal UUID userId,
             @PathVariable UUID deckId) {
         deckService.deleteDeck(userId, deckId);
-        return ResponseEntity.ok(ApiResponse.success("牌组已删除", null));
+        return ResponseEntity.ok(ApiResponse.success("deck.deleted", null));
     }
 }

@@ -54,7 +54,7 @@ public class CardController {
             @PathVariable UUID deckId,
             @Valid @RequestBody CardCreateRequest request) {
         CardResponse card = cardService.createCard(userId, deckId, request);
-        return ResponseEntity.ok(ApiResponse.success("卡片已创建", card));
+        return ResponseEntity.ok(ApiResponse.success("card.created", card));
     }
 
     @GetMapping("/cards/{cardId}")
@@ -71,7 +71,7 @@ public class CardController {
             @PathVariable UUID cardId,
             @Valid @RequestBody CardUpdateRequest request) {
         CardResponse card = cardService.updateCard(userId, cardId, request);
-        return ResponseEntity.ok(ApiResponse.success("卡片已更新", card));
+        return ResponseEntity.ok(ApiResponse.success("card.updated", card));
     }
 
     @DeleteMapping("/cards/{cardId}")
@@ -79,7 +79,7 @@ public class CardController {
             @AuthenticationPrincipal UUID userId,
             @PathVariable UUID cardId) {
         cardService.deleteCard(userId, cardId);
-        return ResponseEntity.ok(ApiResponse.success("卡片已删除", null));
+        return ResponseEntity.ok(ApiResponse.success("card.deleted", null));
     }
 
     @PostMapping("/cards/batch-delete")
@@ -88,6 +88,6 @@ public class CardController {
             @Valid @RequestBody CardBatchDeleteRequest request) {
         int deletedCards = cardService.deleteCards(userId, request.getCardIds());
         return ResponseEntity.ok(ApiResponse.success(
-                "卡片已删除", new CardBatchDeleteResult(deletedCards)));
+                "card.batch.deleted", new CardBatchDeleteResult(deletedCards)));
     }
 }

@@ -41,15 +41,15 @@ public class AuthService {
             String inviteCode = request.getInviteCode() == null
                     ? "" : request.getInviteCode().trim();
             if (inviteCode.isEmpty()) {
-                throw new BusinessException(400, "请输入邀请码");
+                throw new BusinessException(400, "auth.invite.required");
             }
             if (!inviteCodeConfig.matches(inviteCode)) {
-                throw new BusinessException(400, "邀请码无效");
+                throw new BusinessException(400, "auth.invite.invalid");
             }
         }
 
         if (userRepository.existsByEmail(request.getEmail())) {
-            throw new BusinessException(400, "邮箱已被注册");
+            throw new BusinessException(400, "auth.email.registered");
         }
 
         User user = new User();
@@ -64,10 +64,10 @@ public class AuthService {
 
     public LoginResponse login(LoginRequest request) {
         User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new BusinessException(401, "邮箱或密码错误"));
+                .orElseThrow(() -> new BusinessException(401, "auth.email.password.wrong"));
 
         if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
-            throw new BusinessException(401, "邮箱或密码错误");
+            throw new BusinessException(401, "auth.email.password.wrong");
         }
 
         String token = jwtProvider.generateToken(user.getId(), user.getEmail());

@@ -10,6 +10,7 @@ import '../../shared/utils/motion.dart';
 import '../../shared/widgets/app_semantics.dart';
 import '../../shared/widgets/section_widgets.dart';
 
+import '../../l10n/app_localizations.dart';
 class StartFlowPage extends ConsumerStatefulWidget {
   final String initialMode;
   final String? initialDeckId;
@@ -58,6 +59,7 @@ class _StartFlowPageState extends ConsumerState<StartFlowPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = KarisReviewLocalizations.of(context)!;
     final decksAsync = ref.watch(deckListProvider);
     final isTablet = MediaQuery.sizeOf(context).width >= 600;
 
@@ -78,8 +80,8 @@ class _StartFlowPageState extends ConsumerState<StartFlowPage> {
                 ),
                 error: (error, _) => EmptyState(
                   icon: Icons.error_outline,
-                  title: '加载牌组失败',
-                  message: '加载牌组失败，请检查网络后重试',
+                  title: l10n.errorLoadFailed,
+                  message: l10n.errorLoadFailed,
                 ),
                 data: (decks) {
                   final totalCount = _totalCount(decks);
@@ -93,16 +95,16 @@ class _StartFlowPageState extends ConsumerState<StartFlowPage> {
                             tooltip: '返回',
                             onPressed: () => context.go('/home'),
                           ),
-                          const SizedBox(width: 12),
+                          SizedBox(width: 12),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 const Kicker('开始'),
-                                const SizedBox(height: 4),
+                                SizedBox(height: 4),
                                 KarisHeading(
                                   child: Text(
-                                    _mode == 'new' ? '开始学习' : '开始复习',
+                                    _mode == 'new' ? l10n.startModeNew : l10n.startModeDue,
                                     style: karisDisplay(fontSize: 26),
                                   ),
                                 ),
@@ -118,11 +120,11 @@ class _StartFlowPageState extends ConsumerState<StartFlowPage> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 22),
+                      SizedBox(height: 22),
                       const SectionHeader(title: '学习方式', trailing: '选择队列'),
-                      const SizedBox(height: 14),
+                      SizedBox(height: 14),
                       _ModeSwitch(mode: _mode, onChanged: _setMode),
-                      const SizedBox(height: 24),
+                      SizedBox(height: 24),
                       SectionHeader(
                         title: '范围',
                         trailing: _scope == 'all'
@@ -132,16 +134,16 @@ class _StartFlowPageState extends ConsumerState<StartFlowPage> {
                                 (_, deck) => deck.name,
                               ),
                       ),
-                      const SizedBox(height: 14),
+                      SizedBox(height: 14),
                       if (decks.isEmpty)
                         EmptyState(
                           icon: Icons.layers_outlined,
-                          title: '还没有牌组',
-                          message: '先创建一个牌组，再开始学习',
+                          title: l10n.startNoDecksTitle,
+                          message: l10n.startNoDecksMessage,
                           action: FilledButton.icon(
                             onPressed: () => context.go('/decks'),
                             icon: const Icon(Icons.add, size: 17),
-                            label: const Text('创建牌组'),
+                            label: Text(l10n.startCreateDeck),
                           ),
                         )
                       else
@@ -150,7 +152,7 @@ class _StartFlowPageState extends ConsumerState<StartFlowPage> {
                           physics: const NeverScrollableScrollPhysics(),
                           itemCount: decks.length + 1,
                           separatorBuilder: (_, _) =>
-                              const SizedBox(height: 10),
+                              SizedBox(height: 10),
                           itemBuilder: (context, index) {
                             if (index == 0) {
                               return _ScopeOption(
@@ -171,9 +173,9 @@ class _StartFlowPageState extends ConsumerState<StartFlowPage> {
                             );
                           },
                         ),
-                      const SizedBox(height: 26),
+                      SizedBox(height: 26),
                       KarisPrimaryButton(
-                        label: _mode == 'new' ? '开始学习' : '开始复习',
+                        label: _mode == 'new' ? l10n.startModeNew : l10n.startModeDue,
                         icon: _mode == 'new'
                             ? Icons.auto_stories_outlined
                             : Icons.play_arrow_rounded,
@@ -214,6 +216,7 @@ class _ModeSwitch extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+      final l10n = KarisReviewLocalizations.of(context)!;
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
@@ -225,7 +228,7 @@ class _ModeSwitch extends StatelessWidget {
         children: [
           Expanded(
             child: _ModeOption(
-              label: '复习到期',
+              label: l10n.startFilterDue,
               active: mode == 'due',
               onTap: () => onChanged('due'),
             ),
@@ -349,7 +352,7 @@ class _ScopeOption extends StatelessWidget {
                       )
                     : null,
               ),
-              const SizedBox(width: 12),
+              SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -365,7 +368,7 @@ class _ScopeOption extends StatelessWidget {
                         letterSpacing: 0,
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    SizedBox(height: 4),
                     Text(
                       meta,
                       style: karisMono(fontSize: 10, color: KarisColors.stone),

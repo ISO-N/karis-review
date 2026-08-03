@@ -58,7 +58,7 @@ public class SyncService {
     @Transactional(readOnly = true)
     public BootstrapResponse getBootstrap(UUID userId, long eventCursor) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(404, "用户不存在"));
+                .orElseThrow(() -> new BusinessException(404, "sync.user.notfound"));
         OffsetDateTime serverTime = OffsetDateTime.now(ZoneOffset.UTC);
 
         if (eventCursor <= 0) {

@@ -10,17 +10,17 @@ import java.util.UUID;
 
 public class ReviewSyncItem {
 
-    @NotBlank(message = "客户端请求 ID 不能为空")
+    @NotBlank(message = "{validation.sync.item.client.id.notblank}")
     private String clientRequestId;
 
-    @NotNull(message = "卡片 ID 不能为空")
+    @NotNull(message = "{validation.sync.item.card.id.notnull}")
     private UUID cardId;
 
-    @NotBlank(message = "评分不能为空")
-    @Pattern(regexp = "^(FORGET|VAGUE|FAMILIAR)$", message = "评分必须为 FORGET, VAGUE 或 FAMILIAR")
+    @NotBlank(message = "{validation.sync.item.rating.notblank}")
+    @Pattern(regexp = "^(FORGET|VAGUE|FAMILIAR)$", message = "{validation.sync.item.rating.pattern}")
     private String rating;
 
-    @NotNull(message = "评分时间不能为空")
+    @NotNull(message = "{validation.sync.item.rated.at.notnull}")
     private OffsetDateTime ratedAt;
 
     @Min(value = 0, message = "review_version 不能小于 0")

@@ -9,8 +9,8 @@ import java.util.List;
 public class ReviewSyncRequest {
 
     @Valid
-    @NotEmpty(message = "同步条目不能为空")
-    @Size(max = 500, message = "单次同步最多 500 条")
+    @NotEmpty(message = "{validation.sync.list.notempty}")
+    @Size(max = 500, message = "{validation.sync.list.too.many}")
     private List<ReviewSyncItem> items;
 
     public List<ReviewSyncItem> getItems() { return items; }

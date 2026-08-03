@@ -6,12 +6,12 @@ import jakarta.validation.constraints.Size;
 
 public class RegisterRequest {
 
-    @NotBlank(message = "邮箱不能为空")
-    @Email(message = "邮箱格式无效")
+    @NotBlank(message = "{validation.email.notblank}")
+    @Email(message = "{validation.email.invalid}")
     private String email;
 
-    @NotBlank(message = "密码不能为空")
-    @Size(min = 6, max = 128, message = "密码长度需在6-128位之间")
+    @NotBlank(message = "{validation.password.notblank}")
+    @Size(min = 6, max = 128, message = "{validation.password.length}")
     private String password;
 
     private String inviteCode;

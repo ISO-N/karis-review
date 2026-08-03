@@ -17,7 +17,7 @@ public class InviteCodeConfig {
         this.enabled = enabled;
         this.code = code == null ? "" : code.trim();
         if (this.enabled && this.code.isEmpty()) {
-            throw new IllegalStateException("auth.invite.enabled=true 时 auth.invite.code 不能为空");
+            throw new IllegalStateException("auth.invite.code must not be empty when auth.invite.enabled=true");
         }
     }
 

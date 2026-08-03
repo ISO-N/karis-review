@@ -9,14 +9,14 @@ import java.util.UUID;
 
 public class ReviewSessionCreateRequest {
 
-    @NotBlank(message = "模式不能为空")
-    @Pattern(regexp = "^(due|new)$", message = "模式必须为 due 或 new")
+    @NotBlank(message = "{validation.session.mode.notblank}")
+    @Pattern(regexp = "^(due|new)$", message = "{validation.session.mode.pattern}")
     private String mode;
 
     private UUID deckId;
 
-    @Min(value = 1, message = "每页数量至少为 1")
-    @Max(value = 50, message = "每页数量最多为 50")
+    @Min(value = 1, message = "{validation.session.size.min}")
+    @Max(value = 50, message = "{validation.session.size.max}")
     private Integer batchSize = 10;
 
     public String getMode() { return mode; }

@@ -96,7 +96,7 @@ class LocalSchedulingEngine {
           nextReviewDate = _formatDate(today);
         }
       default:
-        throw ArgumentError.value(rating, 'rating', '无效的评分');
+        throw ArgumentError.value(rating, 'rating', 'Invalid rating');
     }
 
     final result = ReviewResult(

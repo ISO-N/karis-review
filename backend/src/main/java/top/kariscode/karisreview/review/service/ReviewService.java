@@ -224,10 +224,10 @@ public class ReviewService {
             if (existing.isPresent()) {
                 ReviewLog log = existing.get();
                 if (!log.getCardId().equals(cardId) || !log.getRating().equals(request.getRating())) {
-                    throw new BusinessException(409, "请求已使用，但卡片或评分不一致");
+                    throw new BusinessException(409, "review.conflict.request");
                 }
                 Card current = cardRepository.findByIdAndUserId(cardId, userId)
-                        .orElseThrow(() -> new BusinessException(404, "卡片不存在"));
+                        .orElseThrow(() -> new BusinessException(404, "review.card.notfound"));
                 return new RateResponse(
                         cardId, log.getRating(), log.getStageBefore(), log.getStageAfter(),
                         null, false, 0, 0, current.getReviewVersion());
@@ -235,11 +235,11 @@ public class ReviewService {
         }
 
         Card card = cardRepository.findByIdAndUserIdForUpdate(cardId, userId)
-                .orElseThrow(() -> new BusinessException(404, "卡片不存在"));
+                .orElseThrow(() -> new BusinessException(404, "review.card.notfound"));
 
         if (request.getReviewVersion() != null
                 && request.getReviewVersion() != card.getReviewVersion()) {
-            throw new BusinessException(409, "卡片状态已变化，请刷新后重新评分");
+            throw new BusinessException(409, "review.conflict.version");
         }
 
         return applyRating(userId, cardId, card, request.getRating(),
@@ -262,7 +262,7 @@ public class ReviewService {
             case "FORGET" -> result = schedulingEngine.rateForget(card, refreshTime);
             case "VAGUE" -> result = schedulingEngine.rateVague(card, refreshTime);
             case "FAMILIAR" -> result = schedulingEngine.rateFamiliar(card, refreshTime);
-            default -> throw new BusinessException(400, "无效的评分");
+            default -> throw new BusinessException(400, "review.rating.invalid");
         }
 
         card = cardRepository.save(card);
@@ -334,9 +334,9 @@ public class ReviewService {
 
     private ReviewSession findSession(UUID userId, UUID sessionId) {
         ReviewSession session = reviewSessionRepository.findByIdAndUserId(sessionId, userId)
-                .orElseThrow(() -> new BusinessException(404, "复习会话不存在"));
+                .orElseThrow(() -> new BusinessException(404, "review.session.notfound"));
         if (session.getExpiresAt().isBefore(DateUtils.now())) {
-            throw new BusinessException(410, "复习会话已过期");
+            throw new BusinessException(410, "review.session.expired");
         }
         return session;
     }

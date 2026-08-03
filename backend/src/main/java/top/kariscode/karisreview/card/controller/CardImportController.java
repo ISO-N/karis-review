@@ -36,7 +36,7 @@ public class CardImportController {
             @Valid @RequestBody CardImportPreviewRequest request) {
         CardImportPreviewResponse preview =
                 cardImportService.preview(userId, deckId, request.getContent());
-        return ResponseEntity.ok(ApiResponse.success("解析完成", preview));
+        return ResponseEntity.ok(ApiResponse.success("card.import.parsed", preview));
     }
 
     @PostMapping
@@ -45,6 +45,6 @@ public class CardImportController {
             @PathVariable UUID deckId,
             @Valid @RequestBody CardImportRequest request) {
         CardImportResult result = cardImportService.importCards(userId, deckId, request);
-        return ResponseEntity.ok(ApiResponse.success("卡片已导入", result));
+        return ResponseEntity.ok(ApiResponse.success("card.import.success", result));
     }
 }

@@ -25,27 +25,27 @@ public class CardImportParser {
 
     public CardImportPreviewResponse parse(String content) {
         if (content == null || content.isBlank()) {
-            throw new BusinessException(400, "JSON 内容不能为空");
+            throw new BusinessException(400, "card.import.json.empty");
         }
         if (content.length() > MAX_CONTENT_LENGTH) {
-            throw new BusinessException(400, "JSON 内容过大，最多支持 2MB");
+            throw new BusinessException(400, "card.import.json.too.large");
         }
 
         JsonNode root;
         try {
             root = objectMapper.readTree(content);
         } catch (JsonProcessingException e) {
-            throw new BusinessException(400, "JSON 格式不正确");
+            throw new BusinessException(400, "card.import.json.invalid");
         }
 
         if (!root.isArray()) {
-            throw new BusinessException(400, "JSON 必须是数组");
+            throw new BusinessException(400, "card.import.json.must.be.array");
         }
         if (root.isEmpty()) {
-            throw new BusinessException(400, "JSON 数组不能为空");
+            throw new BusinessException(400, "card.import.json.array.empty");
         }
         if (root.size() > MAX_CARDS) {
-            throw new BusinessException(400, "单次最多导入 " + MAX_CARDS + " 张卡片");
+            throw new BusinessException(400, "card.import.too.many", MAX_CARDS);
         }
 
         List<CardImportPreviewItem> items = new ArrayList<>(root.size());
@@ -53,39 +53,39 @@ public class CardImportParser {
         for (int i = 0; i < root.size(); i++) {
             JsonNode node = root.get(i);
             if (!node.isObject()) {
-                items.add(new CardImportPreviewItem(i, null, null, false, "卡片必须是对象"));
+                items.add(new CardImportPreviewItem(i, null, null, false, "card.import.must.be.object"));
                 continue;
             }
 
             List<String> errors = new ArrayList<>(2);
-            String front = readRequiredText(node, "front", "正面", errors);
-            String back = readRequiredText(node, "back", "反面", errors);
+            String front = readRequiredText(node, "front", "card.import.front", errors);
+            String back = readRequiredText(node, "back", "card.import.back", errors);
             boolean valid = errors.isEmpty();
             if (valid) {
                 validCount++;
             }
             items.add(new CardImportPreviewItem(
-                    i, front, back, valid, errors.isEmpty() ? null : String.join("，", errors)));
+                    i, front, back, valid, errors.isEmpty() ? null : String.join(", ", errors)));
         }
 
         return new CardImportPreviewResponse(
                 root.size(), validCount, root.size() - validCount, items);
     }
 
-    private String readRequiredText(JsonNode node, String field, String label,
+    private String readRequiredText(JsonNode node, String field, String keyPrefix,
                                     List<String> errors) {
         JsonNode value = node.get(field);
         if (value == null || value.isNull()) {
-            errors.add(label + "内容不能为空");
+            errors.add(keyPrefix + ".empty");
             return "";
         }
         if (!value.isTextual()) {
-            errors.add(label + "内容必须是字符串");
+            errors.add(keyPrefix + ".must.be.string");
             return "";
         }
         String text = value.asText();
         if (text.trim().isEmpty()) {
-            errors.add(label + "内容不能为空");
+            errors.add(keyPrefix + ".empty");
             return "";
         }
         return text;

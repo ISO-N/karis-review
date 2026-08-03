@@ -5,6 +5,7 @@ import '../../shared/widgets/adaptive_scaffold.dart';
 import '../../shared/widgets/stage_ruler.dart';
 import '../../shared/widgets/app_semantics.dart';
 
+import '../../l10n/app_localizations.dart';
 class DeckRow extends StatelessWidget {
   final String name;
   final int cardCount;
@@ -28,6 +29,7 @@ class DeckRow extends StatelessWidget {
   });
 
   void _showActions(BuildContext context) {
+    final l10n = KarisReviewLocalizations.of(context)!;
     showModalBottomSheet<void>(
       context: context,
       builder: (sheetContext) {
@@ -55,16 +57,16 @@ class DeckRow extends StatelessWidget {
                     ),
                     KarisIconButton(
                       icon: Icons.close,
-                      tooltip: '关闭',
+                      tooltip: l10n.deckCloseTooltip,
                       onPressed: () => Navigator.pop(sheetContext),
                     ),
                   ],
                 ),
-                const SizedBox(height: 14),
+                SizedBox(height: 14),
                 if (onEdit != null)
                   _DeckActionTile(
                     icon: Icons.edit_outlined,
-                    label: '重命名',
+                    label: l10n.deckRenameLabel,
                     color: KarisColors.ink,
                     onTap: () {
                       Navigator.pop(sheetContext);
@@ -72,11 +74,11 @@ class DeckRow extends StatelessWidget {
                     },
                   ),
                 if (onEdit != null && onDelete != null)
-                  const SizedBox(height: 10),
+                  SizedBox(height: 10),
                 if (onDelete != null)
                   _DeckActionTile(
                     icon: Icons.delete_outline,
-                    label: '删除',
+                    label: l10n.deckDeleteLabel,
                     color: KarisColors.cinnabar,
                     onTap: () {
                       Navigator.pop(sheetContext);
@@ -93,6 +95,7 @@ class DeckRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = KarisReviewLocalizations.of(context)!;
     final flag = name.trim().isEmpty
         ? '牌'
         : String.fromCharCode(name.trim().runes.first);
@@ -127,7 +130,7 @@ class DeckRow extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
+              SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -143,12 +146,12 @@ class DeckRow extends StatelessWidget {
                         letterSpacing: 0,
                       ),
                     ),
-                    const SizedBox(height: 6),
+                    SizedBox(height: 6),
                     Text(
                       '$cardCount 张 · 待复习 $dueCount',
                       style: karisMono(fontSize: 10, color: KarisColors.stone),
                     ),
-                    const SizedBox(height: 7),
+                    SizedBox(height: 7),
                     MiniStageRuler(distribution: stageDistribution),
                   ],
                 ),
@@ -156,7 +159,7 @@ class DeckRow extends StatelessWidget {
               if (onEdit != null || onDelete != null)
                 KarisIconButton(
                   icon: Icons.more_horiz,
-                  tooltip: '牌组操作',
+                  tooltip: l10n.deckOperationTooltip,
                   color: KarisColors.stone,
                   onPressed: () => _showActions(context),
                 )
@@ -203,7 +206,7 @@ class _DeckActionTile extends StatelessWidget {
           child: Row(
             children: [
               Icon(icon, size: 18, color: color),
-              const SizedBox(width: 12),
+              SizedBox(width: 12),
               Text(
                 label,
                 style: TextStyle(

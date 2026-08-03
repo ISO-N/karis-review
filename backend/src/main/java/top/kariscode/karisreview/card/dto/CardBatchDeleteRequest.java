@@ -8,8 +8,8 @@ import java.util.UUID;
 
 public class CardBatchDeleteRequest {
 
-    @NotEmpty(message = "卡片 ID 列表不能为空")
-    @Size(max = 1000, message = "单次最多删除 1000 张卡片")
+    @NotEmpty(message = "{validation.card.batch.id.notempty}")
+    @Size(max = 1000, message = "{validation.card.batch.id.too.many}")
     private List<UUID> cardIds;
 
     public List<UUID> getCardIds() { return cardIds; }

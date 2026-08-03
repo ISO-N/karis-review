@@ -3,7 +3,8 @@ package top.kariscode.karisreview.common.exception;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.http.HttpStatus;
+import org.springframework.context.MessageSource;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -16,27 +17,50 @@ import top.kariscode.karisreview.common.dto.ApiResponse;
 import top.kariscode.karisreview.config.ProtobufHttpMessageConverter;
 import top.kariscode.karisreview.proto.KarisReviewProto.ApiError;
 
+import java.util.Locale;
 import java.util.stream.Collectors;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+    private final MessageSource messageSource;
+
+    public GlobalExceptionHandler(MessageSource messageSource) {
+        this.messageSource = messageSource;
+    }
+
+    private String resolve(String key, HttpServletRequest request, Object... args) {
+        Locale locale = request != null
+                ? request.getLocale()
+                : LocaleContextHolder.getLocale();
+        try {
+            return messageSource.getMessage(key, args, key, locale);
+        } catch (Exception e) {
+            return key;
+        }
+    }
 
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<?> handleBusinessException(BusinessException e, HttpServletRequest request) {
         int status = e.getCode() >= 500 ? 500 : e.getCode();
-        return error(status, e.getCode(), e.getMessage(), request);
+        String message;
+        if (e.getMessageKey() != null) {
+            message = resolve(e.getMessageKey(), request, e.getArgs() != null ? e.getArgs() : new Object[0]);
+        } else {
+            message = e.getMessage();
+        }
+        return error(status, e.getCode(), message, request);
     }
 
     @ExceptionHandler(BadCredentialsException.class)
     public ResponseEntity<?> handleBadCredentials(BadCredentialsException e, HttpServletRequest request) {
-        return error(401, 401, "邮箱或密码错误", request);
+        return error(401, 401, resolve("auth.email.password.wrong", request), request);
     }
 
     @ExceptionHandler(UsernameNotFoundException.class)
     public ResponseEntity<?> handleUserNotFound(UsernameNotFoundException e, HttpServletRequest request) {
-        return error(401, 401, "邮箱或密码错误", request);
+        return error(401, 401, resolve("auth.email.password.wrong", request), request);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -49,13 +73,13 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(NoResourceFoundException.class)
     public ResponseEntity<?> handleNotFound(NoResourceFoundException e, HttpServletRequest request) {
-        return error(404, 404, "资源不存在", request);
+        return error(404, 404, resolve("server.resource.notfound", request), request);
     }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<?> handleException(Exception e, HttpServletRequest request) {
         log.error("Unexpected error", e);
-        return error(500, 500, "服务器内部错误", request);
+        return error(500, 500, resolve("server.error", request), request);
     }
 
     private ResponseEntity<?> error(int httpStatus, int code, String message, HttpServletRequest request) {

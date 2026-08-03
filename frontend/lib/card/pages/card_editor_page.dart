@@ -12,6 +12,7 @@ import '../../shared/widgets/rich_card_content.dart';
 import '../../shared/widgets/section_widgets.dart';
 import '../providers/card_provider.dart';
 
+import '../../l10n/app_localizations.dart';
 class CardEditorArgs {
   final String deckId;
   final String? cardId;
@@ -42,6 +43,7 @@ class CardEditorPage extends ConsumerStatefulWidget {
 enum _CardSide { front, back }
 
 class _CardEditorPageState extends ConsumerState<CardEditorPage> {
+  KarisReviewLocalizations get l10n => KarisReviewLocalizations.of(context)!;
   late quill.QuillController _frontController;
   late quill.QuillController _backController;
   late FocusNode _frontFocusNode;
@@ -213,7 +215,7 @@ class _CardEditorPageState extends ConsumerState<CardEditorPage> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('取消'),
+              child: Text(l10n.cardEditorCancel),
             ),
             FilledButton(
               onPressed: () => Navigator.pop(ctx, textController.text),
@@ -249,7 +251,7 @@ class _CardEditorPageState extends ConsumerState<CardEditorPage> {
                   hintText: 'dart, java, python…',
                 ),
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
               TextField(
                 controller: codeController,
                 maxLines: 6,
@@ -265,7 +267,7 @@ class _CardEditorPageState extends ConsumerState<CardEditorPage> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('取消'),
+              child: Text(l10n.cardEditorCancel),
             ),
             FilledButton(
               onPressed: () => Navigator.pop(ctx, (
@@ -364,17 +366,17 @@ class _CardEditorPageState extends ConsumerState<CardEditorPage> {
             tooltip: '返回',
             onPressed: _isSaving ? null : _goBack,
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Kicker('卡片'),
-                const SizedBox(height: 4),
+                Kicker(l10n.cardEditorKicker),
+                SizedBox(height: 4),
                 KarisHeading(
                   child: Text(
                     widget.args.title ??
-                        (widget.args.cardId == null ? '新建卡片' : '编辑卡片'),
+                        (widget.args.cardId == null ? l10n.cardEditorTitleNew : l10n.cardEditorTitleEdit),
                     style: karisDisplay(fontSize: 22),
                   ),
                 ),
@@ -392,9 +394,9 @@ class _CardEditorPageState extends ConsumerState<CardEditorPage> {
       child: SizedBox(
         width: double.infinity,
         child: SegmentedButton<_CardSide>(
-          segments: const [
-            ButtonSegment(value: _CardSide.front, label: Text('正面')),
-            ButtonSegment(value: _CardSide.back, label: Text('反面')),
+          segments: [
+            ButtonSegment(value: _CardSide.front, label: Text(l10n.cardEditorFront)),
+            ButtonSegment(value: _CardSide.back, label: Text(l10n.cardEditorBack)),
           ],
           selected: {_side},
           onSelectionChanged: (selection) {
@@ -415,7 +417,7 @@ class _CardEditorPageState extends ConsumerState<CardEditorPage> {
         border: Border(top: BorderSide(color: KarisColors.hairline)),
       ),
       child: KarisPrimaryButton(
-        label: _isSaving ? '保存中…' : '保存',
+        label: _isSaving ? '保存中…' : l10n.cardEditorSave,
         icon: Icons.save_outlined,
         onPressed: _isSaving ? null : _save,
       ),
@@ -717,7 +719,7 @@ class _CardEditorPageState extends ConsumerState<CardEditorPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('取消'),
+            child: Text(l10n.cardEditorCancel),
           ),
         ],
       ),

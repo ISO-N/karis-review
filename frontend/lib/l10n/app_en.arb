@@ -1,0 +1,303 @@
+{
+  "@@locale": "en",
+  "appTitle": "Karis Review",
+
+  "@appTitle": {
+    "description": "Application title"
+  },
+
+  "navHome": "Home",
+  "navDecks": "Decks",
+  "navStats": "Stats",
+  "navSettings": "Settings",
+
+  "authLoginTitle": "Login",
+  "authLoginSubtitle": "Login to start today's review",
+  "authRegisterSubtitle": "A focused spaced repetition review space",
+  "authEmailLabel": "Email",
+  "authPasswordLabel": "Password",
+  "authInviteCodeLabel": "Invitation Code",
+  "authLoginButton": "Login",
+  "authRegisterButton": "Register",
+  "authNoAccount": "Don't have an account?",
+  "authHasAccount": "Already have an account?",
+  "authRegisterLink": "Register",
+  "authLoginLink": "Login",
+
+  "homeTitle": "Home",
+  "homeTodayReview": "Due Today",
+  "homeReviewedProgress": "Reviewed {reviewed} · {due} remaining",
+  "@homeReviewedProgress": {
+    "placeholders": {
+      "reviewed": {},
+      "due": {}
+    }
+  },
+  "homeNoCards": "No cards due today",
+  "homeNoDecksTitle": "No decks yet",
+  "homeNoDecksMessage": "Create your first deck to start reviewing",
+  "homeCreateDeck": "Create Deck",
+
+  "deckListTitle": "All Decks",
+  "deckCreateTitle": "New Deck",
+  "deckRenameTitle": "Rename Deck",
+  "deckNameLabel": "Deck Name",
+  "deckNameHint": "e.g. Japanese N5",
+  "deckCancel": "Cancel",
+  "deckCreateButton": "Create",
+  "deckSaveButton": "Save",
+  "deckDeleteTitle": "Delete Deck",
+  "deckDeleteConfirm": "Are you sure you want to delete \"{name}\"? All cards and review records in this deck will also be deleted.",
+  "@deckDeleteConfirm": {
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "deckDeleteConfirmButton": "Delete",
+  "deckDeleteCancel": "Cancel",
+  "deckStats": "{count} cards · {due} due",
+  "@deckStats": {
+    "placeholders": {
+      "count": {},
+      "due": {}
+    }
+  },
+  "deckOperationTooltip": "Deck operations",
+  "deckCloseTooltip": "Close",
+  "deckRenameLabel": "Rename",
+  "deckDeleteLabel": "Delete",
+  "deckCardCount": "c",
+
+  "reviewModeNew": "Learning Mode",
+  "reviewModeDue": "Review Mode",
+  "reviewLoadError": "Failed to load queue",
+  "reviewRetry": "Retry",
+  "reviewNoNewCards": "No new cards",
+  "reviewNoDueCards": "No cards due",
+  "reviewAllNewDone": "All new cards have entered the review queue",
+  "reviewNoDueMessage": "No cards are due in the current scope, take a break",
+  "reviewBackToday": "Back to Today",
+  "reviewRatingForget": "Forget",
+  "reviewRatingVague": "Vague",
+  "reviewRatingFamiliar": "Familiar",
+  "reviewRatingContinue": "Continue",
+  "reviewRatingRelearn": "Relearn",
+  "reviewRated": "Rated: {label} · Next {interval}",
+  "@reviewRated": {
+    "placeholders": {
+      "label": {},
+      "interval": {}
+    }
+  },
+  "reviewRatedTitle": "Rated {label}",
+  "@reviewRatedTitle": {
+    "placeholders": {
+      "label": {}
+    }
+  },
+  "reviewRatedDetail": "Next {interval}",
+  "@reviewRatedDetail": {
+    "placeholders": {
+      "interval": {}
+    }
+  },
+  "reviewQueue": "Queue",
+  "reviewLoadingMore": "Loading more cards",
+  "reviewOfflinePending": "Offline · {count} rating(s) pending sync",
+  "@reviewOfflinePending": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "reviewCardFrontHint": "Flashcard, tap to show answer",
+  "reviewCardBackHint": "Flashcard, tap to show question",
+  "reviewSessionCompleteNew": "Learning session complete",
+  "reviewSessionCompleteDue": "Today's review complete",
+  "reviewSessionStats": "{total} cards · {reviewed} reviewed",
+  "@reviewSessionStats": {
+    "placeholders": {
+      "total": {},
+      "reviewed": {}
+    }
+  },
+  "reviewErrorQueueFailed": "Failed to load queue, please check your network",
+  "reviewErrorRatingFailed": "Rating failed, please check your network",
+
+  "startModeNew": "Start Learning",
+  "startModeDue": "Start Review",
+  "startNoDecksTitle": "No decks yet",
+  "startNoDecksMessage": "Create a deck first, then start learning",
+  "startCreateDeck": "Create Deck",
+  "startBadgeNew": "{count} new",
+  "@startBadgeNew": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "startBadgeDue": "{count} due",
+  "@startBadgeDue": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "startFilterDue": "Due",
+
+  "cardEditorKicker": "Card",
+  "cardEditorTitleNew": "New Card",
+  "cardEditorTitleEdit": "Edit Card",
+  "cardEditorFront": "Front",
+  "cardEditorBack": "Back",
+  "cardEditorSave": "Save",
+  "cardEditorDelete": "Delete",
+  "cardEditorCancel": "Cancel",
+
+  "cardImportTitle": "Import Cards",
+  "cardImportPasteJson": "Paste JSON or select .json file",
+  "cardImportSelectFile": "Select File",
+  "cardImportParse": "Parse",
+  "cardImportImport": "Import",
+  "cardImportCancel": "Cancel",
+  "cardImportPreview": "Preview",
+  "cardImportValid": "Valid",
+  "cardImportInvalid": "Invalid",
+  "cardImportError": "Error",
+  "cardImportRow": "Row",
+  "cardImportUndo": "Undo Import",
+
+  "settingsTitle": "Settings",
+  "settingsAccount": "Account",
+  "settingsEmail": "Email",
+  "settingsReview": "Review Settings",
+  "settingsRefreshTime": "Daily Refresh Time",
+  "settingsRefreshSubtitle": "Past this time, a new day begins",
+  "settingsData": "Data Management",
+  "settingsExport": "Export Data",
+  "settingsExportSubtitle": "Save all decks, cards, and review records",
+  "settingsImport": "Import Data",
+  "settingsImportSubtitle": "Restore from backup file (overwrites)",
+  "settingsForceServer": "Use Server Data",
+  "settingsForceServerSubtitle": "Discard pending sync ratings and re-fetch from server",
+  "settingsForceServerTitle": "Use Server Data",
+  "settingsForceServerContent": "This will discard all unsynced offline ratings and overwrite local data with server data. Continue?",
+  "settingsForceServerConfirm": "Overwrite",
+  "settingsForceServerCancel": "Cancel",
+  "settingsImportTitle": "Import Data",
+  "settingsImportContent": "Importing will overwrite all current data. This operation is irreversible. Continue?",
+  "settingsImportConfirm": "Import",
+  "settingsImportCancel": "Cancel",
+  "settingsImportSuccess": "Data restored: {decks} decks, {cards} cards, {logs} records",
+  "@settingsImportSuccess": {
+    "placeholders": {
+      "decks": {},
+      "cards": {},
+      "logs": {}
+    }
+  },
+  "settingsExportFail": "Export failed, please check your network",
+  "settingsImportFail": "Import failed, please check your network or backup file",
+  "settingsImportReadFail": "Failed to read backup file, please check the file format",
+  "settingsSyncFail": "Sync failed, please check your network",
+  "settingsLogout": "Logout",
+  "settingsLanguage": "Language",
+  "languageZh": "中文",
+  "languageEn": "English",
+
+  "statsTitle": "Statistics",
+  "statsOverview": "Overview",
+  "statsTotalCards": "Total Cards",
+  "statsTotalDecks": "Total Decks",
+  "statsDueToday": "Due Today",
+  "statsReviewedToday": "Reviewed Today",
+  "statsLearnedToday": "Learned Today",
+  "statsMastered": "Mastered",
+  "statsLearning": "Learning",
+  "statsTrend": "Trend",
+  "statsDeckStats": "Deck Statistics",
+  "statsStageDistribution": "Stage Distribution",
+  "statsNewCards": "New Cards",
+
+  "cardListTitle": "Cards",
+  "cardListFilterAll": "All",
+  "cardListFilterDue": "Due",
+  "cardListFilterLearning": "Learning",
+  "cardListFilterNew": "New",
+  "cardListSearch": "Search",
+  "cardListBatchDelete": "Batch Delete",
+  "cardListNoCards": "No cards",
+  "cardListConfirmDelete": "Delete {count} card(s)?",
+  "@cardListConfirmDelete": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+
+  "errorLoadFailed": "Failed to load, please check your network",
+  "errorSaveFailed": "Failed to save, please check your network",
+  "errorRetry": "Retry",
+
+  "themeIntervalRelearn": "Relearn",
+  "themeIntervalDays": "{days} days",
+  "@themeIntervalDays": {
+    "placeholders": {
+      "days": {}
+    }
+  },
+  "themeIntervalDay": "1 day",
+  "themeStageNew": "New",
+
+  "cardImportFrontEmpty": "Front content cannot be empty",
+  "cardImportFrontMustBeString": "Front content must be a string",
+  "cardImportBackEmpty": "Back content cannot be empty",
+  "cardImportBackMustBeString": "Back content must be a string",
+  "cardImportCardMustBeObject": "Card must be an object",
+
+  "backendAuthRegisterSuccess": "Registration successful",
+  "backendAuthLoginSuccess": "Login successful",
+  "backendAuthLogoutSuccess": "Logged out",
+  "backendAuthInviteRequired": "Please enter invitation code",
+  "backendAuthInviteInvalid": "Invalid invitation code",
+  "backendAuthEmailRegistered": "Email already registered",
+  "backendAuthEmailPasswordWrong": "Incorrect email or password",
+  "backendAuthUnauthorized": "Not logged in or token expired",
+  "backendDeckNotfound": "Deck not found",
+  "backendDeckCreated": "Deck created",
+  "backendDeckUpdated": "Deck updated",
+  "backendDeckDeleted": "Deck deleted",
+  "backendCardNotfound": "Card not found",
+  "backendCardCreated": "Card created",
+  "backendCardUpdated": "Card updated",
+  "backendCardDeleted": "Card(s) deleted",
+  "backendCardIdListEmpty": "Card ID list cannot be empty",
+  "backendCardSearchTooLong": "Search term cannot exceed 100 characters",
+  "backendCardFrontEmpty": "Front content cannot be empty",
+  "backendCardBackEmpty": "Back content cannot be empty",
+  "backendCardImportJsonEmpty": "JSON content cannot be empty",
+  "backendCardImportJsonTooLarge": "JSON content too large, maximum 2MB",
+  "backendCardImportJsonInvalid": "Invalid JSON format",
+  "backendCardImportJsonMustBeArray": "JSON must be an array",
+  "backendCardImportJsonArrayEmpty": "JSON array cannot be empty",
+  "backendCardImportTooMany": "Maximum {count} cards per import",
+  "@backendCardImportTooMany": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "backendCardImportListEmpty": "Card list cannot be empty",
+  "backendCardImportDataEmpty": "Card data cannot be empty",
+  "backendReviewSessionNotfound": "Review session not found",
+  "backendReviewSessionExpired": "Review session has expired",
+  "backendReviewSessionClosed": "Review session closed",
+  "backendReviewRatingInvalid": "Invalid rating",
+  "backendReviewConflictRequest": "Request already processed, but card or rating mismatch",
+  "backendReviewConflictVersion": "Card state has changed, please refresh and re-rate",
+  "backendReviewCardNotfound": "Card not found",
+  "backendSettingsNotfound": "User not found",
+  "backendSettingsUpdated": "Settings updated",
+  "backendStatsDeckNotfound": "Deck not found",
+  "backendBackupCreated": "Backup created",
+  "backendBackupDataEmpty": "Backup data cannot be empty",
+  "backendBackupImported": "Data restored",
+  "backendSyncUserNotfound": "User not found",
+  "backendServerError": "Internal server error",
+  "backendServerResourceNotfound": "Resource not found"
+}

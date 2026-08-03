@@ -5,8 +5,8 @@ import jakarta.validation.constraints.Size;
 
 public class DeckUpdateRequest {
 
-    @NotBlank(message = "牌组名称不能为空")
-    @Size(min = 1, max = 100, message = "牌组名称长度需在1-100字符之间")
+    @NotBlank(message = "{validation.deck.name.notblank}")
+    @Size(min = 1, max = 100, message = "{validation.deck.name.length}")
     private String name;
 
     public String getName() { return name; }
