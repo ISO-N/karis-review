@@ -55,6 +55,7 @@ public class StatsService {
         stats.setReviewedToday(reviewLogRepository.countReviewedToday(userId, refreshStart, refreshEnd));
         stats.setLearnedToday(reviewLogRepository.countLearnedToday(userId, refreshStart, refreshEnd));
         stats.setMasteredCards(cardRepository.countByUserIdAndStageGreaterThanEqual(userId, 5));
+        stats.setNewCards(cardRepository.countNewByUserId(userId));
         stats.setLearningCards(cardRepository.countByUserIdAndStageLessThan(userId, 5)
                 - cardRepository.countByUserIdAndStageLessThan(userId, 0));
         stats.setStageDistribution(distributionFromRows(cardRepository.countByStageGrouped(userId)));

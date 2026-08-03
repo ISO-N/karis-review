@@ -65,6 +65,9 @@ void main() {
 
     final summaries = await offline.getDeckSummaries('user-1');
     expect(summaries.single.cardCount, 1);
+
+    final overview = await offline.getOverviewStats('user-1');
+    expect(overview.newCards, 1);
   });
 
   test('new filter returns stage zero cards newest first', () async {

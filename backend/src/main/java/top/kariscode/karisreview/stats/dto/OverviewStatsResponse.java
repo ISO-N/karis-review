@@ -10,6 +10,7 @@ public class OverviewStatsResponse {
     private long reviewedToday;
     private long learnedToday;
     private long masteredCards;
+    private long newCards;
     private long learningCards;
     private List<Long> stageDistribution;
     private List<Long> dueStageDistribution;
@@ -26,6 +27,8 @@ public class OverviewStatsResponse {
     public void setLearnedToday(long learnedToday) { this.learnedToday = learnedToday; }
     public long getMasteredCards() { return masteredCards; }
     public void setMasteredCards(long masteredCards) { this.masteredCards = masteredCards; }
+    public long getNewCards() { return newCards; }
+    public void setNewCards(long newCards) { this.newCards = newCards; }
     public long getLearningCards() { return learningCards; }
     public void setLearningCards(long learningCards) { this.learningCards = learningCards; }
     public List<Long> getStageDistribution() { return stageDistribution; }

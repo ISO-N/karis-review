@@ -68,6 +68,7 @@ class StatsServiceTest {
                 userId, today.atTime(refreshTime), today.plusDays(1).atTime(refreshTime)))
                 .thenReturn(1L);
         when(cardRepository.countByUserIdAndStageGreaterThanEqual(userId, 5)).thenReturn(2L);
+        when(cardRepository.countNewByUserId(userId)).thenReturn(1L);
         when(cardRepository.countByUserIdAndStageLessThan(userId, 5)).thenReturn(8L);
         when(cardRepository.countByUserIdAndStageLessThan(userId, 0)).thenReturn(0L);
         when(cardRepository.countByStageGrouped(userId)).thenReturn(
@@ -83,6 +84,7 @@ class StatsServiceTest {
         assertEquals(4, stats.getReviewedToday());
         assertEquals(1, stats.getLearnedToday());
         assertEquals(2, stats.getMasteredCards());
+        assertEquals(1, stats.getNewCards());
         assertEquals(8, stats.getLearningCards());
         assertEquals(5L, stats.getStageDistribution().get(3));
         assertEquals(3L, stats.getDueStageDistribution().get(1));
@@ -191,6 +193,7 @@ class StatsServiceTest {
                 userId, today.atTime(refreshTime), today.plusDays(1).atTime(refreshTime)))
                 .thenReturn(0L);
         when(cardRepository.countByUserIdAndStageGreaterThanEqual(userId, 5)).thenReturn(0L);
+        when(cardRepository.countNewByUserId(userId)).thenReturn(0L);
         when(cardRepository.countByUserIdAndStageLessThan(userId, 5)).thenReturn(0L);
         when(cardRepository.countByUserIdAndStageLessThan(userId, 0)).thenReturn(0L);
         when(cardRepository.countByStageGrouped(userId)).thenReturn(List.of());

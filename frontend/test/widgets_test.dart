@@ -50,6 +50,31 @@ class _StaticReviewNotifier extends ReviewNotifier {
   }) async {}
 }
 
+Future<void> _pumpHome(WidgetTester tester, MockStatsRepository statsRepo) async {
+  final authRepo = MockAuthRepository();
+  when(() => authRepo.isLoggedIn()).thenAnswer((_) async => false);
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        ...authOverrides(authRepo),
+        ...statsOverrides(statsRepo),
+      ],
+      child: MaterialApp(
+        localizationsDelegates: const [
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          KarisReviewLocalizations.delegate,
+        ],
+        supportedLocales: KarisReviewLocalizations.supportedLocales,
+        locale: const Locale('zh'),
+        home: HomePage(),
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -190,41 +215,49 @@ void main() {
   });
 
   group('Dashboard pages', () {
-    testWidgets('home renders today and deck data', (tester) async {
-      final authRepo = MockAuthRepository();
-      when(() => authRepo.isLoggedIn()).thenAnswer((_) async => false);
-      final deckRepo = MockDeckRepository();
-      when(
-        () => deckRepo.getDecks(),
-      ).thenAnswer((_) async => [Deck.fromJson(deckJson())]);
+    testWidgets('home renders today and memory scale', (tester) async {
       final statsRepo = MockStatsRepository();
       when(
         () => statsRepo.getOverview(),
       ).thenAnswer((_) async => OverviewStats.fromJson(overviewStatsJson()));
-
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            ...authOverrides(authRepo),
-            ...deckOverrides(deckRepo),
-            ...statsOverrides(statsRepo),
-          ],
-          child: MaterialApp(
-            localizationsDelegates: const [
-              GlobalMaterialLocalizations.delegate,
-              GlobalWidgetsLocalizations.delegate,
-              GlobalCupertinoLocalizations.delegate,
-              KarisReviewLocalizations.delegate,
-            ],
-            supportedLocales: KarisReviewLocalizations.supportedLocales,
-          locale: const Locale('zh'),
-            home: HomePage()),
-        ),
-      );
-      await tester.pumpAndSettle();
+      await _pumpHome(tester, statsRepo);
 
       expect(find.text('今日待复习'), findsOneWidget);
-      expect(find.text('日语 N5'), findsWidgets);
+      expect(find.text('记忆刻度'), findsOneWidget);
+      expect(find.text('3 张待复习'), findsOneWidget);
+      expect(find.textContaining('日语 N5'), findsNothing);
+    });
+
+    testWidgets('home memory scale shows learning count when no due', (
+      tester,
+    ) async {
+      final statsRepo = MockStatsRepository();
+      when(
+        () => statsRepo.getOverview(),
+      ).thenAnswer(
+        (_) async => OverviewStats.fromJson(
+          overviewStatsJson(dueToday: 0, newCards: 4),
+        ),
+      );
+      await _pumpHome(tester, statsRepo);
+
+      expect(find.text('4 张待学习'), findsOneWidget);
+    });
+
+    testWidgets('home memory scale prompts when no cards remain', (
+      tester,
+    ) async {
+      final statsRepo = MockStatsRepository();
+      when(
+        () => statsRepo.getOverview(),
+      ).thenAnswer(
+        (_) async => OverviewStats.fromJson(
+          overviewStatsJson(dueToday: 0, newCards: 0),
+        ),
+      );
+      await _pumpHome(tester, statsRepo);
+
+      expect(find.text('今天没有新任务，补充新卡或休息一天'), findsOneWidget);
     });
 
     testWidgets('deck list renders rows and empty state', (tester) async {
@@ -254,6 +287,50 @@ void main() {
       expect(find.text('2 张 · 待复习 1'), findsOneWidget);
     });
 
+    testWidgets('deck list filters rows by search query', (tester) async {
+      final repo = MockDeckRepository();
+      when(
+        () => repo.getDecks(),
+      ).thenAnswer(
+        (_) async => [
+          Deck.fromJson(deckJson(name: '日语 N5')),
+          Deck.fromJson(deckJson(id: 'deck-2', name: '英语口语')),
+        ],
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: deckOverrides(repo),
+          child: MaterialApp(
+            localizationsDelegates: const [
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+              KarisReviewLocalizations.delegate,
+            ],
+            supportedLocales: KarisReviewLocalizations.supportedLocales,
+          locale: const Locale('zh'),
+            home: DeckListPage()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(TextField), findsOneWidget);
+      expect(find.text('英语口语'), findsOneWidget);
+      await tester.enterText(find.byType(TextField).first, '英语');
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.pumpAndSettle();
+
+      expect(find.text('英语口语'), findsOneWidget);
+      expect(find.text('日语 N5'), findsNothing);
+      expect(find.text('搜索到 1 个'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('清除搜索'));
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.pumpAndSettle();
+      expect(find.text('日语 N5'), findsOneWidget);
+      expect(find.text('英语口语'), findsOneWidget);
+    });
     testWidgets('deck list opens styled action sheet', (tester) async {
       final repo = MockDeckRepository();
       when(
@@ -277,7 +354,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byTooltip('牌组操作'));
+      await tester.tap(find.byTooltip('卡组操作'));
       await tester.pumpAndSettle();
 
       expect(find.text('重命名'), findsOneWidget);
@@ -304,7 +381,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('还没有牌组'), findsOneWidget);
+      expect(find.text('还没有卡组'), findsOneWidget);
     });
 
     testWidgets('start flow switches between review and new cards', (
@@ -388,6 +465,117 @@ void main() {
       expect(find.text('全部'), findsOneWidget);
     });
 
+    testWidgets('card list shows status and formatted next review date', (
+      tester,
+    ) async {
+      final now = DateTime.now();
+      final sameYear = '${now.year}-12-25';
+      final nextYear = '${now.year + 1}-01-05';
+      final cardRepo = MockCardRepository();
+      when(
+        () => cardRepo.getDeckCards('deck-1', size: 500, filter: 'all'),
+      ).thenAnswer(
+        (_) async => {
+          'content': [
+            cardJson(id: 'new-card', front: '新卡正面'),
+            cardJson(
+              id: 'review-card',
+              front: '复习正面',
+              stage: 3,
+              nextReviewDate: sameYear,
+            ),
+            cardJson(
+              id: 'mastered-card',
+              front: '掌握正面',
+              stage: 8,
+              nextReviewDate: nextYear,
+            ),
+            cardJson(
+              id: 'learning-card',
+              front: '重学正面',
+              learning: true,
+              consecutiveFamiliar: 2,
+            ),
+          ],
+        },
+      );
+      final statsRepo = MockStatsRepository();
+      when(
+        () => statsRepo.getOverview(),
+      ).thenAnswer((_) async => OverviewStats.fromJson(overviewStatsJson()));
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [...cardOverrides(cardRepo), ...statsOverrides(statsRepo)],
+          child: MaterialApp(
+            localizationsDelegates: const [
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+              KarisReviewLocalizations.delegate,
+            ],
+            supportedLocales: KarisReviewLocalizations.supportedLocales,
+          locale: const Locale('zh'),
+            home: CardListPage(deckId: 'deck-1')),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('新卡'), findsWidgets);
+      expect(find.text('复习'), findsOneWidget);
+      expect(find.text('掌握'), findsOneWidget);
+      expect(find.text('重学 2/5'), findsOneWidget);
+      expect(find.text('12月25日'), findsOneWidget);
+      expect(find.text('${now.year + 1}年1月5日'), findsOneWidget);
+    });
+
+    testWidgets('card list selection bar uses compact labels', (tester) async {
+      final cardRepo = MockCardRepository();
+      when(
+        () => cardRepo.getDeckCards('deck-1', size: 500, filter: 'all'),
+      ).thenAnswer(
+        (_) async => {
+          'content': [
+            cardJson(id: 'card-0', front: '卡片 0'),
+            cardJson(id: 'card-1', front: '卡片 1'),
+          ],
+        },
+      );
+      final statsRepo = MockStatsRepository();
+      when(
+        () => statsRepo.getOverview(),
+      ).thenAnswer((_) async => OverviewStats.fromJson(overviewStatsJson()));
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [...cardOverrides(cardRepo), ...statsOverrides(statsRepo)],
+          child: MaterialApp(
+            localizationsDelegates: const [
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+              KarisReviewLocalizations.delegate,
+            ],
+            supportedLocales: KarisReviewLocalizations.supportedLocales,
+          locale: const Locale('zh'),
+            home: CardListPage(deckId: 'deck-1')),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('多选'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('卡片 0'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('全选'), findsOneWidget);
+      expect(find.text('删除所选（1）'), findsOneWidget);
+      expect(tester.getSize(find.text('全选')).height, lessThanOrEqualTo(24));
+      expect(
+        tester.getSize(find.text('删除所选（1）')).height,
+        lessThanOrEqualTo(24),
+      );
+    });
     testWidgets('card list debounces search and renders results', (
       tester,
     ) async {

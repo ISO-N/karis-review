@@ -136,13 +136,13 @@
 | created_at | TIMESTAMP | 注册时间 |
 | updated_at | TIMESTAMP | 更新时间 |
 | refresh_time | TIME | 每日刷新时间（用户自定义，默认 04:00） |
-### 3.2 牌组（Deck）
+### 3.2 卡组（Deck）
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
 | id | UUID | 主键 |
 | user_id | UUID | 外键 → User |
-| name | VARCHAR(255) | 牌组名称 |
+| name | VARCHAR(255) | 卡组名称 |
 | created_at | TIMESTAMP | 创建时间 |
 | updated_at | TIMESTAMP | 更新时间 |
 
@@ -203,23 +203,23 @@
 | GET | /api/settings | 获取当前用户设置 |
 | PUT | /api/settings | 更新用户设置（如 refresh_time） |
 
-### 4.3 牌组
+### 4.3 卡组
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| GET | /api/decks | 获取当前用户所有牌组 |
-| POST | /api/decks | 创建牌组 |
-| PUT | /api/decks/{deckId} | 重命名牌组 |
-| DELETE | /api/decks/{deckId} | 删除牌组（含卡片） |
+| GET | /api/decks | 获取当前用户所有卡组 |
+| POST | /api/decks | 创建卡组 |
+| PUT | /api/decks/{deckId} | 重命名卡组 |
+| DELETE | /api/decks/{deckId} | 删除卡组（含卡片） |
 
 ### 4.4 卡片
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| GET | /api/decks/{deckId}/cards | 获取牌组内所有卡片 |
+| GET | /api/decks/{deckId}/cards | 获取卡组内所有卡片 |
 | POST | /api/decks/{deckId}/cards | 创建卡片 |
 | POST | /api/decks/{deckId}/cards/import/preview | 解析并预览卡片 JSON 数组 |
-| POST | /api/decks/{deckId}/cards/import | 导入卡片到当前牌组 |
+| POST | /api/decks/{deckId}/cards/import | 导入卡片到当前卡组 |
 | PUT | /api/cards/{cardId} | 编辑卡片 |
 | DELETE | /api/cards/{cardId} | 删除卡片 |
 
@@ -238,7 +238,7 @@
 | 方法 | 路径 | 说明 |
 |------|------|------|
 | GET | /api/stats/overview | 获取学习统计概览 |
-| GET | /api/stats/deck/{deckId} | 获取牌组级统计 |
+| GET | /api/stats/deck/{deckId} | 获取卡组级统计 |
 | GET | /api/stats/trend | 获取复习趋势数据 |
 
 ### 4.7 数据管理
@@ -256,7 +256,7 @@
 |------|---------|
 | SQ-01 | 翻页操作响应时间 < 200ms |
 | SQ-02 | API 响应时间（95 分位）< 500ms |
-| SQ-03 | 支持 1000+ 张卡片的牌组流畅操作 |
+| SQ-03 | 支持 1000+ 张卡片的卡组流畅操作 |
 
 ### 5.2 安全
 

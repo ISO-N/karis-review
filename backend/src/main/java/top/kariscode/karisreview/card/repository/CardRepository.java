@@ -71,6 +71,9 @@ public interface CardRepository extends JpaRepository<Card, UUID> {
     long countByDeckIdAndStageGreaterThanEqual(UUID deckId, int stage);
     long countByDeckIdAndStage(UUID deckId, int stage);
     long countByDeckIdAndStageAndLearningModeFalse(UUID deckId, int stage);
+    @Query("SELECT COUNT(c) FROM Card c WHERE c.userId = :userId " +
+           "AND c.stage = 0 AND c.learningMode = false")
+    long countNewByUserId(@Param("userId") UUID userId);
 
     @Query("SELECT COUNT(c) FROM Card c WHERE c.deckId = :deckId " +
            "AND c.nextReviewDate IS NOT NULL AND c.nextReviewDate <= :today")

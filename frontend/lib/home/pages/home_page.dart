@@ -5,9 +5,6 @@ import 'package:intl/intl.dart';
 
 import '../../app/theme.dart';
 import '../../auth/providers/auth_provider.dart';
-import '../../deck/models/deck.dart';
-import '../../deck/providers/deck_provider.dart';
-import '../../deck/widgets/deck_row.dart';
 import '../../shared/widgets/adaptive_scaffold.dart';
 import '../../shared/widgets/app_semantics.dart';
 import '../../shared/widgets/section_widgets.dart';
@@ -28,14 +25,12 @@ class _HomePageState extends ConsumerState<HomePage> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(deckListProvider.notifier).loadDecks();
       ref.read(statsProvider.notifier).loadOverview();
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    final decksAsync = ref.watch(deckListProvider);
     final statsAsync = ref.watch(statsProvider);
     final authState = ref.watch(authProvider);
     final isTablet = MediaQuery.sizeOf(context).width >= 600;
@@ -43,16 +38,12 @@ class _HomePageState extends ConsumerState<HomePage> {
     final initial = email == null || email.trim().isEmpty
         ? 'K'
         : email.trim().substring(0, 1).toUpperCase();
-
     return AdaptiveAppScaffold(
       current: KarisNavItem.home,
       onSelect: (item) => _go(item, context),
       body: RefreshIndicator(
         onRefresh: () async {
-          await Future.wait([
-            ref.read(deckListProvider.notifier).loadDecks(),
-            ref.read(statsProvider.notifier).loadOverview(),
-          ]);
+          await ref.read(statsProvider.notifier).loadOverview();
         },
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
@@ -70,26 +61,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                 children: [
                   _HomeHeader(initial: initial),
                   SizedBox(height: 20),
-                  if (isTablet)
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          flex: 5,
-                          child: _HomeMainColumn(statsAsync: statsAsync),
-                        ),
-                        SizedBox(width: 30),
-                        Expanded(
-                          flex: 6,
-                          child: _DeckSection(decksAsync: decksAsync),
-                        ),
-                      ],
-                    )
-                  else ...[
-                    _HomeMainColumn(statsAsync: statsAsync),
-                    SizedBox(height: 24),
-                    _DeckSection(decksAsync: decksAsync),
-                  ],
+                  _HomeMainColumn(statsAsync: statsAsync),
                 ],
               ),
             ),
@@ -173,8 +145,8 @@ class _HomeMainColumn extends StatelessWidget {
     );
     final due = stats?.dueToday ?? 0;
     final reviewed = stats?.reviewedToday ?? 0;
+    final newCards = stats?.newCards ?? 0;
     final distribution = stats?.dueStageDistribution ?? List.filled(9, 0);
-    final dominant = _dominantStage(distribution);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -254,14 +226,16 @@ class _HomeMainColumn extends StatelessWidget {
         SizedBox(height: 18),
         const SectionHeader(title: '记忆刻度', trailing: '0-180 天'),
         SizedBox(height: 14),
-        StageRuler(distribution: distribution, currentStage: dominant),
+        StageRuler(distribution: distribution),
         SizedBox(height: 10),
         Text(
           statsAsync.isLoading
               ? '正在读取阶段分布'
-              : due == 0
-              ? l10n.homeNoCards
-              : '今日到期集中在 ${KarisTheme.stageName(dominant ?? 0)}阶段',
+              : due > 0
+              ? '$due 张待复习'
+              : newCards > 0
+              ? '$newCards 张待学习'
+              : '今天没有新任务，补充新卡或休息一天',
           style: const TextStyle(
             color: KarisColors.stone,
             fontSize: 12,
@@ -272,95 +246,4 @@ class _HomeMainColumn extends StatelessWidget {
     );
   }
 
-  int? _dominantStage(List<int> distribution) {
-    if (distribution.every((value) => value == 0)) return null;
-    var best = 0;
-    for (var i = 1; i < distribution.length; i++) {
-      if (distribution[i] > distribution[best]) best = i;
-    }
-    return best;
-  }
-}
-
-class _DeckSection extends ConsumerWidget {
-  final AsyncValue<List<Deck>> decksAsync;
-
-  const _DeckSection({required this.decksAsync});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final l10n = KarisReviewLocalizations.of(context)!;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SectionHeader(
-          title: '牌组',
-          action: TextButton(
-            onPressed: () => context.push('/decks'),
-            style: TextButton.styleFrom(
-              minimumSize: const Size(44, 36),
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-            ),
-            child: const Text('新建'),
-          ),
-        ),
-        SizedBox(height: 6),
-        decksAsync.when(
-          loading: () => const Padding(
-            padding: EdgeInsets.symmetric(vertical: 28),
-            child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
-          ),
-          error: (error, _) => Padding(
-            padding: const EdgeInsets.symmetric(vertical: 24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '加载牌组失败，请检查网络后重试',
-                  style: TextStyle(color: KarisColors.cinnabar, fontSize: 13),
-                ),
-                SizedBox(height: 8),
-                TextButton(
-                  onPressed: () =>
-                      ref.read(deckListProvider.notifier).loadDecks(),
-                  child: const Text('重试'),
-                ),
-              ],
-            ),
-          ),
-          data: (decks) {
-            if (decks.isEmpty) {
-              return EmptyState(
-                icon: Icons.layers_outlined,
-                title: l10n.homeNoDecksTitle,
-                message: l10n.homeNoDecksMessage,
-                action: FilledButton.icon(
-                  onPressed: () => context.push('/decks'),
-                  icon: const Icon(Icons.add, size: 17),
-                  label: Text(l10n.homeCreateDeck),
-                ),
-              );
-            }
-            return ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: decks.length,
-              separatorBuilder: (_, _) => SizedBox(height: 10),
-              itemBuilder: (context, index) {
-                final deck = decks[index];
-                return DeckRow(
-                  name: deck.name,
-                  cardCount: deck.cardCount,
-                  dueCount: deck.dueCount,
-                  newCount: deck.newCount,
-                  stageDistribution: deck.stageDistribution,
-                  onTap: () => context.push('/decks/${deck.id}/cards'),
-                );
-              },
-            );
-          },
-        ),
-      ],
-    );
-  }
 }
