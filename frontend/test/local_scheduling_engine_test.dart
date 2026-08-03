@@ -118,6 +118,67 @@ void main() {
     expect(completed.card.stage, 1);
   });
 
+  test('familiar at max stage stays at stage eight with 180 days', () {
+    final outcome = engine.rate(
+      card(stage: 8, version: 4),
+      'FAMILIAR',
+      nowUtc: now,
+      refreshTime: '04:00:00',
+    );
+
+    expect(outcome.card.stage, 8);
+    expect(
+      DateTime.parse(outcome.card.nextReviewDate!).difference(
+        DateTime(2025, 8, 2),
+      ).inDays,
+      180,
+    );
+    expect(outcome.card.reviewVersion, 5);
+  });
+
+  test('vague on stage zero and one behaves like forget', () {
+    final stageZero = engine.rate(
+      card(stage: 0),
+      'VAGUE',
+      nowUtc: now,
+      refreshTime: '04:00:00',
+    );
+    final stageOne = engine.rate(
+      card(stage: 1),
+      'VAGUE',
+      nowUtc: now,
+      refreshTime: '04:00:00',
+    );
+
+    expect(stageZero.card.stage, 0);
+    expect(stageZero.card.learningMode, isTrue);
+    expect(stageOne.card.stage, 0);
+    expect(stageOne.card.learningMode, isTrue);
+    expect(stageOne.card.reentryStage, isNull);
+  });
+
+  test('forget resets relearning familiar counter without extra downgrade', () {
+    final current = engine
+        .rate(
+          card(stage: 5, learning: true, consecutive: 2, reentry: 5),
+          'FAMILIAR',
+          nowUtc: now,
+          refreshTime: '04:00:00',
+        )
+        .card;
+
+    final reset = engine.rate(
+      current,
+      'FORGET',
+      nowUtc: now,
+      refreshTime: '04:00:00',
+    );
+
+    expect(reset.card.stage, 0);
+    expect(reset.card.consecutiveFamiliar, 0);
+    expect(reset.card.learningMode, isTrue);
+  });
+
   test('calculateToday uses Asia/Shanghai instead of device local time', () {
     expect(
       LocalSchedulingEngine.calculateToday(
