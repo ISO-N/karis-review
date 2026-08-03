@@ -10,7 +10,6 @@ import '../../card/models/card_import.dart';
 import '../../card/providers/card_provider.dart';
 import '../../card/pages/card_editor_page.dart';
 import '../../deck/providers/deck_provider.dart';
-import '../../shared/utils/date_utils.dart';
 import '../../shared/utils/motion.dart';
 import '../../shared/widgets/adaptive_scaffold.dart';
 import '../../shared/widgets/app_semantics.dart';
@@ -228,7 +227,7 @@ class _CardListPageState extends ConsumerState<CardListPage> {
                                           ? '换个关键词，或清除搜索后查看当前筛选'
                                           : _filter == 'all'
                                           ? '新建第一张卡片，开始积累你的记忆刻度'
-                                          : '切换到“全部”查看牌组里的所有卡片',
+                                          : '切换到"全部"查看卡组里的所有卡片',
                                       action: _query.isNotEmpty
                                           ? TextButton(
                                               onPressed: _clearSearch,
@@ -396,7 +395,7 @@ class _CardListPageState extends ConsumerState<CardListPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Kicker('牌组'),
+                const Kicker('卡组'),
                 const SizedBox(height: 4),
                 KarisHeading(
                   child: Text(deckName, style: karisDisplay(fontSize: 25)),
@@ -423,7 +422,7 @@ class _CardListPageState extends ConsumerState<CardListPage> {
             ),
             KarisIconButton(
               icon: Icons.replay,
-              tooltip: '复习当前牌组',
+              tooltip: '复习当前卡组',
               onPressed: () =>
                   context.go('/review?mode=due&deck_id=${widget.deckId}'),
             ),
@@ -641,7 +640,7 @@ class _CardListPageState extends ConsumerState<CardListPage> {
                   });
                 },
                 icon: const Icon(Icons.select_all, size: 17),
-                label: Text(allSelected ? '取消全选' : '全选当前列表'),
+                label: Text(allSelected ? '取消全选' : '全选'),
                 style: OutlinedButton.styleFrom(
                   minimumSize: const Size(0, 44),
                   foregroundColor: KarisColors.jade,
@@ -654,7 +653,6 @@ class _CardListPageState extends ConsumerState<CardListPage> {
             ),
             const SizedBox(width: 10),
             Expanded(
-              flex: 2,
               child: FilledButton.icon(
                 onPressed: _selectedIds.isEmpty ? null : _deleteSelected,
                 icon: const Icon(Icons.delete_outline, size: 17),
@@ -934,7 +932,12 @@ class _CardTile extends StatelessWidget {
     if (card.due) return '今天';
     final date = card.nextReviewDate;
     if (date == null) return '新卡';
-    return AppDateUtils.relativeDate(DateTime.parse(date));
+    final parsed = DateTime.parse(date);
+    final now = DateTime.now();
+    if (parsed.year == now.year) {
+      return '${parsed.month}月${parsed.day}日';
+    }
+    return '${parsed.year}年${parsed.month}月${parsed.day}日';
   }
 }
 
@@ -946,8 +949,12 @@ class _StageBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = learning ? KarisColors.amber : KarisColors.jade;
-    final background = learning ? KarisColors.amberSoft : KarisColors.jadeSoft;
+    final (String label, Color color, Color background) = switch ((stage, learning)) {
+      (_, true) => ('重学', KarisColors.amber, KarisColors.amberSoft),
+      (0, false) => ('新卡', KarisColors.jade, KarisColors.jadeSoft),
+      (8, false) => ('掌握', KarisColors.jade, KarisColors.jadeSoft),
+      _ => ('复习', KarisColors.jade, KarisColors.jadeSoft),
+    };
     return Container(
       height: 24,
       padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -957,7 +964,7 @@ class _StageBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(6),
       ),
       child: Text(
-        learning ? '重学' : KarisTheme.stageName(stage),
+        label,
         style: TextStyle(
           color: color,
           fontSize: 11,
