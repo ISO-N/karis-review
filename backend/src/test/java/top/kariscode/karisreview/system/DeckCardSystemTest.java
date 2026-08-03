@@ -99,6 +99,29 @@ class DeckCardSystemTest extends SystemTestSupport {
     }
 
     @Test
+    void cardsCanBeSearchedByFrontOrBackWithinDeck() {
+        TestAccount user = register("card-search");
+        JsonNode deck = createDeck(user.token(), "搜索");
+        String deckId = text(deck, "id");
+        createCard(user.token(), deckId, "苹果", "apple");
+        createCard(user.token(), deckId, "香蕉", "banana");
+
+        JsonNode frontHit = data("GET", "/decks/" + deckId + "/cards?q=苹果",
+                user.token(), null);
+        assertEquals(1, frontHit.get("total_elements").asInt());
+        assertEquals("苹果", text(frontHit.get("content").get(0), "front"));
+
+        JsonNode backHit = data("GET", "/decks/" + deckId + "/cards?q=apple",
+                user.token(), null);
+        assertEquals(1, backHit.get("total_elements").asInt());
+        assertEquals("苹果", text(backHit.get("content").get(0), "front"));
+
+        JsonNode noHit = data("GET", "/decks/" + deckId + "/cards?q=不存在",
+                user.token(), null);
+        assertEquals(0, noHit.get("total_elements").asInt());
+    }
+
+    @Test
     void importedCardsCanBeFilteredAndBatchDeletedWithReviewLogCascade() {
         TestAccount user = register("card-batch");
         JsonNode deck = createDeck(user.token(), "批量删除");
