@@ -33,6 +33,9 @@ class CardListNotifier extends StateNotifier<AsyncValue<List<FlashCard>>> {
   final OfflineRepository? offline;
   final SyncService? sync;
 
+  String _query = '';
+  int _requestVersion = 0;
+
   CardListNotifier(this._repository, this.args, {this.offline, this.sync})
     : super(const AsyncValue.loading()) {
     if (offline != null) {
@@ -42,55 +45,82 @@ class CardListNotifier extends StateNotifier<AsyncValue<List<FlashCard>>> {
     }
   }
 
+  Future<void> setSearchQuery(String rawQuery) async {
+    final query = rawQuery.trim();
+    if (query == _query) return;
+    _query = query;
+    await loadCards();
+  }
+
   Future<void> loadCards() async {
-    if (offline != null) {
-      final previous = state.valueOrNull;
-      if (previous == null) {
-        state = const AsyncValue.loading();
-      }
-      try {
+    final requestVersion = ++_requestVersion;
+    final previous = state.valueOrNull;
+    if (previous == null) {
+      state = const AsyncValue.loading();
+    }
+    try {
+      if (offline != null) {
         final meta = await offline!.getActiveSyncMeta();
         if (meta == null) {
-          final result = await _repository.getDeckCards(
-            args.deckId,
-            size: 500,
-            filter: args.filter,
-          );
-          final content = result['content'] as List<dynamic>;
-          state = AsyncValue.data(
-            content
-                .map((c) => FlashCard.fromJson(c as Map<String, dynamic>))
-                .toList(),
-          );
+          await _loadOnlineCards(requestVersion);
           return;
         }
         await sync!.refresh();
+        if (requestVersion != _requestVersion) return;
         state = AsyncValue.data(await _localCards(meta.userId));
-      } catch (e, st) {
-        if (previous == null) {
-          state = AsyncValue.error(e, st);
-        } else {
-          state = AsyncValue.data(previous);
-        }
+        return;
       }
-      return;
+      await _loadOnlineCards(requestVersion);
+    } catch (e, st) {
+      if (requestVersion != _requestVersion) return;
+      if (previous == null) {
+        state = AsyncValue.error(e, st);
+      } else {
+        state = AsyncValue.data(previous);
+      }
     }
+  }
 
-    state = const AsyncValue.loading();
-    try {
-      final result = await _repository.getDeckCards(
+  Future<void> _loadOnlineCards(int requestVersion) async {
+    final first = await _fetchCards();
+    if (requestVersion != _requestVersion) return;
+    var cards = _parseCards(first);
+    state = AsyncValue.data(cards);
+    if (_query.isEmpty) return;
+    final totalPages = (first['total_pages'] as num?)?.toInt() ?? 1;
+    for (var page = 1; page < totalPages; page++) {
+      if (requestVersion != _requestVersion) return;
+      final next = await _fetchCards(page: page);
+      if (requestVersion != _requestVersion) return;
+      final merged = List<FlashCard>.from(cards)..addAll(_parseCards(next));
+      cards = merged;
+      state = AsyncValue.data(merged);
+    }
+  }
+
+  Future<Map<String, dynamic>> _fetchCards({int page = 0}) {
+    if (_query.isEmpty) {
+      return _repository.getDeckCards(
         args.deckId,
+        page: page,
         size: 500,
         filter: args.filter,
       );
-      final content = result['content'] as List<dynamic>;
-      final cards = content
-          .map((c) => FlashCard.fromJson(c as Map<String, dynamic>))
-          .toList();
-      state = AsyncValue.data(cards);
-    } catch (e, st) {
-      state = AsyncValue.error(e, st);
     }
+    return _repository.getDeckCards(
+      args.deckId,
+      page: page,
+      size: 500,
+      filter: args.filter,
+      query: _query,
+    );
+  }
+
+  List<FlashCard> _parseCards(Map<String, dynamic> result) {
+    final content = result['content'] as List<dynamic>? ?? const [];
+    return content
+        .map((c) => FlashCard.fromJson(c as Map<String, dynamic>))
+        .toList();
   }
 
   Future<void> createCard(String front, String back) async {
@@ -137,12 +167,23 @@ class CardListNotifier extends StateNotifier<AsyncValue<List<FlashCard>>> {
   }
 
   Future<void> _loadLocalCards() async {
+    final requestVersion = ++_requestVersion;
+    final previous = state.valueOrNull;
+    if (previous == null) {
+      state = const AsyncValue.loading();
+    }
     try {
       final meta = await offline!.getActiveSyncMeta();
       if (meta == null) return;
+      if (requestVersion != _requestVersion) return;
       state = AsyncValue.data(await _localCards(meta.userId));
     } catch (e, st) {
-      state = AsyncValue.error(e, st);
+      if (requestVersion != _requestVersion) return;
+      if (previous == null) {
+        state = AsyncValue.error(e, st);
+      } else {
+        state = AsyncValue.data(previous);
+      }
     }
   }
 
@@ -164,6 +205,7 @@ class CardListNotifier extends StateNotifier<AsyncValue<List<FlashCard>>> {
       userId,
       deckId: args.deckId,
       filter: args.filter,
+      query: _query,
     );
   }
 }
