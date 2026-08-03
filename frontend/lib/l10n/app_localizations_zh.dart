@@ -15,7 +15,7 @@ class KarisReviewLocalizationsZh extends KarisReviewLocalizations {
   String get navHome => '首页';
 
   @override
-  String get navDecks => '牌组';
+  String get navDecks => '卡组';
 
   @override
   String get navStats => '统计';
@@ -74,25 +74,25 @@ class KarisReviewLocalizationsZh extends KarisReviewLocalizations {
   String get homeNoCards => '今天没有待复习卡片';
 
   @override
-  String get homeNoDecksTitle => '还没有牌组';
+  String get homeNoDecksTitle => '还没有卡组';
 
   @override
-  String get homeNoDecksMessage => '创建第一个牌组，开始记录你的复习队列';
+  String get homeNoDecksMessage => '创建第一个卡组，开始记录你的复习队列';
 
   @override
-  String get homeCreateDeck => '创建牌组';
+  String get homeCreateDeck => '创建卡组';
 
   @override
-  String get deckListTitle => '全部牌组';
+  String get deckListTitle => '全部卡组';
 
   @override
-  String get deckCreateTitle => '新建牌组';
+  String get deckCreateTitle => '新建卡组';
 
   @override
-  String get deckRenameTitle => '重命名牌组';
+  String get deckRenameTitle => '重命名卡组';
 
   @override
-  String get deckNameLabel => '牌组名称';
+  String get deckNameLabel => '卡组名称';
 
   @override
   String get deckNameHint => '例如：日语 N5';
@@ -107,11 +107,11 @@ class KarisReviewLocalizationsZh extends KarisReviewLocalizations {
   String get deckSaveButton => '保存';
 
   @override
-  String get deckDeleteTitle => '删除牌组';
+  String get deckDeleteTitle => '删除卡组';
 
   @override
   String deckDeleteConfirm(Object name) {
-    return '确定要删除\"$name\"吗？牌组内的所有卡片和复习记录也会删除。';
+    return '确定要删除\"$name\"吗？卡组内的所有卡片和复习记录也会删除。';
   }
 
   @override
@@ -126,7 +126,7 @@ class KarisReviewLocalizationsZh extends KarisReviewLocalizations {
   }
 
   @override
-  String get deckOperationTooltip => '牌组操作';
+  String get deckOperationTooltip => '卡组操作';
 
   @override
   String get deckCloseTooltip => '关闭';
@@ -238,13 +238,13 @@ class KarisReviewLocalizationsZh extends KarisReviewLocalizations {
   String get startModeDue => '开始复习';
 
   @override
-  String get startNoDecksTitle => '还没有牌组';
+  String get startNoDecksTitle => '还没有卡组';
 
   @override
-  String get startNoDecksMessage => '先创建一个牌组，再开始学习';
+  String get startNoDecksMessage => '先创建一个卡组，再开始学习';
 
   @override
-  String get startCreateDeck => '创建牌组';
+  String get startCreateDeck => '创建卡组';
 
   @override
   String startBadgeNew(Object count) {
@@ -344,7 +344,7 @@ class KarisReviewLocalizationsZh extends KarisReviewLocalizations {
   String get settingsExport => '导出数据';
 
   @override
-  String get settingsExportSubtitle => '保存全部牌组、卡片与复习记录';
+  String get settingsExportSubtitle => '保存全部卡组、卡片与复习记录';
 
   @override
   String get settingsImport => '导入数据';
@@ -384,7 +384,7 @@ class KarisReviewLocalizationsZh extends KarisReviewLocalizations {
 
   @override
   String settingsImportSuccess(Object decks, Object cards, Object logs) {
-    return '数据已恢复：$decks 个牌组，$cards 张卡片，$logs 条记录';
+    return '数据已恢复：$decks 个卡组，$cards 张卡片，$logs 条记录';
   }
 
   @override
@@ -421,7 +421,7 @@ class KarisReviewLocalizationsZh extends KarisReviewLocalizations {
   String get statsTotalCards => '总卡片数';
 
   @override
-  String get statsTotalDecks => '总牌组数';
+  String get statsTotalDecks => '总卡组数';
 
   @override
   String get statsDueToday => '今日到期';
@@ -442,7 +442,7 @@ class KarisReviewLocalizationsZh extends KarisReviewLocalizations {
   String get statsTrend => '趋势';
 
   @override
-  String get statsDeckStats => '牌组统计';
+  String get statsDeckStats => '卡组统计';
 
   @override
   String get statsStageDistribution => '阶段分布';
@@ -542,16 +542,16 @@ class KarisReviewLocalizationsZh extends KarisReviewLocalizations {
   String get backendAuthUnauthorized => '未登录或Token已过期';
 
   @override
-  String get backendDeckNotfound => '牌组不存在';
+  String get backendDeckNotfound => '卡组不存在';
 
   @override
-  String get backendDeckCreated => '牌组已创建';
+  String get backendDeckCreated => '卡组已创建';
 
   @override
-  String get backendDeckUpdated => '牌组已更新';
+  String get backendDeckUpdated => '卡组已更新';
 
   @override
-  String get backendDeckDeleted => '牌组已删除';
+  String get backendDeckDeleted => '卡组已删除';
 
   @override
   String get backendCardNotfound => '卡片不存在';
@@ -631,7 +631,7 @@ class KarisReviewLocalizationsZh extends KarisReviewLocalizations {
   String get backendSettingsUpdated => '设置已更新';
 
   @override
-  String get backendStatsDeckNotfound => '牌组不存在';
+  String get backendStatsDeckNotfound => '卡组不存在';
 
   @override
   String get backendBackupCreated => '备份已创建';
@@ -682,7 +682,7 @@ class KarisReviewLocalizationsZh extends KarisReviewLocalizations {
   String get logCategoryCard => '卡片';
 
   @override
-  String get logCategoryDeck => '牌组';
+  String get logCategoryDeck => '卡组';
 
   @override
   String get logCategoryBackup => '备份';

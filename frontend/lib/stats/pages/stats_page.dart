@@ -183,7 +183,7 @@ class _MetricGrid extends StatelessWidget {
         icon: Icons.credit_card_outlined,
       ),
       MetricTile(
-        label: '牌组',
+        label: '卡组',
         value: '${stats.totalDecks}',
         icon: Icons.layers_outlined,
       ),

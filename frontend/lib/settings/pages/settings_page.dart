@@ -422,7 +422,7 @@ class _DataBlock extends StatelessWidget {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              '数据已恢复：${result['imported_decks']} 个牌组，'
+              '数据已恢复：${result['imported_decks']} 个卡组，'
               '${result['imported_cards']} 张卡片，'
               '${result['imported_review_logs']} 条记录',
             ),
