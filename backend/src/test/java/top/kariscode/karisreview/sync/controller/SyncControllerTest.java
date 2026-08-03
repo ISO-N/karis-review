@@ -52,7 +52,8 @@ class SyncControllerTest {
         UUID userId = UUID.randomUUID();
         BootstrapReviewLog log = new BootstrapReviewLog(
                 UUID.randomUUID(), UUID.randomUUID(), "FAMILIAR",
-                0, 1, LocalDateTime.of(2025, 8, 2, 12, 0), true);
+                0, 1, LocalDateTime.of(2025, 8, 2, 12, 0), true,
+                "request-1");
         BootstrapResponse response = new BootstrapResponse(
                 OffsetDateTime.now(ZoneOffset.UTC),
                 new BootstrapUser(userId, "a@b.c", "04:00:00"),
@@ -64,7 +65,8 @@ class SyncControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.user.email").value("a@b.c"))
                 .andExpect(jsonPath("$.data.decks.length()").value(0))
-                .andExpect(jsonPath("$.data.review_logs[0].is_new_card").value(true));
+                .andExpect(jsonPath("$.data.review_logs[0].is_new_card").value(true))
+                .andExpect(jsonPath("$.data.review_logs[0].client_request_id").value("request-1"));
     }
 
     private RequestPostProcessor authentication(UUID userId) {

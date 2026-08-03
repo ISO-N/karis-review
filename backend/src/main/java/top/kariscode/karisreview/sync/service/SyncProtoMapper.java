@@ -82,15 +82,18 @@ public class SyncProtoMapper {
     }
 
     private KarisReviewProto.ReviewLog toReviewLog(BootstrapReviewLog log) {
-        return KarisReviewProto.ReviewLog.newBuilder()
+        KarisReviewProto.ReviewLog.Builder builder = KarisReviewProto.ReviewLog.newBuilder()
                 .setId(log.getId().toString())
                 .setCardId(log.getCardId().toString())
                 .setRating(log.getRating())
                 .setStageBefore(log.getStageBefore())
                 .setStageAfter(log.getStageAfter())
                 .setReviewedAt(format(log.getReviewedAt()))
-                .setIsNewCard(log.isNewCard())
-                .build();
+                .setIsNewCard(log.isNewCard());
+        if (log.getClientRequestId() != null) {
+            builder.setClientRequestId(log.getClientRequestId());
+        }
+        return builder.build();
     }
 
     private String format(java.time.LocalDateTime value) {
