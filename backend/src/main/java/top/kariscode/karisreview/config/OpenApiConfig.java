@@ -17,7 +17,7 @@ public class OpenApiConfig {
         return new OpenAPI()
                 .info(new Info()
                         .title("Karis Review API")
-                        .description("Karis Review 间隔重复闪卡复习应用接口")
+                        .description("Karis Review API")
                         .version("v1"))
                 .components(new Components().addSecuritySchemes(SECURITY_SCHEME_NAME,
                         new SecurityScheme()
