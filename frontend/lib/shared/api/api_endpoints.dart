@@ -24,13 +24,15 @@ class ApiEndpoints {
       '$baseUrl/decks/$deckId/cards/import/preview';
   static String cardImport(String deckId) =>
       '$baseUrl/decks/$deckId/cards/import';
+  static const String cardsBatchDelete = '$baseUrl/cards/batch-delete';
 
   // Review
   static const String reviewDue = '$baseUrl/review/due';
   static const String reviewNew = '$baseUrl/review/new';
   static String rateCard(String cardId) => '$baseUrl/review/$cardId/rate';
   static const String reviewSessions = '$baseUrl/review/sessions';
-  static String reviewSession(String sessionId) => '$baseUrl/review/sessions/$sessionId';
+  static String reviewSession(String sessionId) =>
+      '$baseUrl/review/sessions/$sessionId';
   static const String reviewSync = '$baseUrl/review/sync';
 
   // Offline sync

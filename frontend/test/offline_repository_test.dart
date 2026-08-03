@@ -67,6 +67,79 @@ void main() {
     expect(summaries.single.cardCount, 1);
   });
 
+  test('new filter returns stage zero cards newest first', () async {
+    await offline.saveBootstrap(
+      userId: 'user-1',
+      email: 'a@b.c',
+      refreshTime: '04:00:00',
+      serverTime: DateTime.now().toUtc(),
+      decks: [
+        {
+          'id': 'deck-1',
+          'name': '日语',
+          'created_at': '2025-08-01T00:00:00Z',
+          'updated_at': '2025-08-01T00:00:00Z',
+          'cards': [
+            {
+              'id': 'old-new',
+              'deck_id': 'deck-1',
+              'front': '旧新卡',
+              'back': '反面',
+              'stage': 0,
+              'consecutive_familiar': 0,
+              'next_review_date': null,
+              'learning_mode': false,
+              'reentry_stage': null,
+              'learning_step': 0,
+              'review_version': 0,
+              'created_at': '2025-08-01T00:00:00Z',
+              'updated_at': '2025-08-01T00:00:00Z',
+            },
+            {
+              'id': 'latest-new',
+              'deck_id': 'deck-1',
+              'front': '最新新卡',
+              'back': '反面',
+              'stage': 0,
+              'consecutive_familiar': 0,
+              'next_review_date': null,
+              'learning_mode': false,
+              'reentry_stage': null,
+              'learning_step': 0,
+              'review_version': 0,
+              'created_at': '2025-08-03T00:00:00Z',
+              'updated_at': '2025-08-03T00:00:00Z',
+            },
+            {
+              'id': 'learned',
+              'deck_id': 'deck-1',
+              'front': '已学习',
+              'back': '反面',
+              'stage': 1,
+              'consecutive_familiar': 0,
+              'next_review_date': '2025-08-04',
+              'learning_mode': false,
+              'reentry_stage': null,
+              'learning_step': 0,
+              'review_version': 0,
+              'created_at': '2025-08-04T00:00:00Z',
+              'updated_at': '2025-08-04T00:00:00Z',
+            },
+          ],
+        },
+      ],
+      reviewLogs: [],
+    );
+
+    final cards = await offline.getFilteredFlashCards(
+      'user-1',
+      deckId: 'deck-1',
+      filter: 'new',
+    );
+
+    expect(cards.map((card) => card.id), ['latest-new', 'old-new']);
+  });
+
   test('local rating creates pending log and increments card version', () async {
     await offline.saveBootstrap(
       userId: 'user-1',

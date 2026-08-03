@@ -174,7 +174,7 @@ void main() {
         }
         expect(path, apiPath('/decks/deck-1/cards/import'));
         expect(data, {'cards': <Map<String, dynamic>>[]});
-        return okResponse({'imported_cards': 2});
+        return okResponse(importResultJson());
       };
       final repository = CardRepository(client: client);
 
@@ -182,7 +182,20 @@ void main() {
       expect(preview['valid_count'], 1);
 
       final imported = await repository.importCards('deck-1', []);
-      expect(imported['imported_cards'], 2);
+      expect(imported.importedCards, 2);
+      expect(imported.importedCardIds, ['card-1', 'card-2']);
+    });
+
+    test('batch deletes cards', () async {
+      final client = FakeApiClient();
+      client.onPost = (path, data) async {
+        expect(path, apiPath('/cards/batch-delete'));
+        expect(data, {'card_ids': ['card-1', 'card-2']});
+        return okResponse({'deleted_cards': 2});
+      };
+      final repository = CardRepository(client: client);
+
+      await repository.batchDeleteCards(['card-1', 'card-2']);
     });
   });
 

@@ -249,6 +249,34 @@ Map<String, dynamic> importPreviewJson() {
   };
 }
 
+Map<String, dynamic> validImportPreviewJson() {
+  return {
+    'total': 2,
+    'valid_count': 2,
+    'invalid_count': 0,
+    'cards': [
+      {'index': 0, 'front': '正面', 'back': '反面', 'valid': true, 'message': null},
+      {
+        'index': 1,
+        'front': '第二张',
+        'back': '反面二',
+        'valid': true,
+        'message': null,
+      },
+    ],
+  };
+}
+
+Map<String, dynamic> importResultJson({
+  int importedCards = 2,
+  List<String> importedCardIds = const ['card-1', 'card-2'],
+}) {
+  return {
+    'imported_cards': importedCards,
+    'imported_card_ids': importedCardIds,
+  };
+}
+
 DeckStats deckStats() => DeckStats.fromJson(deckStatsJson());
 
 TrendPoint trendPoint() => TrendPoint.fromJson(trendPointJson());

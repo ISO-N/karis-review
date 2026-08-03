@@ -152,6 +152,13 @@ void main() {
       expect(items[1].front, '');
     });
 
+    test('parses import result with card ids', () {
+      final result = CardImportResult.fromJson(importResultJson());
+
+      expect(result.importedCards, 2);
+      expect(result.importedCardIds, ['card-1', 'card-2']);
+    });
+
     test('copyWith clears message', () {
       const item = CardImportPreviewItem(
         index: 0,

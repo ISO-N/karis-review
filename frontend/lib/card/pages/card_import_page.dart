@@ -25,7 +25,7 @@ const String _importSampleJson = '''
 class CardImportPage extends StatefulWidget {
   final String deckId;
   final CardRepository repository;
-  final ValueChanged<int>? onImported;
+  final ValueChanged<CardImportResult>? onImported;
 
   CardImportPage({
     super.key,
@@ -694,10 +694,8 @@ class _CardImportPageState extends State<CardImportPage> {
           .map((item) => {'front': item.front, 'back': item.back})
           .toList();
       final result = await _repository.importCards(widget.deckId, cards);
-      final imported =
-          (result['imported_cards'] as num?)?.toInt() ?? _validCount;
-      widget.onImported?.call(imported);
-      if (mounted) Navigator.pop(context, imported);
+      widget.onImported?.call(result);
+      if (mounted) Navigator.pop(context, result);
     } catch (e) {
       if (!mounted) return;
       setState(() {

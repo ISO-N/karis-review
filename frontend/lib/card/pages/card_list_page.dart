@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../app/theme.dart';
 import '../../card/models/card.dart';
+import '../../card/models/card_import.dart';
 import '../../card/providers/card_provider.dart';
 import '../../card/pages/card_editor_page.dart';
 import '../../deck/providers/deck_provider.dart';
@@ -34,6 +35,8 @@ class CardListPage extends ConsumerStatefulWidget {
 
 class _CardListPageState extends ConsumerState<CardListPage> {
   late String _filter;
+  bool _selecting = false;
+  final Set<String> _selectedIds = {};
 
   @override
   void initState() {
@@ -47,12 +50,16 @@ class _CardListPageState extends ConsumerState<CardListPage> {
     if (widget.initialFilter != oldWidget.initialFilter &&
         widget.initialFilter != _filter) {
       _filter = widget.initialFilter;
+      _selectedIds.clear();
     }
   }
 
   void _setFilter(String value) {
     if (value == _filter) return;
-    setState(() => _filter = value);
+    setState(() {
+      _filter = value;
+      _selectedIds.clear();
+    });
     GoRouter.maybeOf(
       context,
     )?.replace('/decks/${widget.deckId}/cards?filter=$value');
@@ -197,10 +204,17 @@ class _CardListPageState extends ConsumerState<CardListPage> {
                                               key: ValueKey(first.id),
                                               child: _CardTile(
                                                 card: first,
-                                                onTap: () =>
-                                                    _openEditor(card: first),
-                                                onDelete: () =>
-                                                    _confirmDelete(first),
+                                                selecting: _selecting,
+                                                selected: _selectedIds.contains(
+                                                  first.id,
+                                                ),
+                                                onTap: () => _selecting
+                                                    ? _toggleSelection(first.id)
+                                                    : _openEditor(card: first),
+                                                onDelete: _selecting
+                                                    ? null
+                                                    : () =>
+                                                          _confirmDelete(first),
                                               ),
                                             ),
                                           ),
@@ -211,10 +225,21 @@ class _CardListPageState extends ConsumerState<CardListPage> {
                                                 key: ValueKey(second.id),
                                                 child: _CardTile(
                                                   card: second,
-                                                  onTap: () =>
-                                                      _openEditor(card: second),
-                                                  onDelete: () =>
-                                                      _confirmDelete(second),
+                                                  selecting: _selecting,
+                                                  selected: _selectedIds
+                                                      .contains(second.id),
+                                                  onTap: () => _selecting
+                                                      ? _toggleSelection(
+                                                          second.id,
+                                                        )
+                                                      : _openEditor(
+                                                          card: second,
+                                                        ),
+                                                  onDelete: _selecting
+                                                      ? null
+                                                      : () => _confirmDelete(
+                                                          second,
+                                                        ),
                                                 ),
                                               ),
                                             ),
@@ -230,8 +255,16 @@ class _CardListPageState extends ConsumerState<CardListPage> {
                                         key: ValueKey(card.id),
                                         child: _CardTile(
                                           card: card,
-                                          onTap: () => _openEditor(card: card),
-                                          onDelete: () => _confirmDelete(card),
+                                          selecting: _selecting,
+                                          selected: _selectedIds.contains(
+                                            card.id,
+                                          ),
+                                          onTap: () => _selecting
+                                              ? _toggleSelection(card.id)
+                                              : _openEditor(card: card),
+                                          onDelete: _selecting
+                                              ? null
+                                              : () => _confirmDelete(card),
                                         ),
                                       );
                                     }
@@ -263,15 +296,20 @@ class _CardListPageState extends ConsumerState<CardListPage> {
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _openEditor(),
-        backgroundColor: KarisColors.ink,
-        foregroundColor: KarisColors.surface,
-        elevation: 0,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        icon: const Icon(Icons.add, size: 17),
-        label: const Text('新卡片'),
-      ),
+      bottomNavigationBar: _selecting ? _buildSelectionBar(cardsAsync) : null,
+      floatingActionButton: _selecting
+          ? null
+          : FloatingActionButton.extended(
+              onPressed: () => _openEditor(),
+              backgroundColor: KarisColors.ink,
+              foregroundColor: KarisColors.surface,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              icon: const Icon(Icons.add, size: 17),
+              label: const Text('新卡片'),
+            ),
     );
   }
 
@@ -281,9 +319,11 @@ class _CardListPageState extends ConsumerState<CardListPage> {
       child: Row(
         children: [
           KarisIconButton(
-            icon: Icons.arrow_back,
-            tooltip: '返回',
-            onPressed: () => context.pop(),
+            icon: _selecting ? Icons.close : Icons.arrow_back,
+            tooltip: _selecting ? '退出多选' : '返回',
+            onPressed: _selecting
+                ? () => _toggleSelecting(false)
+                : () => context.pop(),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -299,17 +339,29 @@ class _CardListPageState extends ConsumerState<CardListPage> {
             ),
           ),
           const SizedBox(width: 8),
-          KarisIconButton(
-            icon: Icons.upload_file_outlined,
-            tooltip: '导入卡片',
-            onPressed: () => _openImport(),
-          ),
-          KarisIconButton(
-            icon: Icons.replay,
-            tooltip: '复习当前牌组',
-            onPressed: () =>
-                context.go('/review?mode=due&deck_id=${widget.deckId}'),
-          ),
+          if (_selecting)
+            Text(
+              '已选 ${_selectedIds.length} 张',
+              style: karisMono(fontSize: 12, color: KarisColors.jade),
+            )
+          else ...[
+            KarisIconButton(
+              icon: Icons.checklist,
+              tooltip: '多选',
+              onPressed: () => _toggleSelecting(true),
+            ),
+            KarisIconButton(
+              icon: Icons.upload_file_outlined,
+              tooltip: '导入卡片',
+              onPressed: () => _openImport(),
+            ),
+            KarisIconButton(
+              icon: Icons.replay,
+              tooltip: '复习当前牌组',
+              onPressed: () =>
+                  context.go('/review?mode=due&deck_id=${widget.deckId}'),
+            ),
+          ],
         ],
       ),
     );
@@ -358,6 +410,7 @@ class _CardListPageState extends ConsumerState<CardListPage> {
     );
     final filters = [
       ('all', '全部', stats?.totalCards ?? 0),
+      ('new', '新卡', stats?.newCards ?? 0),
       ('due', '待复习', stats?.dueToday ?? 0),
       ('learning', '重学', stats?.learningCards ?? 0),
     ];
@@ -394,17 +447,168 @@ class _CardListPageState extends ConsumerState<CardListPage> {
     _refreshAfterChange();
   }
 
+  void _toggleSelecting(bool value) {
+    setState(() {
+      _selecting = value;
+      if (!value) _selectedIds.clear();
+    });
+  }
+
+  void _toggleSelection(String cardId) {
+    setState(() {
+      if (!_selectedIds.remove(cardId)) {
+        _selectedIds.add(cardId);
+      }
+    });
+  }
+
   Future<void> _openImport() async {
-    final count = await context.push<int>(
+    final result = await context.push<CardImportResult>(
       '/decks/${widget.deckId}/cards/import',
     );
-    if (count == null || !mounted) return;
+    if (result == null || !mounted) return;
     _refreshAfterChange();
-    final message = '已导入 $count 张卡片';
+    final message = '已导入 ${result.importedCards} 张卡片';
+    final snackBar = SnackBar(
+      content: Text(message),
+      action: result.importedCardIds.isEmpty
+          ? null
+          : SnackBarAction(
+              label: '撤销导入',
+              onPressed: () => _undoImport(result.importedCardIds),
+            ),
+    );
     announceMessage(context, message);
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(snackBar);
+  }
+
+  Future<void> _undoImport(List<String> cardIds) async {
+    final args = CardListArgs(widget.deckId, _filter);
+    await ref.read(cardListProvider(args).notifier).deleteCards(cardIds);
+    if (!mounted) return;
+    if (ref.read(cardListProvider(args)).hasError) {
+      _showMessage('撤销失败，请重试');
+      return;
+    }
+    _refreshAfterChange();
+    _showMessage('已撤销导入');
+  }
+
+  void _showMessage(String message) {
+    if (!mounted) return;
+    announceMessage(context, message);
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Widget _buildSelectionBar(AsyncValue<List<FlashCard>> cardsAsync) {
+    final cards = cardsAsync.valueOrNull ?? const <FlashCard>[];
+    final allSelected =
+        cards.isNotEmpty &&
+        cards.every((card) => _selectedIds.contains(card.id));
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 10, 20, 10),
+      decoration: const BoxDecoration(
+        color: KarisColors.paper,
+        border: Border(top: BorderSide(color: KarisColors.hairline)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Row(
+          children: [
+            KarisIconButton(
+              icon: Icons.close,
+              tooltip: '退出多选',
+              onPressed: () => _toggleSelecting(false),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  setState(() {
+                    if (allSelected) {
+                      _selectedIds.clear();
+                    } else {
+                      _selectedIds.addAll(cards.map((card) => card.id));
+                    }
+                  });
+                },
+                icon: const Icon(Icons.select_all, size: 17),
+                label: Text(allSelected ? '取消全选' : '全选当前列表'),
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size(0, 44),
+                  foregroundColor: KarisColors.jade,
+                  side: const BorderSide(color: KarisColors.hairline),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              flex: 2,
+              child: FilledButton.icon(
+                onPressed: _selectedIds.isEmpty ? null : _deleteSelected,
+                icon: const Icon(Icons.delete_outline, size: 17),
+                label: Text('删除所选（${_selectedIds.length}）'),
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size(0, 44),
+                  backgroundColor: KarisColors.cinnabar,
+                  foregroundColor: KarisColors.surface,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _deleteSelected() async {
+    final cardIds = _selectedIds.toList();
+    if (cardIds.isEmpty) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('批量删除'),
+        content: Text('确定要删除选中的 ${cardIds.length} 张卡片吗？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: KarisColors.cinnabar,
+              foregroundColor: KarisColors.surface,
+            ),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    final args = CardListArgs(widget.deckId, _filter);
+    await ref.read(cardListProvider(args).notifier).deleteCards(cardIds);
+    if (!mounted) return;
+    if (ref.read(cardListProvider(args)).hasError) {
+      _showMessage('删除失败，请检查网络后重试');
+      return;
+    }
+    setState(() {
+      _selecting = false;
+      _selectedIds.clear();
+    });
+    _refreshAfterChange();
+    _showMessage('已删除 ${cardIds.length} 张卡片');
   }
 
   void _refreshAfterChange() {
@@ -516,12 +720,16 @@ class _FilterChip extends StatelessWidget {
 class _CardTile extends StatelessWidget {
   final FlashCard card;
   final VoidCallback onTap;
-  final VoidCallback onDelete;
+  final VoidCallback? onDelete;
+  final bool selecting;
+  final bool selected;
 
   const _CardTile({
     required this.card,
     required this.onTap,
-    required this.onDelete,
+    this.onDelete,
+    this.selecting = false,
+    this.selected = false,
   });
 
   @override
@@ -530,14 +738,16 @@ class _CardTile extends StatelessWidget {
     return KarisInteractive(
       child: InkWell(
         onTap: onTap,
-        onLongPress: onDelete,
+        onLongPress: selecting ? onTap : onDelete,
         borderRadius: BorderRadius.circular(8),
         child: Container(
           width: double.infinity,
           padding: const EdgeInsets.all(15),
           decoration: BoxDecoration(
-            color: KarisColors.surface,
-            border: Border.all(color: KarisColors.hairline),
+            color: selected ? KarisColors.jadeSoft : KarisColors.surface,
+            border: Border.all(
+              color: selected ? KarisColors.jade : KarisColors.hairline,
+            ),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Column(
@@ -551,18 +761,28 @@ class _CardTile extends StatelessWidget {
                     nextLabel,
                     style: karisMono(fontSize: 10, color: KarisColors.stone),
                   ),
-                  IconButton(
-                    onPressed: onDelete,
-                    tooltip: '删除卡片',
-                    icon: const Icon(
-                      Icons.delete_outline,
-                      size: 17,
-                      color: KarisColors.cinnabar,
+                  if (selecting)
+                    Checkbox(
+                      value: selected,
+                      onChanged: (_) => onTap(),
+                      activeColor: KarisColors.jade,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    )
+                  else
+                    IconButton(
+                      onPressed: onDelete,
+                      tooltip: '删除卡片',
+                      icon: const Icon(
+                        Icons.delete_outline,
+                        size: 17,
+                        color: KarisColors.cinnabar,
+                      ),
+                      style: IconButton.styleFrom(
+                        minimumSize: const Size(36, 36),
+                      ),
                     ),
-                    style: IconButton.styleFrom(
-                      minimumSize: const Size(36, 36),
-                    ),
-                  ),
                 ],
               ),
               const SizedBox(height: 11),

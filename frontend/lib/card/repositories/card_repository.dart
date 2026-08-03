@@ -1,6 +1,7 @@
 import '../../shared/api/api_client.dart';
 import '../../shared/api/api_endpoints.dart';
 import '../models/card.dart';
+import '../models/card_import.dart';
 
 class CardRepository {
   final ApiClient _client;
@@ -55,7 +56,7 @@ class CardRepository {
     return response.data['data'] as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> importCards(
+  Future<CardImportResult> importCards(
     String deckId,
     List<Map<String, dynamic>> cards,
   ) async {
@@ -63,7 +64,16 @@ class CardRepository {
       ApiEndpoints.cardImport(deckId),
       data: {'cards': cards},
     );
-    return response.data['data'] as Map<String, dynamic>;
+    return CardImportResult.fromJson(
+      response.data['data'] as Map<String, dynamic>,
+    );
+  }
+
+  Future<void> batchDeleteCards(List<String> cardIds) async {
+    await _client.post(
+      ApiEndpoints.cardsBatchDelete,
+      data: {'card_ids': cardIds},
+    );
   }
 
   Future<void> deleteCard(String cardId) async {

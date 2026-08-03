@@ -61,6 +61,11 @@ class OfflineRepository {
       'due' => cards.where((c) =>
           c.nextReviewDate != null && c.nextReviewDate!.compareTo(today) <= 0),
       'learning' => cards.where((c) => c.learningMode),
+      'new' => cards
+          .where((c) => c.stage == 0 && !c.learningMode)
+          .toList()
+        ..sort((a, b) => (b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0))
+            .compareTo(a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0))),
       _ => cards.where((_) => true),
     };
     return filtered.map(_toFlashCard).toList();

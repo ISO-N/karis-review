@@ -10,6 +10,7 @@ import 'package:karisreview/auth/models/login_response.dart';
 import 'package:karisreview/auth/models/register_request.dart';
 import 'package:karisreview/auth/pages/login_page.dart';
 import 'package:karisreview/auth/pages/register_page.dart';
+import 'package:karisreview/card/models/card_import.dart';
 import 'package:karisreview/card/pages/card_list_page.dart';
 import 'package:flutter_quill/flutter_quill.dart' as quill;
 import 'package:karisreview/card/pages/card_editor_page.dart';
@@ -272,6 +273,13 @@ void main() {
           'content': [cardJson(front: '正面内容')],
         },
       );
+      when(
+        () => cardRepo.getDeckCards('deck-1', size: 500, filter: 'new'),
+      ).thenAnswer(
+        (_) async => {
+          'content': [cardJson(id: 'card-new', front: '新卡内容')],
+        },
+      );
       final statsRepo = MockStatsRepository();
       when(
         () => statsRepo.getOverview(),
@@ -288,9 +296,56 @@ void main() {
       expect(find.text('日语 N5'), findsOneWidget);
       expect(find.text('正面内容'), findsOneWidget);
 
+      await tester.tap(find.text('新卡').first);
+      await tester.pumpAndSettle();
+      expect(find.text('新卡内容'), findsOneWidget);
+
       await tester.tap(find.text('待复习'));
       await tester.pumpAndSettle();
       expect(find.text('全部'), findsOneWidget);
+    });
+
+    testWidgets('card list supports multi-select batch delete', (tester) async {
+      final cardRepo = MockCardRepository();
+      when(
+        () => cardRepo.getDeckCards('deck-1', size: 500, filter: 'all'),
+      ).thenAnswer(
+        (_) async => {
+          'content': [
+            cardJson(id: 'card-0', front: '卡片 0'),
+            cardJson(id: 'card-1', front: '卡片 1'),
+          ],
+        },
+      );
+      when(
+        () => cardRepo.batchDeleteCards(['card-0', 'card-1']),
+      ).thenAnswer((_) async {});
+      final statsRepo = MockStatsRepository();
+      when(
+        () => statsRepo.getOverview(),
+      ).thenAnswer((_) async => OverviewStats.fromJson(overviewStatsJson()));
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [...cardOverrides(cardRepo), ...statsOverrides(statsRepo)],
+          child: const MaterialApp(home: CardListPage(deckId: 'deck-1')),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('多选'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('卡片 0'));
+      await tester.tap(find.text('卡片 1'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('删除所选（2）'), findsOneWidget);
+      await tester.tap(find.text('删除所选（2）'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('删除'));
+      await tester.pumpAndSettle();
+
+      verify(() => cardRepo.batchDeleteCards(['card-0', 'card-1'])).called(1);
     });
 
     testWidgets('card list lazily builds cards with CustomScrollView', (
@@ -397,6 +452,72 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('新建卡片'), findsOneWidget);
       expect(find.byType(quill.QuillEditor), findsOneWidget);
+    });
+
+    testWidgets('import completion offers undo action', (tester) async {
+      const content =
+          '[{"front":"正面","back":"反面"},{"front":"第二张","back":"反面二"}]';
+      final cardRepo = MockCardRepository();
+      when(
+        () => cardRepo.getDeckCards('deck-1', size: 500, filter: 'all'),
+      ).thenAnswer((_) async => {'content': []});
+      when(
+        () => cardRepo.previewCardImport('deck-1', content),
+      ).thenAnswer((_) async => validImportPreviewJson());
+      when(
+        () => cardRepo.importCards('deck-1', any()),
+      ).thenAnswer((_) async => CardImportResult.fromJson(importResultJson()));
+      when(
+        () => cardRepo.batchDeleteCards(['card-1', 'card-2']),
+      ).thenAnswer((_) async {});
+      final statsRepo = MockStatsRepository();
+      when(
+        () => statsRepo.getOverview(),
+      ).thenAnswer((_) async => OverviewStats.fromJson(overviewStatsJson()));
+
+      final router = GoRouter(
+        initialLocation: '/decks/deck-1/cards',
+        routes: [
+          GoRoute(
+            path: '/decks/:deckId/cards',
+            builder: (_, state) =>
+                CardListPage(deckId: state.pathParameters['deckId']!),
+          ),
+          GoRoute(
+            path: '/decks/:deckId/cards/import',
+            builder: (_, state) => CardImportPage(
+              deckId: state.pathParameters['deckId']!,
+              repository: cardRepo,
+            ),
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [...cardOverrides(cardRepo), ...statsOverrides(statsRepo)],
+          child: MaterialApp.router(routerConfig: router),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('导入卡片'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), content);
+      await tester.ensureVisible(find.text('解析并预览'));
+      await tester.tap(find.text('解析并预览'));
+      await tester.pumpAndSettle();
+      expect(find.text('导入预览'), findsOneWidget);
+      await tester.tap(find.text('导入 2 张卡片'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('已导入 2 张卡片'), findsOneWidget);
+      expect(find.text('撤销导入'), findsOneWidget);
+      await tester.tap(find.text('撤销导入'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('已撤销导入'), findsOneWidget);
+      verify(() => cardRepo.batchDeleteCards(['card-1', 'card-2'])).called(1);
     });
   });
 
