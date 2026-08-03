@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../offline/providers.dart';
 import '../../shared/api/api_client.dart';
+import '../../shared/providers/data_refresh_provider.dart';
 import '../../sync/providers.dart';
 import '../models/auth_config.dart';
 import '../models/login_request.dart';
@@ -162,6 +163,7 @@ final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
         } else {
           await sync.refresh();
         }
+        await ref.read(dataRefreshControllerProvider).armDailyRefresh();
       } catch (_) {}
     },
     restoreUser: () async {
@@ -183,6 +185,7 @@ final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
       if (meta != null) {
         await ref.read(offlineRepositoryProvider).clearUserData(meta.userId);
       }
+      ref.read(dataRefreshControllerProvider).cancelDailyRefresh();
     },
   );
   ApiClient.onUnauthorized = notifier.handleUnauthorized;

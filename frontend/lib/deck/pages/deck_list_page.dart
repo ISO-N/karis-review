@@ -9,6 +9,7 @@ import '../../deck/widgets/deck_row.dart';
 import '../../shared/widgets/adaptive_scaffold.dart';
 import '../../shared/widgets/app_semantics.dart';
 import '../../shared/widgets/section_widgets.dart';
+import '../../stats/providers/stats_provider.dart';
 
 class DeckListPage extends ConsumerWidget {
   const DeckListPage({super.key});
@@ -202,6 +203,8 @@ class _DeckDialogState extends ConsumerState<_DeckDialog> {
       ).showSnackBar(const SnackBar(content: Text('保存失败，请检查网络后重试')));
       return;
     }
+    ref.invalidate(statsProvider);
+    ref.invalidate(trendProvider(30));
     Navigator.pop(context);
   }
 
@@ -257,9 +260,11 @@ void _confirmDeleteDeck(BuildContext context, WidgetRef ref, Deck deck) {
               backgroundColor: KarisColors.cinnabar,
               foregroundColor: KarisColors.surface,
             ),
-            onPressed: () {
-              ref.read(deckListProvider.notifier).deleteDeck(deck.id);
-              Navigator.pop(dialogContext);
+            onPressed: () async {
+              await ref.read(deckListProvider.notifier).deleteDeck(deck.id);
+              ref.invalidate(statsProvider);
+              ref.invalidate(trendProvider(30));
+              if (dialogContext.mounted) Navigator.pop(dialogContext);
             },
             child: const Text('删除'),
           ),

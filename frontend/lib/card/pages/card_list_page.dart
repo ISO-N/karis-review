@@ -16,6 +16,7 @@ import '../../shared/widgets/rich_card_content.dart';
 import '../../shared/widgets/section_widgets.dart';
 import '../../stats/models/stats.dart';
 import '../../stats/providers/deck_stats_provider.dart';
+import '../../stats/providers/stats_provider.dart';
 
 class CardListPage extends ConsumerStatefulWidget {
   final String deckId;
@@ -86,6 +87,8 @@ class _CardListPageState extends ConsumerState<CardListPage> {
                       .loadCards();
                   ref.invalidate(deckStatsProvider(widget.deckId));
                   ref.invalidate(deckListProvider);
+                  ref.invalidate(statsProvider);
+                  ref.invalidate(trendProvider(30));
                 },
                 child: CustomScrollView(
                   physics: const AlwaysScrollableScrollPhysics(),
@@ -408,6 +411,8 @@ class _CardListPageState extends ConsumerState<CardListPage> {
     ref.invalidate(cardListProvider(CardListArgs(widget.deckId, _filter)));
     ref.invalidate(deckStatsProvider(widget.deckId));
     ref.invalidate(deckListProvider);
+    ref.invalidate(statsProvider);
+    ref.invalidate(trendProvider(30));
   }
 
   void _confirmDelete(FlashCard card) {
@@ -437,6 +442,8 @@ class _CardListPageState extends ConsumerState<CardListPage> {
                     .deleteCard(card.id);
                 ref.invalidate(deckStatsProvider(widget.deckId));
                 ref.invalidate(deckListProvider);
+                ref.invalidate(statsProvider);
+                ref.invalidate(trendProvider(30));
                 if (dialogContext.mounted) Navigator.pop(dialogContext);
               },
               child: const Text('删除'),

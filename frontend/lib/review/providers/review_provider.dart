@@ -8,6 +8,7 @@ import '../../card/models/card.dart';
 import '../../offline/local_scheduling_engine.dart';
 import '../../offline/offline_repository.dart';
 import '../../offline/providers.dart';
+import '../../shared/providers/data_refresh_provider.dart';
 import '../../sync/providers.dart';
 import '../../sync/repositories/sync_repository.dart';
 import '../../sync/sync_service.dart';
@@ -117,6 +118,7 @@ class ReviewNotifier extends StateNotifier<ReviewSessionState> {
   final OfflineRepository? _offline;
   final SyncRepository? _sync;
   final SyncService? _syncService;
+  final void Function()? _onDataChanged;
   bool _ratingInFlight = false;
   Timer? _syncDebounce;
   static const Duration _syncDelay = Duration(milliseconds: 800);
@@ -126,11 +128,12 @@ class ReviewNotifier extends StateNotifier<ReviewSessionState> {
     OfflineRepository? offline,
     SyncRepository? sync,
     SyncService? syncService,
-  })  : _offline = offline,
-        _sync = sync,
-        _syncService = syncService,
-        super(const ReviewSessionState());
-
+    void Function()? onDataChanged,
+  }) : _offline = offline,
+       _sync = sync,
+       _syncService = syncService,
+       _onDataChanged = onDataChanged,
+       super(const ReviewSessionState());
   Future<void> loadQueue({
     required String mode,
     String? deckId,
@@ -151,6 +154,7 @@ class ReviewNotifier extends StateNotifier<ReviewSessionState> {
       if (pending.isNotEmpty) {
         try {
           await _syncService.syncPending(userId: userId);
+          _onDataChanged?.call();
         } catch (_) {}
         final remaining = await _offline.getPendingRatings(userId);
         if (remaining.isNotEmpty) {
@@ -241,7 +245,11 @@ class ReviewNotifier extends StateNotifier<ReviewSessionState> {
     }
     try {
       final local = state.mode == 'new'
-          ? await _offline!.getNewQueue(userId, deckId: state.deckId, limit: 500)
+          ? await _offline!.getNewQueue(
+              userId,
+              deckId: state.deckId,
+              limit: 500,
+            )
           : await _offline!.getDueQueue(userId, deckId: state.deckId);
       final existingIds = state.cards.map((c) => c.id).toSet();
       final appended = local.where((c) => !existingIds.contains(c.id)).toList();
@@ -259,10 +267,7 @@ class ReviewNotifier extends StateNotifier<ReviewSessionState> {
     }
   }
 
-  Future<void> _loadLocalQueue({
-    required String mode,
-    String? deckId,
-  }) async {
+  Future<void> _loadLocalQueue({required String mode, String? deckId}) async {
     final userId = await _activeUserId();
     if (userId == null) {
       state = state.copyWith(
@@ -381,6 +386,7 @@ class ReviewNotifier extends StateNotifier<ReviewSessionState> {
         reviewVersionBefore: outcome.reviewVersionBefore,
         isNewCard: outcome.wasNewCard,
       );
+      _onDataChanged?.call();
 
       state = state.copyWith(
         currentIndex: state.currentIndex + 1,
@@ -418,7 +424,9 @@ class ReviewNotifier extends StateNotifier<ReviewSessionState> {
         reviewedCount: state.reviewedCount + 1,
         ratingFailed: false,
         lastResult: result,
+        isRating: false,
       );
+      _onDataChanged?.call();
       return result;
     } catch (e) {
       state = state.copyWith(error: '评分失败，请检查网络后重试', ratingFailed: true);
@@ -439,6 +447,7 @@ class ReviewNotifier extends StateNotifier<ReviewSessionState> {
       await _syncService!.syncPending(userId: userId);
     } catch (_) {}
     await _refreshPendingCount();
+    _onDataChanged?.call();
   }
 
   Future<void> _refreshPendingCount() async {
@@ -477,7 +486,6 @@ class ReviewNotifier extends StateNotifier<ReviewSessionState> {
     state = const ReviewSessionState();
   }
 
-
   List<ReviewCard> _parseCards(dynamic value) {
     return (value as List? ?? const [])
         .map((c) => ReviewCard.fromJson(c as Map<String, dynamic>))
@@ -509,5 +517,7 @@ final reviewProvider =
         offline: ref.watch(offlineRepositoryProvider),
         sync: ref.watch(syncRepositoryProvider),
         syncService: ref.watch(syncServiceProvider),
+        onDataChanged: () =>
+            ref.read(dataRefreshControllerProvider).notifyLocalChanged(),
       );
     });

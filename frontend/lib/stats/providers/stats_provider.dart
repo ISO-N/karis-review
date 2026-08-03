@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../offline/offline_repository.dart';
 import '../../offline/providers.dart';
+import '../../shared/providers/data_refresh_provider.dart';
 import '../../sync/providers.dart';
 import '../../sync/sync_service.dart';
 import '../repositories/stats_repository.dart';
@@ -63,21 +66,39 @@ class StatsNotifier extends StateNotifier<AsyncValue<OverviewStats?>> {
       state = AsyncValue.error(e, st);
     }
   }
+
+  Future<void> reloadAfterDataChange() async {
+    if (offline == null) {
+      await loadOverview();
+      return;
+    }
+    final meta = await offline!.getActiveSyncMeta();
+    if (meta == null) {
+      await loadOverview();
+      return;
+    }
+    await _loadLocal();
+  }
 }
 
 final statsProvider =
     StateNotifierProvider<StatsNotifier, AsyncValue<OverviewStats?>>((ref) {
-      return StatsNotifier(
+      final notifier = StatsNotifier(
         StatsRepository(),
         offline: ref.watch(offlineRepositoryProvider),
         sync: ref.watch(syncServiceProvider),
       );
+      ref.listen(dataVersionProvider, (_, _) {
+        unawaited(notifier.reloadAfterDataChange());
+      });
+      return notifier;
     });
 
 final trendProvider = FutureProvider.family<List<TrendPoint>, int>((
   ref,
   days,
 ) async {
+  ref.watch(dataVersionProvider);
   final offline = ref.watch(offlineRepositoryProvider);
   final meta = await offline.getActiveSyncMeta();
   if (meta == null) {
