@@ -29,6 +29,36 @@ public interface CardRepository extends JpaRepository<Card, UUID> {
     Page<Card> findNewByDeckIdOrderByCreatedAtDesc(@Param("deckId") UUID deckId, Pageable pageable);
     Page<Card> findByDeckIdAndNextReviewDateNotNullAndNextReviewDateLessThanEqualOrderByNextReviewDateAsc(
             UUID deckId, LocalDate today, Pageable pageable);
+    @Query("SELECT c FROM Card c WHERE c.deckId = :deckId " +
+           "AND (LOWER(c.front) LIKE LOWER(:pattern) ESCAPE '\\' " +
+           "OR LOWER(c.back) LIKE LOWER(:pattern) ESCAPE '\\') " +
+           "ORDER BY c.createdAt ASC")
+    Page<Card> searchByDeckIdOrderByCreatedAtAsc(@Param("deckId") UUID deckId,
+                                                @Param("pattern") String pattern,
+                                                Pageable pageable);
+    @Query("SELECT c FROM Card c WHERE c.deckId = :deckId " +
+           "AND c.nextReviewDate IS NOT NULL AND c.nextReviewDate <= :today " +
+           "AND (LOWER(c.front) LIKE LOWER(:pattern) ESCAPE '\\' " +
+           "OR LOWER(c.back) LIKE LOWER(:pattern) ESCAPE '\\') " +
+           "ORDER BY c.nextReviewDate ASC")
+    Page<Card> searchByDeckIdAndNextReviewDateNotNullAndNextReviewDateLessThanEqualOrderByNextReviewDateAsc(
+            UUID deckId, LocalDate today, String pattern, Pageable pageable);
+    @Query("SELECT c FROM Card c WHERE c.deckId = :deckId " +
+           "AND c.learningMode = true " +
+           "AND (LOWER(c.front) LIKE LOWER(:pattern) ESCAPE '\\' " +
+           "OR LOWER(c.back) LIKE LOWER(:pattern) ESCAPE '\\') " +
+           "ORDER BY c.createdAt ASC")
+    Page<Card> searchByDeckIdAndLearningModeTrueOrderByCreatedAtAsc(@Param("deckId") UUID deckId,
+                                                                   @Param("pattern") String pattern,
+                                                                   Pageable pageable);
+    @Query("SELECT c FROM Card c WHERE c.deckId = :deckId " +
+           "AND c.learningMode = false AND c.stage = 0 " +
+           "AND (LOWER(c.front) LIKE LOWER(:pattern) ESCAPE '\\' " +
+           "OR LOWER(c.back) LIKE LOWER(:pattern) ESCAPE '\\') " +
+           "ORDER BY c.createdAt DESC")
+    Page<Card> searchNewByDeckIdOrderByCreatedAtDesc(@Param("deckId") UUID deckId,
+                                                    @Param("pattern") String pattern,
+                                                    Pageable pageable);
     Optional<Card> findByIdAndUserId(UUID id, UUID userId);
     List<Card> findByIdInAndUserId(List<UUID> ids, UUID userId);
 
