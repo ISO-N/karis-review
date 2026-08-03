@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -37,16 +39,36 @@ class _CardListPageState extends ConsumerState<CardListPage> {
   late String _filter;
   bool _selecting = false;
   final Set<String> _selectedIds = {};
+  late final TextEditingController _searchController;
+  final FocusNode _searchFocus = FocusNode();
+  Timer? _searchDebounce;
+  String _query = '';
 
   @override
   void initState() {
     super.initState();
     _filter = widget.initialFilter;
+    _searchController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _searchDebounce?.cancel();
+    _searchController.dispose();
+    _searchFocus.dispose();
+    super.dispose();
   }
 
   @override
   void didUpdateWidget(covariant CardListPage oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (widget.deckId != oldWidget.deckId) {
+      _searchDebounce?.cancel();
+      _searchController.clear();
+      _query = '';
+      _filter = widget.initialFilter;
+      return;
+    }
     if (widget.initialFilter != oldWidget.initialFilter &&
         widget.initialFilter != _filter) {
       _filter = widget.initialFilter;
@@ -60,9 +82,42 @@ class _CardListPageState extends ConsumerState<CardListPage> {
       _filter = value;
       _selectedIds.clear();
     });
+    final notifier = ref.read(
+      cardListProvider(CardListArgs(widget.deckId, value)).notifier,
+    );
+    unawaited(notifier.setSearchQuery(_query));
     GoRouter.maybeOf(
       context,
     )?.replace('/decks/${widget.deckId}/cards?filter=$value');
+  }
+
+  void _onSearchChanged(String value) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 300), () {
+      if (!mounted) return;
+      final query = value.trim();
+      if (query == _query) return;
+      setState(() => _query = query);
+      unawaited(
+        ref
+            .read(
+              cardListProvider(CardListArgs(widget.deckId, _filter)).notifier,
+            )
+            .setSearchQuery(query),
+      );
+    });
+  }
+
+  void _clearSearch() {
+    _searchDebounce?.cancel();
+    _searchController.clear();
+    if (_query.isEmpty) return;
+    setState(() => _query = '');
+    unawaited(
+      ref
+          .read(cardListProvider(CardListArgs(widget.deckId, _filter)).notifier)
+          .setSearchQuery(''),
+    );
   }
 
   @override
@@ -111,6 +166,8 @@ class _CardListPageState extends ConsumerState<CardListPage> {
                               children: [
                                 _buildOverview(statsAsync),
                                 const SizedBox(height: 18),
+                                _buildSearchField(),
+                                const SizedBox(height: 14),
                                 _buildFilters(statsAsync),
                               ],
                             ),
@@ -162,13 +219,22 @@ class _CardListPageState extends ConsumerState<CardListPage> {
                                     ),
                                     child: EmptyState(
                                       icon: Icons.credit_card_outlined,
-                                      title: _filter == 'all'
+                                      title: _query.isNotEmpty
+                                          ? '没有匹配的卡片'
+                                          : _filter == 'all'
                                           ? '还没有卡片'
                                           : '当前筛选下没有卡片',
-                                      message: _filter == 'all'
+                                      message: _query.isNotEmpty
+                                          ? '换个关键词，或清除搜索后查看当前筛选'
+                                          : _filter == 'all'
                                           ? '新建第一张卡片，开始积累你的记忆刻度'
                                           : '切换到“全部”查看牌组里的所有卡片',
-                                      action: _filter == 'all'
+                                      action: _query.isNotEmpty
+                                          ? TextButton(
+                                              onPressed: _clearSearch,
+                                              child: const Text('清除搜索'),
+                                            )
+                                          : _filter == 'all'
                                           ? FilledButton.icon(
                                               onPressed: () => _openEditor(),
                                               icon: const Icon(
@@ -403,6 +469,44 @@ class _CardListPageState extends ConsumerState<CardListPage> {
     );
   }
 
+  Widget _buildSearchField() {
+    return TextField(
+      controller: _searchController,
+      focusNode: _searchFocus,
+      maxLength: 100,
+      textInputAction: TextInputAction.search,
+      onChanged: _onSearchChanged,
+      onSubmitted: (_) => _searchFocus.unfocus(),
+      decoration: InputDecoration(
+        hintText: '搜索正面或反面',
+        counterText: '',
+        prefixIcon: const Icon(Icons.search, size: 20),
+        suffixIcon: ValueListenableBuilder<TextEditingValue>(
+          valueListenable: _searchController,
+          builder: (context, value, _) {
+            if (value.text.isEmpty) return const SizedBox.shrink();
+            return IconButton(
+              icon: const Icon(Icons.close, size: 19),
+              tooltip: '清除搜索',
+              onPressed: _clearSearch,
+            );
+          },
+        ),
+        filled: true,
+        fillColor: KarisColors.surface,
+        contentPadding: const EdgeInsets.symmetric(vertical: 14),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: KarisColors.hairline),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: KarisColors.jade),
+        ),
+      ),
+    );
+  }
+
   Widget _buildFilters(AsyncValue<DeckStats?> statsAsync) {
     final stats = statsAsync.maybeWhen(
       data: (value) => value,
@@ -617,6 +721,15 @@ class _CardListPageState extends ConsumerState<CardListPage> {
     ref.invalidate(deckListProvider);
     ref.invalidate(statsProvider);
     ref.invalidate(trendProvider(30));
+    if (_query.isNotEmpty) {
+      unawaited(
+        ref
+            .read(
+              cardListProvider(CardListArgs(widget.deckId, _filter)).notifier,
+            )
+            .setSearchQuery(_query),
+      );
+    }
   }
 
   void _confirmDelete(FlashCard card) {

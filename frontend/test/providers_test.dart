@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -170,6 +172,123 @@ void main() {
 
       expect(notifier.state.value, isNotNull);
       expect(notifier.state.value!.single.front, '正面');
+    });
+
+    test('search preserves previous list while loading', () async {
+      final repo = MockCardRepository();
+      when(
+        () => repo.getDeckCards('deck-1', size: 500, filter: 'all'),
+      ).thenAnswer(
+        (_) async => {
+          'content': [cardJson(id: 'old')],
+        },
+      );
+      final notifier = CardListNotifier(
+        repo,
+        const CardListArgs('deck-1', 'all'),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      final searchCompleter = Completer<Map<String, dynamic>>();
+      when(
+        () => repo.getDeckCards('deck-1', size: 500, filter: 'all', query: '词'),
+      ).thenAnswer((_) => searchCompleter.future);
+
+      final searchFuture = notifier.setSearchQuery('词');
+
+      expect(notifier.state.value, hasLength(1));
+      expect(notifier.state.value!.single.id, 'old');
+      searchCompleter.complete({
+        'content': [cardJson(id: 'new')],
+        'total_pages': 1,
+      });
+      await searchFuture;
+
+      expect(notifier.state.value!.single.id, 'new');
+    });
+
+    test('search loads all matching pages', () async {
+      final repo = MockCardRepository();
+      when(
+        () => repo.getDeckCards('deck-1', size: 500, filter: 'all'),
+      ).thenAnswer((_) async => {'content': []});
+      final notifier = CardListNotifier(
+        repo,
+        const CardListArgs('deck-1', 'all'),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      when(
+        () => repo.getDeckCards('deck-1', size: 500, filter: 'all', query: '词'),
+      ).thenAnswer(
+        (_) async => {
+          'content': [cardJson(id: 'card-1')],
+          'total_pages': 2,
+        },
+      );
+      when(
+        () => repo.getDeckCards(
+          'deck-1',
+          page: 1,
+          size: 500,
+          filter: 'all',
+          query: '词',
+        ),
+      ).thenAnswer(
+        (_) async => {
+          'content': [cardJson(id: 'card-2')],
+          'total_pages': 2,
+        },
+      );
+
+      await notifier.setSearchQuery('词');
+
+      expect(notifier.state.value!.map((card) => card.id), [
+        'card-1',
+        'card-2',
+      ]);
+    });
+
+    test('stale search response does not overwrite latest query', () async {
+      final repo = MockCardRepository();
+      when(
+        () => repo.getDeckCards('deck-1', size: 500, filter: 'all'),
+      ).thenAnswer(
+        (_) async => {
+          'content': [cardJson(id: 'base')],
+        },
+      );
+      final notifier = CardListNotifier(
+        repo,
+        const CardListArgs('deck-1', 'all'),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      final oldCompleter = Completer<Map<String, dynamic>>();
+      final latestCompleter = Completer<Map<String, dynamic>>();
+      when(
+        () => repo.getDeckCards('deck-1', size: 500, filter: 'all', query: '旧'),
+      ).thenAnswer((_) => oldCompleter.future);
+      when(
+        () => repo.getDeckCards('deck-1', size: 500, filter: 'all', query: '新'),
+      ).thenAnswer((_) => latestCompleter.future);
+
+      final firstSearch = notifier.setSearchQuery('旧');
+      final secondSearch = notifier.setSearchQuery('新');
+      oldCompleter.complete({
+        'content': [cardJson(id: 'stale')],
+        'total_pages': 1,
+      });
+      await Future<void>.delayed(Duration.zero);
+
+      expect(notifier.state.value!.single.id, 'base');
+      latestCompleter.complete({
+        'content': [cardJson(id: 'latest')],
+        'total_pages': 1,
+      });
+      await Future.wait([firstSearch, secondSearch]);
+
+      expect(notifier.state.value!.single.id, 'latest');
     });
 
     test('create card reloads list', () async {

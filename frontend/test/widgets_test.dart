@@ -305,6 +305,71 @@ void main() {
       expect(find.text('全部'), findsOneWidget);
     });
 
+    testWidgets('card list debounces search and renders results', (
+      tester,
+    ) async {
+      final cardRepo = MockCardRepository();
+      when(
+        () => cardRepo.getDeckCards('deck-1', size: 500, filter: 'all'),
+      ).thenAnswer(
+        (_) async => {
+          'content': [cardJson(id: 'base', front: '基础卡片')],
+        },
+      );
+      when(
+        () => cardRepo.getDeckCards(
+          'deck-1',
+          size: 500,
+          filter: 'all',
+          query: '词',
+        ),
+      ).thenAnswer(
+        (_) async => {
+          'content': [cardJson(id: 'hit', front: '命中词')],
+        },
+      );
+      final statsRepo = MockStatsRepository();
+      when(
+        () => statsRepo.getOverview(),
+      ).thenAnswer((_) async => OverviewStats.fromJson(overviewStatsJson()));
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [...cardOverrides(cardRepo), ...statsOverrides(statsRepo)],
+          child: const MaterialApp(home: CardListPage(deckId: 'deck-1')),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('基础卡片'), findsOneWidget);
+
+      await tester.enterText(find.byType(TextField), '词');
+      await tester.pump(const Duration(milliseconds: 200));
+      verifyNever(
+        () => cardRepo.getDeckCards(
+          'deck-1',
+          size: 500,
+          filter: 'all',
+          query: '词',
+        ),
+      );
+
+      await tester.pump(const Duration(milliseconds: 150));
+      await tester.pumpAndSettle();
+      verify(
+        () => cardRepo.getDeckCards(
+          'deck-1',
+          size: 500,
+          filter: 'all',
+          query: '词',
+        ),
+      ).called(1);
+      expect(find.text('命中词'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('清除搜索'));
+      await tester.pumpAndSettle();
+      expect(find.text('基础卡片'), findsOneWidget);
+    });
+
     testWidgets('card list supports multi-select batch delete', (tester) async {
       final cardRepo = MockCardRepository();
       when(

@@ -55,7 +55,7 @@ class CardControllerTest {
     void getCardsReturnsPagedResponse() throws Exception {
         UUID userId = UUID.randomUUID();
         UUID deckId = UUID.randomUUID();
-        when(cardService.getDeckCards(userId, deckId, 0, 20, "all"))
+        when(cardService.getDeckCards(userId, deckId, 0, 20, "all", ""))
                 .thenReturn(new PageImpl<>(List.of(response("正面", "反面"))));
 
         mockMvc.perform(get("/api/decks/{deckId}/cards", deckId)
@@ -63,6 +63,20 @@ class CardControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.content[0].front").value("正面"))
                 .andExpect(jsonPath("$.data.total_elements").value(1));
+    }
+
+    @Test
+    void getCardsPassesSearchQuery() throws Exception {
+        UUID userId = UUID.randomUUID();
+        UUID deckId = UUID.randomUUID();
+        when(cardService.getDeckCards(userId, deckId, 0, 20, "all", "词"))
+                .thenReturn(new PageImpl<>(List.of(response("命中词", "反面"))));
+
+        mockMvc.perform(get("/api/decks/{deckId}/cards", deckId)
+                        .with(authentication(userId))
+                        .param("q", "词"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content[0].front").value("命中词"));
     }
 
     @Test

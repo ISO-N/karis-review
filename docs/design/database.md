@@ -233,7 +233,8 @@ src/main/resources/db/migration/
 ├── V6__add_learning_step_to_cards.sql
 ├── V7__add_new_card_flag_to_review_logs.sql
 ├── V8__add_review_lock_and_sessions.sql
-└── V9__add_sync_events.sql
+├── V9__add_sync_events.sql
+└── V10__add_card_search_indexes.sql
 
 ## 5. 关键查询说明
 
@@ -263,7 +264,19 @@ WHERE c.user_id = :userId
 ORDER BY c.created_at ASC;
 ```
 
-### 5.3 备份导出数据格式
+### 5.3 卡片正反面搜索
+
+```sql
+SELECT c.* FROM cards c
+WHERE c.deck_id = :deckId
+  AND (LOWER(c.front) LIKE LOWER(:pattern) ESCAPE '\'
+       OR LOWER(c.back) LIKE LOWER(:pattern) ESCAPE '\')
+ORDER BY c.created_at ASC;
+```
+
+`V10` 启用 `pg_trgm`，并为 `lower(front)`、`lower(back)` 建立 GIN 索引以加速 `%keyword%` 搜索。
+
+### 5.4 备份导出数据格式
 
 ```json
 {

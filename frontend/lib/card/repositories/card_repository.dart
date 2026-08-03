@@ -13,10 +13,19 @@ class CardRepository {
     int page = 0,
     int size = 500,
     String filter = 'all',
+    String query = '',
   }) async {
+    final queryParameters = <String, dynamic>{
+      'page': page,
+      'size': size,
+      'filter': filter,
+    };
+    if (query.isNotEmpty) {
+      queryParameters['q'] = query;
+    }
     final response = await _client.get(
       ApiEndpoints.deckCards(deckId),
-      queryParameters: {'page': page, 'size': size, 'filter': filter},
+      queryParameters: queryParameters,
     );
     return response.data['data'] as Map<String, dynamic>;
   }

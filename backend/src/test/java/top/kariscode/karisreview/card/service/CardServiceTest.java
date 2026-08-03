@@ -32,6 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -133,6 +134,128 @@ class CardServiceTest {
 
         assertEquals(404, exception.getCode());
         assertEquals("牌组不存在", exception.getMessage());
+    }
+
+    @Test
+    void blankSearchQueryUsesOriginalAllQuery() {
+        UUID userId = UUID.randomUUID();
+        UUID deckId = UUID.randomUUID();
+        Card card = card(deckId, userId);
+        when(deckRepository.existsByIdAndUserId(deckId, userId)).thenReturn(true);
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user(userId)));
+        when(cardRepository.findByDeckIdOrderByCreatedAtAsc(deckId, PageRequest.of(0, 20)))
+                .thenReturn(new PageImpl<>(List.of(card)));
+
+        Page<CardResponse> page = service.getDeckCards(userId, deckId, 0, 20, "all", "  ");
+
+        assertEquals(1, page.getContent().size());
+        verify(cardRepository).findByDeckIdOrderByCreatedAtAsc(deckId, PageRequest.of(0, 20));
+    }
+
+    @Test
+    void searchUsesFrontAndBackPattern() {
+        UUID userId = UUID.randomUUID();
+        UUID deckId = UUID.randomUUID();
+        Card card = card(deckId, userId);
+        when(deckRepository.existsByIdAndUserId(deckId, userId)).thenReturn(true);
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user(userId)));
+        when(cardRepository.searchByDeckIdOrderByCreatedAtAsc(deckId, "%词%", PageRequest.of(0, 20)))
+                .thenReturn(new PageImpl<>(List.of(card)));
+
+        Page<CardResponse> page = service.getDeckCards(userId, deckId, 0, 20, "all", "词");
+
+        assertEquals(1, page.getContent().size());
+        verify(cardRepository).searchByDeckIdOrderByCreatedAtAsc(
+                eq(deckId), eq("%词%"), any(PageRequest.class));
+    }
+
+    @Test
+    void searchCombinesDueFilter() {
+        UUID userId = UUID.randomUUID();
+        UUID deckId = UUID.randomUUID();
+        LocalDate today = DateUtils.calculateToday(LocalTime.of(4, 0));
+        Card card = card(deckId, userId);
+        card.setNextReviewDate(today);
+        when(deckRepository.existsByIdAndUserId(deckId, userId)).thenReturn(true);
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user(userId)));
+        when(cardRepository.searchByDeckIdAndNextReviewDateNotNullAndNextReviewDateLessThanEqualOrderByNextReviewDateAsc(
+                deckId, today, "%到期%", PageRequest.of(0, 20)))
+                .thenReturn(new PageImpl<>(List.of(card)));
+
+        Page<CardResponse> page = service.getDeckCards(
+                userId, deckId, 0, 20, "due", "到期");
+
+        assertTrue(page.getContent().get(0).isDue());
+        verify(cardRepository).searchByDeckIdAndNextReviewDateNotNullAndNextReviewDateLessThanEqualOrderByNextReviewDateAsc(
+                eq(deckId), eq(today), eq("%到期%"), any(PageRequest.class));
+    }
+
+    @Test
+    void searchCombinesLearningFilter() {
+        UUID userId = UUID.randomUUID();
+        UUID deckId = UUID.randomUUID();
+        Card card = card(deckId, userId);
+        card.setLearningMode(true);
+        when(deckRepository.existsByIdAndUserId(deckId, userId)).thenReturn(true);
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user(userId)));
+        when(cardRepository.searchByDeckIdAndLearningModeTrueOrderByCreatedAtAsc(
+                deckId, "%重学%", PageRequest.of(0, 20)))
+                .thenReturn(new PageImpl<>(List.of(card)));
+
+        Page<CardResponse> page = service.getDeckCards(
+                userId, deckId, 0, 20, "learning", "重学");
+
+        assertTrue(page.getContent().get(0).isLearningMode());
+    }
+
+    @Test
+    void searchCombinesNewFilter() {
+        UUID userId = UUID.randomUUID();
+        UUID deckId = UUID.randomUUID();
+        Card card = card(deckId, userId);
+        when(deckRepository.existsByIdAndUserId(deckId, userId)).thenReturn(true);
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user(userId)));
+        when(cardRepository.searchNewByDeckIdOrderByCreatedAtDesc(
+                deckId, "%新卡%", PageRequest.of(0, 20)))
+                .thenReturn(new PageImpl<>(List.of(card)));
+
+        Page<CardResponse> page = service.getDeckCards(
+                userId, deckId, 0, 20, "new", "新卡");
+
+        assertEquals(1, page.getContent().size());
+        assertFalse(page.getContent().get(0).isLearningMode());
+    }
+
+    @Test
+    void searchEscapesLikeWildcards() {
+        UUID userId = UUID.randomUUID();
+        UUID deckId = UUID.randomUUID();
+        Card card = card(deckId, userId);
+        when(deckRepository.existsByIdAndUserId(deckId, userId)).thenReturn(true);
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user(userId)));
+        when(cardRepository.searchByDeckIdOrderByCreatedAtAsc(
+                eq(deckId), any(String.class), any(PageRequest.class)))
+                .thenReturn(new PageImpl<>(List.of(card)));
+
+        service.getDeckCards(userId, deckId, 0, 20, "all", "100%_");
+
+        verify(cardRepository).searchByDeckIdOrderByCreatedAtAsc(
+                eq(deckId), eq("%100\\%\\_%"), any(PageRequest.class));
+    }
+
+    @Test
+    void searchRejectsQueryLongerThan100Characters() {
+        UUID userId = UUID.randomUUID();
+        UUID deckId = UUID.randomUUID();
+        when(deckRepository.existsByIdAndUserId(deckId, userId)).thenReturn(true);
+
+        BusinessException exception = assertThrows(
+                BusinessException.class,
+                () -> service.getDeckCards(
+                        userId, deckId, 0, 20, "all", "a".repeat(101)));
+
+        assertEquals(400, exception.getCode());
+        assertEquals("搜索词不能超过 100 个字符", exception.getMessage());
     }
 
     @Test
