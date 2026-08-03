@@ -30,6 +30,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.mockito.ArgumentCaptor;
@@ -198,10 +199,11 @@ class ReviewServiceTest {
 
         assertEquals(1, response.getConflicts());
         assertEquals("CONFLICT", response.getItems().get(0).getStatus());
+        assertNotNull(response.getItems().get(0).getCurrentCard());
+        assertEquals(3, response.getItems().get(0).getCurrentCard().getStage());
         verify(cardRepository, never()).save(any());
         verify(reviewLogRepository, never()).save(any());
     }
-
     @Test
     void syncRatingsIsIdempotentForClientRequestId() {
         UUID userId = UUID.randomUUID();
@@ -267,6 +269,87 @@ class ReviewServiceTest {
         assertEquals(409, exception.getCode());
         verify(cardRepository, never()).save(any());
         verify(reviewLogRepository, never()).save(any());
+    }
+
+    @Test
+    void rateCardReturnsExistingResultForSameClientRequestId() {
+        UUID userId = UUID.randomUUID();
+        UUID cardId = UUID.randomUUID();
+        ReviewLog existing = new ReviewLog();
+        existing.setCardId(cardId);
+        existing.setRating("FAMILIAR");
+        existing.setStageBefore(2);
+        existing.setStageAfter(3);
+        Card current = new Card();
+        current.setReviewVersion(5);
+        when(reviewLogRepository.findByUserIdAndClientRequestId(userId, "request-1"))
+                .thenReturn(Optional.of(existing));
+        when(cardRepository.findByIdAndUserId(cardId, userId))
+                .thenReturn(Optional.of(current));
+
+        RateRequest request = rate("FAMILIAR");
+        request.setClientRequestId("request-1");
+        RateResponse response = service.rateCard(userId, cardId, request);
+
+        assertEquals(3, response.getStageAfter());
+        assertEquals(5, response.getReviewVersion());
+        verify(cardRepository, never()).findByIdAndUserIdForUpdate(any(), any());
+        verify(reviewLogRepository, never()).save(any());
+    }
+
+    @Test
+    void rateCardRejectsSameClientRequestIdWithDifferentRating() {
+        UUID userId = UUID.randomUUID();
+        UUID cardId = UUID.randomUUID();
+        ReviewLog existing = new ReviewLog();
+        existing.setCardId(cardId);
+        existing.setRating("FAMILIAR");
+        when(reviewLogRepository.findByUserIdAndClientRequestId(userId, "request-1"))
+                .thenReturn(Optional.of(existing));
+
+        RateRequest request = rate("VAGUE");
+        request.setClientRequestId("request-1");
+
+        BusinessException exception = assertThrows(
+                BusinessException.class,
+                () -> service.rateCard(userId, cardId, request));
+
+        assertEquals(409, exception.getCode());
+        verify(cardRepository, never()).findByIdAndUserIdForUpdate(any(), any());
+    }
+
+    @Test
+    void syncRatingsReturnsCardNotFound() {
+        UUID userId = UUID.randomUUID();
+        UUID cardId = UUID.randomUUID();
+        when(cardRepository.findByIdAndUserIdForUpdate(cardId, userId))
+                .thenReturn(Optional.empty());
+
+        ReviewSyncResponse response = service.syncRatings(
+                userId, syncRequest(syncItem(cardId, 0)));
+
+        assertEquals(1, response.getMissing());
+        assertEquals("CARD_NOT_FOUND", response.getItems().get(0).getStatus());
+        verify(cardRepository, never()).save(any());
+    }
+
+    @Test
+    void syncRatingsRejectsSameClientRequestIdWithDifferentPayload() {
+        UUID userId = UUID.randomUUID();
+        UUID cardId = UUID.randomUUID();
+        ReviewLog existing = new ReviewLog();
+        existing.setCardId(cardId);
+        existing.setRating("FAMILIAR");
+        when(reviewLogRepository.findByUserIdAndClientRequestId(userId, "request-1"))
+                .thenReturn(Optional.of(existing));
+
+        ReviewSyncItem item = syncItem(cardId, 0);
+        item.setRating("VAGUE");
+        ReviewSyncResponse response = service.syncRatings(userId, syncRequest(item));
+
+        assertEquals(1, response.getConflicts());
+        assertEquals("CONFLICT", response.getItems().get(0).getStatus());
+        verify(cardRepository, never()).findByIdAndUserIdForUpdate(any(), any());
     }
 
     private ReviewSyncItem syncItem(UUID cardId, long reviewVersion) {

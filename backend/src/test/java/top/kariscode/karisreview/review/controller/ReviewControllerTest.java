@@ -34,7 +34,9 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -153,6 +155,36 @@ class ReviewControllerTest {
                                 "\"rating\":\"FAMILIAR\",\"rated_at\":\"2025-08-02T12:00:00Z\",\"review_version\":0}]}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.synced").value(1));
+    }
+
+    @Test
+    void getSessionPageReturnsNextPage() throws Exception {
+        UUID userId = UUID.randomUUID();
+        UUID sessionId = UUID.randomUUID();
+        ReviewSessionPageResponse response = new ReviewSessionPageResponse(
+                sessionId, "due", null, 10, 25, 20, true, List.of(reviewCard()));
+        when(reviewService.getSessionPage(eq(userId), eq(sessionId), eq(10), anyInt()))
+                .thenReturn(response);
+
+        mockMvc.perform(get("/api/review/sessions/{sessionId}", sessionId)
+                        .with(authentication(userId))
+                        .param("cursor", "10")
+                        .param("limit", "10"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.cursor").value(20))
+                .andExpect(jsonPath("$.data.has_more").value(true));
+    }
+
+    @Test
+    void deleteSessionClosesSession() throws Exception {
+        UUID userId = UUID.randomUUID();
+        UUID sessionId = UUID.randomUUID();
+
+        mockMvc.perform(delete("/api/review/sessions/{sessionId}", sessionId)
+                        .with(authentication(userId)))
+                .andExpect(status().isOk());
+
+        verify(reviewService).deleteSession(eq(userId), eq(sessionId));
     }
 
     private ReviewCardResponse reviewCard() {

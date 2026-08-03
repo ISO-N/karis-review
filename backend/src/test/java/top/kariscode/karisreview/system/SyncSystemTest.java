@@ -5,8 +5,8 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-
 class SyncSystemTest extends SystemTestSupport {
 
     @Test
@@ -29,6 +29,46 @@ class SyncSystemTest extends SystemTestSupport {
         JsonNode deleteDelta = data("GET", "/sync/bootstrap?event_cursor=" + nextCursor,
                 user.token(), null);
         assertTrue(deleteDelta.get("deleted_deck_ids").toString().contains(deckId));
+    }
+
+    @Test
+    void settingsChangeAppearsInDeltaUser() {
+        TestAccount user = register("sync-settings");
+        JsonNode full = data("GET", "/sync/bootstrap", user.token(), null);
+        long cursor = full.get("event_cursor").asLong();
+
+        data("PUT", "/settings", user.token(), Map.of("refresh_time", "03:00:00"));
+
+        JsonNode delta = data("GET", "/sync/bootstrap?event_cursor=" + cursor,
+                user.token(), null);
+        assertEquals("03:00:00", delta.get("user").get("refresh_time").asText());
+        assertTrue(delta.get("event_cursor").asLong() > cursor);
+    }
+
+    @Test
+    void deletedCardIdAppearsInDelta() {
+        TestAccount user = register("sync-del");
+        JsonNode full = data("GET", "/sync/bootstrap", user.token(), null);
+        long cursor = full.get("event_cursor").asLong();
+        String deckId = text(createDeck(user.token(), "删除卡牌组"), "id");
+        String cardId = text(createCard(user.token(), deckId, "待删卡", "反面"), "id");
+
+        data("DELETE", "/cards/" + cardId, user.token(), null);
+
+        JsonNode delta = data("GET", "/sync/bootstrap?event_cursor=" + cursor,
+                user.token(), null);
+        assertTrue(delta.get("deleted_card_ids").toString().contains(cardId));
+    }
+
+    @Test
+    void staleCursorRequiresFullReset() {
+        TestAccount user = register("sync-stale");
+        data("GET", "/sync/bootstrap", user.token(), null);
+
+        JsonNode delta = data("GET", "/sync/bootstrap?event_cursor=999999999",
+                user.token(), null);
+        assertTrue(delta.get("reset_required").asBoolean());
+        assertTrue(delta.get("event_cursor").asLong() < 999999999L);
     }
 
     private JsonNode createDeck(String token, String name) {
