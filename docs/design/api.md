@@ -394,6 +394,7 @@
 | page | int | 0 | 页码 |
 | size | int | 20 | 每页条数 |
 | filter | string | all | 卡片筛选：`all`、`new`、`due`、`learning`；`new` 返回 Stage 0 且非重学的卡片，按创建时间倒序 |
+| q | string | 空 | 按正面/反面不区分大小写搜索；与 `filter` 叠加，`%`、`_`、`\` 按字面值匹配，最长 100 字符 |
 
 **Response (200):**
 
