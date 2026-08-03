@@ -23,9 +23,14 @@ public interface CardRepository extends JpaRepository<Card, UUID> {
     List<Card> findByDeckIdOrderByCreatedAtAsc(UUID deckId);
     Page<Card> findByDeckIdOrderByCreatedAtAsc(UUID deckId, Pageable pageable);
     Page<Card> findByDeckIdAndLearningModeTrueOrderByCreatedAtAsc(UUID deckId, Pageable pageable);
+    @Query("SELECT c FROM Card c WHERE c.deckId = :deckId " +
+           "AND c.learningMode = false AND c.stage = 0 " +
+           "ORDER BY c.createdAt DESC")
+    Page<Card> findNewByDeckIdOrderByCreatedAtDesc(@Param("deckId") UUID deckId, Pageable pageable);
     Page<Card> findByDeckIdAndNextReviewDateNotNullAndNextReviewDateLessThanEqualOrderByNextReviewDateAsc(
             UUID deckId, LocalDate today, Pageable pageable);
     Optional<Card> findByIdAndUserId(UUID id, UUID userId);
+    List<Card> findByIdInAndUserId(List<UUID> ids, UUID userId);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT c FROM Card c WHERE c.id = :id AND c.userId = :userId")

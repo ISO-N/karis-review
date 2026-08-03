@@ -11,6 +11,7 @@ import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequ
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
+import top.kariscode.karisreview.card.dto.CardBatchDeleteRequest;
 import top.kariscode.karisreview.card.dto.CardCreateRequest;
 import top.kariscode.karisreview.card.dto.CardResponse;
 import top.kariscode.karisreview.card.dto.CardUpdateRequest;
@@ -26,6 +27,7 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
@@ -125,6 +127,31 @@ class CardControllerTest {
                         .with(authentication(userId)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value("卡片已删除"));
+    }
+
+    @Test
+    void batchDeleteCardsDeletesOwnedCards() throws Exception {
+        UUID userId = UUID.randomUUID();
+        UUID cardId = UUID.randomUUID();
+        when(cardService.deleteCards(eq(userId), anyList())).thenReturn(1);
+
+        mockMvc.perform(post("/api/cards/batch-delete")
+                        .with(authentication(userId))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"card_ids\":[\"" + cardId + "\"]}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("卡片已删除"))
+                .andExpect(jsonPath("$.data.deleted_cards").value(1));
+    }
+
+    @Test
+    void batchDeleteCardsValidatesEmptyIds() throws Exception {
+        mockMvc.perform(post("/api/cards/batch-delete")
+                        .with(authentication(UUID.randomUUID()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"card_ids\":[]}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(400));
     }
 
     @Test

@@ -65,8 +65,9 @@ class CardImportControllerTest {
     void importCardsReturnsCount() throws Exception {
         UUID userId = UUID.randomUUID();
         UUID deckId = UUID.randomUUID();
+        UUID cardId = UUID.randomUUID();
         when(cardImportService.importCards(eq(userId), eq(deckId), any(CardImportRequest.class)))
-                .thenReturn(new CardImportResult(2));
+                .thenReturn(new CardImportResult(2, List.of(cardId)));
 
         mockMvc.perform(post("/api/decks/{deckId}/cards/import", deckId)
                         .with(authentication(userId))
@@ -76,7 +77,8 @@ class CardImportControllerTest {
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value("卡片已导入"))
-                .andExpect(jsonPath("$.data.imported_cards").value(2));
+                .andExpect(jsonPath("$.data.imported_cards").value(2))
+                .andExpect(jsonPath("$.data.imported_card_ids[0]").value(cardId.toString()));
     }
 
     @Test

@@ -6,6 +6,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import top.kariscode.karisreview.card.dto.CardBatchDeleteRequest;
+import top.kariscode.karisreview.card.dto.CardBatchDeleteResult;
 import top.kariscode.karisreview.card.dto.CardCreateRequest;
 import top.kariscode.karisreview.card.dto.CardResponse;
 import top.kariscode.karisreview.card.dto.CardUpdateRequest;
@@ -76,5 +78,14 @@ public class CardController {
             @PathVariable UUID cardId) {
         cardService.deleteCard(userId, cardId);
         return ResponseEntity.ok(ApiResponse.success("卡片已删除", null));
+    }
+
+    @PostMapping("/cards/batch-delete")
+    public ResponseEntity<ApiResponse<CardBatchDeleteResult>> batchDeleteCards(
+            @AuthenticationPrincipal UUID userId,
+            @Valid @RequestBody CardBatchDeleteRequest request) {
+        int deletedCards = cardService.deleteCards(userId, request.getCardIds());
+        return ResponseEntity.ok(ApiResponse.success(
+                "卡片已删除", new CardBatchDeleteResult(deletedCards)));
     }
 }

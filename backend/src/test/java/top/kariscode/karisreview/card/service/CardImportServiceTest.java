@@ -22,6 +22,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
@@ -59,10 +60,20 @@ class CardImportServiceTest {
 
         CardImportRequest request = new CardImportRequest();
         request.setCards(List.of(item("正面一", "反面一"), item("正面二", "反面二")));
+        when(cardRepository.saveAll(any())).thenAnswer(invocation -> {
+            List<Card> cards = invocation.getArgument(0);
+            for (int i = 0; i < cards.size(); i++) {
+                cards.get(i).setId(UUID.randomUUID());
+            }
+            return cards;
+        });
 
         CardImportResult result = service.importCards(userId, deckId, request);
 
         assertEquals(2, result.getImportedCards());
+        assertNotNull(result.getImportedCardIds());
+        assertEquals(2, result.getImportedCardIds().size());
+        assertNotNull(result.getImportedCardIds().get(0));
         ArgumentCaptor<List<Card>> captor = ArgumentCaptor.forClass(List.class);
         verify(cardRepository).saveAll(captor.capture());
         assertEquals(2, captor.getValue().size());

@@ -62,8 +62,11 @@ public class CardImportService {
             cards.add(card);
         }
 
-        cardRepository.saveAll(cards);
-        return new CardImportResult(cards.size());
+        List<Card> savedCards = cardRepository.saveAll(cards);
+        List<UUID> importedCardIds = savedCards.stream()
+                .map(Card::getId)
+                .toList();
+        return new CardImportResult(savedCards.size(), importedCardIds);
     }
 
     private Deck requireDeck(UUID userId, UUID deckId) {

@@ -18,6 +18,7 @@ import top.kariscode.karisreview.auth.repository.UserRepository;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -48,6 +49,7 @@ public class CardService {
                             deckId, today, pageRequest);
             case "learning" -> cardRepository
                     .findByDeckIdAndLearningModeTrueOrderByCreatedAtAsc(deckId, pageRequest);
+            case "new" -> cardRepository.findNewByDeckIdOrderByCreatedAtDesc(deckId, pageRequest);
             default -> cardRepository.findByDeckIdOrderByCreatedAtAsc(deckId, pageRequest);
         };
         return cards.map(card -> toCardResponse(card, today));
@@ -86,6 +88,16 @@ public class CardService {
         Card card = cardRepository.findByIdAndUserId(cardId, userId)
                 .orElseThrow(() -> new BusinessException(404, "卡片不存在"));
         cardRepository.delete(card);
+    }
+
+    @Transactional
+    public int deleteCards(UUID userId, List<UUID> cardIds) {
+        if (cardIds == null || cardIds.isEmpty()) {
+            throw new BusinessException(400, "卡片 ID 列表不能为空");
+        }
+        List<Card> ownedCards = cardRepository.findByIdInAndUserId(cardIds, userId);
+        cardRepository.deleteAll(ownedCards);
+        return ownedCards.size();
     }
 
     public Card getCardForUser(UUID userId, UUID cardId) {
