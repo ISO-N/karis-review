@@ -52,6 +52,7 @@ class StatsControllerTest {
         OverviewStatsResponse stats = new OverviewStatsResponse();
         stats.setTotalCards(10);
         stats.setTotalDecks(2);
+        stats.setNewCards(1);
         stats.setStageDistribution(List.of(10L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L));
         stats.setDueStageDistribution(List.of(1L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L));
         when(statsService.getOverview(userId)).thenReturn(stats);
@@ -59,7 +60,8 @@ class StatsControllerTest {
         mockMvc.perform(get("/api/stats/overview").with(authentication(userId)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.total_cards").value(10))
-                .andExpect(jsonPath("$.data.total_decks").value(2));
+                .andExpect(jsonPath("$.data.total_decks").value(2))
+                .andExpect(jsonPath("$.data.new_cards").value(1));
     }
 
     @Test
@@ -98,12 +100,12 @@ class StatsControllerTest {
         UUID userId = UUID.randomUUID();
         UUID deckId = UUID.randomUUID();
         when(statsService.getDeckStats(userId, deckId))
-                .thenThrow(new BusinessException(404, "牌组不存在"));
+                .thenThrow(new BusinessException(404, "卡组不存在"));
 
         mockMvc.perform(get("/api/stats/deck/{deckId}", deckId)
                         .with(authentication(userId)))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.message").value("牌组不存在"));
+                .andExpect(jsonPath("$.message").value("卡组不存在"));
     }
 
     private RequestPostProcessor authentication(UUID userId) {

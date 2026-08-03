@@ -48,6 +48,33 @@ class ReviewStatsSystemTest extends SystemTestSupport {
     }
 
     @Test
+    void overviewNewCardsCountsOnlyStageZeroNonLearningCards() {
+        TestAccount user = register("overview-new");
+        String deckId = text(createDeck(user.token(), "新卡统计"), "id");
+        String learningId = text(createCard(user.token(), deckId, "学习卡", "反面"), "id");
+        String reviewedId = text(createCard(user.token(), deckId, "复习卡", "反面"), "id");
+        createCard(user.token(), deckId, "新卡", "反面");
+
+        JsonNode forget = data("POST", "/review/" + learningId + "/rate", user.token(),
+                Map.of("rating", "FORGET"));
+        assertEquals(true, forget.get("learning_mode").asBoolean());
+        data("POST", "/review/" + reviewedId + "/rate", user.token(),
+                Map.of("rating", "FAMILIAR"));
+
+        UUID ownerId = userId(user.email());
+        assertEquals(1, jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM cards WHERE user_id = ? AND learning_mode = true",
+                Integer.class, ownerId));
+        assertEquals(1, jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM cards WHERE user_id = ? AND stage = 0 AND learning_mode = false",
+                Integer.class, ownerId));
+
+
+        JsonNode overview = data("GET", "/stats/overview", user.token(), null);
+        assertEquals(1, overview.get("new_cards").asInt());
+    }
+
+    @Test
     void forgetRelearningAndVagueReentryUseSchedulingRules() {
         TestAccount user = register("review-schedule");
         String deckId = text(createDeck(user.token(), "排期"), "id");
