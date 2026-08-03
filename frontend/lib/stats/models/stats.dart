@@ -5,6 +5,7 @@ class OverviewStats {
   final int reviewedToday;
   final int learnedToday;
   final int masteredCards;
+  final int newCards;
   final int learningCards;
   final List<int> stageDistribution;
   final List<int> dueStageDistribution;
@@ -16,6 +17,7 @@ class OverviewStats {
     required this.reviewedToday,
     required this.learnedToday,
     required this.masteredCards,
+    required this.newCards,
     required this.learningCards,
     List<int>? stageDistribution,
     List<int>? dueStageDistribution,
@@ -30,6 +32,7 @@ class OverviewStats {
       reviewedToday: (json['reviewed_today'] as num?)?.toInt() ?? 0,
       learnedToday: (json['learned_today'] as num?)?.toInt() ?? 0,
       masteredCards: (json['mastered_cards'] as num?)?.toInt() ?? 0,
+      newCards: (json['new_cards'] as num?)?.toInt() ?? 0,
       learningCards: (json['learning_cards'] as num?)?.toInt() ?? 0,
       stageDistribution: _parseDistribution(json['stage_distribution']),
       dueStageDistribution: _parseDistribution(json['due_stage_distribution']),

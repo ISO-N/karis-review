@@ -226,6 +226,7 @@ class OfflineRepository {
       reviewedToday: reviewedToday,
       learnedToday: learnedToday,
       masteredCards: stages.where((s) => s >= 5).length,
+      newCards: cards.where((c) => c.stage == 0 && !c.learningMode).length,
       learningCards: stages.where((s) => s < 5).length,
       stageDistribution: _distribution(stages),
       dueStageDistribution: _distribution(
