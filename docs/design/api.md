@@ -1067,7 +1067,7 @@
 | user | object | 用户邮箱与刷新时间 |
 | decks | array | 全量时为牌组嵌套卡片；增量时为变更牌组 |
 | changed_cards | array | 增量时发生创建/更新的卡片 |
-| review_logs | array | 全量时全部日志；增量时新增日志 |
+| review_logs | array | 全量时全部日志；增量时新增日志；离线评分日志包含 `client_request_id` |
 | deleted_deck_ids | array | 增量时被删除的牌组 ID |
 | deleted_card_ids | array | 增量时被删除的卡片 ID |
 | deleted_review_log_ids | array | 增量时被删除的复习日志 ID |
@@ -1078,5 +1078,6 @@
 该接口支持 `Accept: application/x-protobuf`；Protobuf 路径直接返回 `SyncResponse`，JSON 路径保持统一包装。
 
 - 所有复习队列和卡片响应都返回 `review_version`。
+- `review_logs` 会回传 `client_request_id`，客户端用它替换本地待同步镜像，避免同一评分被重复统计。
 - 单卡评分请求可携带 `client_request_id` 与 `review_version`；版本不一致返回 409。
 - 两个设备同时评分时，服务端用事务行锁串行处理，后提交方因版本不一致被拒绝。

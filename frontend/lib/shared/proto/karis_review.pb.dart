@@ -396,6 +396,7 @@ class ReviewLog extends $pb.GeneratedMessage {
     $core.int? stageAfter,
     $core.String? reviewedAt,
     $core.bool? isNewCard,
+    $core.String? clientRequestId,
   }) {
     final result = create();
     if (id != null) result.id = id;
@@ -405,6 +406,7 @@ class ReviewLog extends $pb.GeneratedMessage {
     if (stageAfter != null) result.stageAfter = stageAfter;
     if (reviewedAt != null) result.reviewedAt = reviewedAt;
     if (isNewCard != null) result.isNewCard = isNewCard;
+    if (clientRequestId != null) result.clientRequestId = clientRequestId;
     return result;
   }
 
@@ -428,6 +430,7 @@ class ReviewLog extends $pb.GeneratedMessage {
     ..aI(5, _omitFieldNames ? '' : 'stageAfter')
     ..aOS(6, _omitFieldNames ? '' : 'reviewedAt')
     ..aOB(7, _omitFieldNames ? '' : 'isNewCard')
+    ..aOS(8, _omitFieldNames ? '' : 'clientRequestId')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -510,6 +513,15 @@ class ReviewLog extends $pb.GeneratedMessage {
   $core.bool hasIsNewCard() => $_has(6);
   @$pb.TagNumber(7)
   void clearIsNewCard() => $_clearField(7);
+
+  @$pb.TagNumber(8)
+  $core.String get clientRequestId => $_getSZ(7);
+  @$pb.TagNumber(8)
+  set clientRequestId($core.String value) => $_setString(7, value);
+  @$pb.TagNumber(8)
+  $core.bool hasClientRequestId() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearClientRequestId() => $_clearField(8);
 }
 
 class SyncResponse extends $pb.GeneratedMessage {

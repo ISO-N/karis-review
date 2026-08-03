@@ -290,6 +290,7 @@ settings ──► auth, common
 - 服务端开启 gzip 压缩，稳定列表/统计接口返回私有 ETag 并支持 304。
 - 同步 Bootstrap、复习会话/分页、复习队列、评分同步支持同 URL Protobuf 内容协商；默认 JSON，客户端生产请求优先使用 Protobuf。
 - 前端 `SyncService` 对刷新做单飞行与冷却，评分同步做防抖批量提交，避免重复下载和重复请求。
+- `review_logs` 同步回传时携带 `client_request_id`，Drift 用它替换本地待同步镜像，统计层对旧重复数据去重，避免同一评分被计两次。
 
 ## 7.2 自动刷新与关键时机同步
 

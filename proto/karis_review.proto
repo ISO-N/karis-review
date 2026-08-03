@@ -43,6 +43,7 @@ message ReviewLog {
   int32 stage_after = 5;
   string reviewed_at = 6;
   bool is_new_card = 7;
+  optional string client_request_id = 8;
 }
 
 message SyncResponse {

@@ -282,6 +282,178 @@ void main() {
     expect(deckStats.reviewedToday, 1);
   });
 
+  test('synced server log replaces local mirror instead of double counting', () async {
+    await offline.saveBootstrap(
+      userId: 'user-1',
+      email: 'a@b.c',
+      refreshTime: '04:00:00',
+      serverTime: DateTime.utc(2025, 8, 10, 12),
+      decks: [
+        {
+          'id': 'deck-1',
+          'name': '日语',
+          'created_at': '2025-08-01T00:00:00Z',
+          'updated_at': '2025-08-01T00:00:00Z',
+          'cards': [
+            {
+              'id': 'card-1',
+              'deck_id': 'deck-1',
+              'front': '单词',
+              'back': '释义',
+              'stage': 1,
+              'consecutive_familiar': 0,
+              'next_review_date': '2025-08-10',
+              'learning_mode': false,
+              'reentry_stage': null,
+              'learning_step': 0,
+              'review_version': 1,
+              'created_at': '2025-08-01T00:00:00Z',
+              'updated_at': '2025-08-10T12:00:00Z',
+            },
+          ],
+        },
+      ],
+      reviewLogs: [],
+    );
+
+    final outcome = LocalSchedulingEngine().rate(
+      FlashCard(
+        id: 'card-1',
+        deckId: 'deck-1',
+        front: '单词',
+        back: '释义',
+        stage: 1,
+        learningMode: false,
+        reviewVersion: 1,
+      ),
+      'FAMILIAR',
+      nowUtc: DateTime.utc(2025, 8, 10, 12),
+      refreshTime: '04:00:00',
+    );
+    await offline.applyLocalRating(
+      userId: 'user-1',
+      card: outcome.card,
+      result: outcome.result,
+      clientRequestId: 'request-1',
+      ratedAt: DateTime.utc(2025, 8, 10, 12),
+      reviewVersionBefore: outcome.reviewVersionBefore,
+      isNewCard: outcome.wasNewCard,
+    );
+    expect((await offline.getOverviewStats('user-1')).reviewedToday, 1);
+
+    await offline.applyDelta(userId: 'user-1', data: {
+      'decks': [],
+      'changed_cards': [],
+      'review_logs': [
+        {
+          'id': 'server-log-1',
+          'card_id': 'card-1',
+          'rating': 'FAMILIAR',
+          'stage_before': 1,
+          'stage_after': 2,
+          'is_new_card': false,
+          'reviewed_at': '2025-08-10T20:00:00',
+          'client_request_id': 'request-1',
+        },
+      ],
+      'deleted_deck_ids': [],
+      'deleted_card_ids': [],
+      'deleted_review_log_ids': [],
+      'event_cursor': 2,
+      'has_more': false,
+      'reset_required': false,
+    });
+
+    expect(await offline.getPendingRatings('user-1'), isEmpty);
+    final stats = await offline.getOverviewStats('user-1');
+    expect(stats.reviewedToday, 1);
+    expect(stats.learnedToday, 0);
+  });
+
+  test('legacy duplicate server log is deduped from local stats', () async {
+    await offline.saveBootstrap(
+      userId: 'user-1',
+      email: 'a@b.c',
+      refreshTime: '04:00:00',
+      serverTime: DateTime.utc(2025, 8, 10, 12),
+      decks: [
+        {
+          'id': 'deck-1',
+          'name': '日语',
+          'created_at': '2025-08-01T00:00:00Z',
+          'updated_at': '2025-08-01T00:00:00Z',
+          'cards': [
+            {
+              'id': 'card-1',
+              'deck_id': 'deck-1',
+              'front': '单词',
+              'back': '释义',
+              'stage': 1,
+              'consecutive_familiar': 0,
+              'next_review_date': '2025-08-10',
+              'learning_mode': false,
+              'reentry_stage': null,
+              'learning_step': 0,
+              'review_version': 1,
+              'created_at': '2025-08-01T00:00:00Z',
+              'updated_at': '2025-08-10T12:00:00Z',
+            },
+          ],
+        },
+      ],
+      reviewLogs: [],
+    );
+
+    final outcome = LocalSchedulingEngine().rate(
+      FlashCard(
+        id: 'card-1',
+        deckId: 'deck-1',
+        front: '单词',
+        back: '释义',
+        stage: 1,
+        learningMode: false,
+        reviewVersion: 1,
+      ),
+      'FAMILIAR',
+      nowUtc: DateTime.utc(2025, 8, 10, 12),
+      refreshTime: '04:00:00',
+    );
+    await offline.applyLocalRating(
+      userId: 'user-1',
+      card: outcome.card,
+      result: outcome.result,
+      clientRequestId: 'request-legacy',
+      ratedAt: DateTime.utc(2025, 8, 10, 12, 0, 0, 123),
+      reviewVersionBefore: outcome.reviewVersionBefore,
+      isNewCard: outcome.wasNewCard,
+    );
+
+    await offline.applyDelta(userId: 'user-1', data: {
+      'decks': [],
+      'changed_cards': [],
+      'review_logs': [
+        {
+          'id': 'server-log-legacy',
+          'card_id': 'card-1',
+          'rating': 'FAMILIAR',
+          'stage_before': 1,
+          'stage_after': 2,
+          'is_new_card': false,
+          'reviewed_at': '2025-08-10T20:00:00',
+        },
+      ],
+      'deleted_deck_ids': [],
+      'deleted_card_ids': [],
+      'deleted_review_log_ids': [],
+      'event_cursor': 2,
+      'has_more': false,
+      'reset_required': false,
+    });
+
+    final stats = await offline.getOverviewStats('user-1');
+    expect(stats.reviewedToday, 1);
+  });
+
   test('trend maps logs to refresh days and excludes new learning from reviewed', () async {
     await offline.saveBootstrap(
       userId: 'user-1',

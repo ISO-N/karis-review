@@ -196,6 +196,6 @@ public class SyncService {
         return new BootstrapReviewLog(
                 log.getId(), log.getCardId(), log.getRating(),
                 log.getStageBefore(), log.getStageAfter(), log.getReviewedAt(),
-                log.isNewCard());
+                log.isNewCard(), log.getClientRequestId());
     }
 }

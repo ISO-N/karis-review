@@ -313,6 +313,16 @@ class OfflineRepository {
         final isNewCard = (map['is_new_card'] as bool?) ??
             (map['new_card'] as bool?) ??
             (rating == 'FAMILIAR' && _int(map['stage_before']) == 0);
+        final clientRequestId = map['client_request_id'] as String?;
+        if (clientRequestId != null) {
+          await (db.delete(db.localReviewLogs)
+                ..where(
+                  (t) =>
+                      t.userId.equals(userId) &
+                      t.clientRequestId.equals(clientRequestId),
+                ))
+              .go();
+        }
         await db.into(db.localReviewLogs).insertOnConflictUpdate(
               LocalReviewLogsCompanion.insert(
                 id: map['id'] as String,
@@ -322,7 +332,9 @@ class OfflineRepository {
                 stageBefore: _int(map['stage_before']),
                 stageAfter: _int(map['stage_after']),
                 isNewCard: Value(isNewCard),
-                reviewedAt: _dateTime(map['reviewed_at']) ?? DateTime.now().toUtc(),
+                reviewedAt: _dateTime(map['reviewed_at']) ??
+                    DateTime.now().toUtc(),
+                clientRequestId: Value(clientRequestId),
                 syncStatus: const Value('SYNCED'),
               ),
             );
@@ -385,6 +397,16 @@ class OfflineRepository {
         final isNewCard = (map['is_new_card'] as bool?) ??
             (map['new_card'] as bool?) ??
             (rating == 'FAMILIAR' && _int(map['stage_before']) == 0);
+        final clientRequestId = map['client_request_id'] as String?;
+        if (clientRequestId != null) {
+          await (db.delete(db.localReviewLogs)
+                ..where(
+                  (t) =>
+                      t.userId.equals(userId) &
+                      t.clientRequestId.equals(clientRequestId),
+                ))
+              .go();
+        }
         await db.into(db.localReviewLogs).insertOnConflictUpdate(
               LocalReviewLogsCompanion.insert(
                 id: map['id'] as String,
@@ -396,6 +418,7 @@ class OfflineRepository {
                 isNewCard: Value(isNewCard),
                 reviewedAt: _dateTime(map['reviewed_at']) ??
                     DateTime.now().toUtc(),
+                clientRequestId: Value(clientRequestId),
                 syncStatus: const Value('SYNCED'),
               ),
             );
@@ -655,7 +678,72 @@ class OfflineRepository {
   }
 
   Future<List<LocalReviewLog>> _getLogs(String userId) async {
-    return (db.select(db.localReviewLogs)..where((t) => t.userId.equals(userId))).get();
+    final rows = await (db.select(db.localReviewLogs)
+          ..where((t) => t.userId.equals(userId)))
+        .get();
+
+    final clientDeduped = <LocalReviewLog>[];
+    final byClientId = <String, LocalReviewLog>{};
+    for (final log in rows) {
+      if (log.syncStatus == 'DISCARDED') continue;
+      final clientId = log.clientRequestId;
+      if (clientId != null) {
+        final existing = byClientId[clientId];
+        if (existing != null) {
+          if (_isLocalMirror(log) && !_isLocalMirror(existing)) continue;
+          if (!_isLocalMirror(log) && _isLocalMirror(existing)) {
+            final index = clientDeduped.indexOf(existing);
+            clientDeduped[index] = log;
+            byClientId[clientId] = log;
+          }
+          continue;
+        }
+        byClientId[clientId] = log;
+      }
+      clientDeduped.add(log);
+    }
+
+    final result = <LocalReviewLog>[];
+    final byEvent = <String, LocalReviewLog>{};
+    for (final log in clientDeduped) {
+      final eventKey = _reviewLogEventKey(log);
+      final existing = byEvent[eventKey];
+      if (existing != null) {
+        if (_isLocalMirror(log) && !_isLocalMirror(existing)) continue;
+        if (!_isLocalMirror(log) && _isLocalMirror(existing)) {
+          final index = result.indexOf(existing);
+          result[index] = log;
+          byEvent[eventKey] = log;
+        }
+        continue;
+      }
+      byEvent[eventKey] = log;
+      result.add(log);
+    }
+    return result;
+  }
+
+  bool _isLocalMirror(LocalReviewLog log) =>
+      log.clientRequestId != null && log.clientRequestId == log.id;
+
+  String _reviewLogEventKey(LocalReviewLog log) {
+    final reviewedAt = log.reviewedAt.toUtc();
+    final reviewedSecond = DateTime.utc(
+      reviewedAt.year,
+      reviewedAt.month,
+      reviewedAt.day,
+      reviewedAt.hour,
+      reviewedAt.minute,
+      reviewedAt.second,
+    ).microsecondsSinceEpoch;
+    return [
+      log.cardId,
+      log.rating,
+      log.stageBefore,
+      log.stageAfter,
+      reviewedSecond,
+      log.isNewCard,
+    ].join('|');
   }
 
   Future<void> _updateLogStatus(String userId, String clientRequestId, String status) async {

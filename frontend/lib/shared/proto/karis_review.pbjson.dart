@@ -124,6 +124,18 @@ const ReviewLog$json = {
     {'1': 'stage_after', '3': 5, '4': 1, '5': 5, '10': 'stageAfter'},
     {'1': 'reviewed_at', '3': 6, '4': 1, '5': 9, '10': 'reviewedAt'},
     {'1': 'is_new_card', '3': 7, '4': 1, '5': 8, '10': 'isNewCard'},
+    {
+      '1': 'client_request_id',
+      '3': 8,
+      '4': 1,
+      '5': 9,
+      '9': 0,
+      '10': 'clientRequestId',
+      '17': true
+    },
+  ],
+  '8': [
+    {'1': '_client_request_id'},
   ],
 };
 
@@ -132,7 +144,9 @@ final $typed_data.Uint8List reviewLogDescriptor = $convert.base64Decode(
     'CglSZXZpZXdMb2cSDgoCaWQYASABKAlSAmlkEhcKB2NhcmRfaWQYAiABKAlSBmNhcmRJZBIWCg'
     'ZyYXRpbmcYAyABKAlSBnJhdGluZxIhCgxzdGFnZV9iZWZvcmUYBCABKAVSC3N0YWdlQmVmb3Jl'
     'Eh8KC3N0YWdlX2FmdGVyGAUgASgFUgpzdGFnZUFmdGVyEh8KC3Jldmlld2VkX2F0GAYgASgJUg'
-    'pyZXZpZXdlZEF0Eh4KC2lzX25ld19jYXJkGAcgASgIUglpc05ld0NhcmQ=');
+    'pyZXZpZXdlZEF0Eh4KC2lzX25ld19jYXJkGAcgASgIUglpc05ld0NhcmQSLwoRY2xpZW50X3Jl'
+    'cXVlc3RfaWQYCCABKAlIAFIPY2xpZW50UmVxdWVzdElkiAEBQhQKEl9jbGllbnRfcmVxdWVzdF'
+    '9pZA==');
 
 @$core.Deprecated('Use syncResponseDescriptor instead')
 const SyncResponse$json = {

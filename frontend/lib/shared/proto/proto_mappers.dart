@@ -57,6 +57,8 @@ Map<String, dynamic> reviewLogToMap(ReviewLog log) {
     'stage_after': log.stageAfter,
     'reviewed_at': log.reviewedAt,
     'is_new_card': log.isNewCard,
+    'client_request_id':
+        log.hasClientRequestId() ? log.clientRequestId : null,
   };
 }
 
