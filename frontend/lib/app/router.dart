@@ -106,7 +106,8 @@ final routerProvider = Provider<GoRouter>((ref) {
             state,
             CardListPage(
               deckId: state.pathParameters['deckId']!,
-              initialFilter: filter == 'due' || filter == 'learning'
+              initialFilter:
+                  filter == 'due' || filter == 'learning' || filter == 'new'
                   ? filter!
                   : 'all',
             ),

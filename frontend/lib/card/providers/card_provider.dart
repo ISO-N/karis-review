@@ -120,6 +120,22 @@ class CardListNotifier extends StateNotifier<AsyncValue<List<FlashCard>>> {
     }
   }
 
+  Future<void> deleteCards(List<String> cardIds) async {
+    if (cardIds.isEmpty) return;
+    try {
+      const chunkSize = 1000;
+      for (var i = 0; i < cardIds.length; i += chunkSize) {
+        final end = i + chunkSize > cardIds.length
+            ? cardIds.length
+            : i + chunkSize;
+        await _repository.batchDeleteCards(cardIds.sublist(i, end));
+      }
+      await loadCards();
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+    }
+  }
+
   Future<void> _loadLocalCards() async {
     try {
       final meta = await offline!.getActiveSyncMeta();

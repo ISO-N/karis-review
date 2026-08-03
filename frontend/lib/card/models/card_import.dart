@@ -1,3 +1,22 @@
+class CardImportResult {
+  final int importedCards;
+  final List<String> importedCardIds;
+
+  const CardImportResult({
+    required this.importedCards,
+    this.importedCardIds = const [],
+  });
+
+  factory CardImportResult.fromJson(Map<String, dynamic> json) {
+    return CardImportResult(
+      importedCards: (json['imported_cards'] as num?)?.toInt() ?? 0,
+      importedCardIds: (json['imported_card_ids'] as List<dynamic>? ?? const [])
+          .map((id) => id.toString())
+          .toList(),
+    );
+  }
+}
+
 class CardImportPreviewItem {
   final int index;
   final String front;

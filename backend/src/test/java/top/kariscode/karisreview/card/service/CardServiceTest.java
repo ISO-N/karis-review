@@ -106,6 +106,22 @@ class CardServiceTest {
     }
 
     @Test
+    void getDeckCardsUsesNewFilter() {
+        UUID userId = UUID.randomUUID();
+        UUID deckId = UUID.randomUUID();
+        Card card = card(deckId, userId);
+        when(deckRepository.existsByIdAndUserId(deckId, userId)).thenReturn(true);
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user(userId)));
+        when(cardRepository.findNewByDeckIdOrderByCreatedAtDesc(deckId, PageRequest.of(0, 20)))
+                .thenReturn(new PageImpl<>(List.of(card)));
+
+        Page<CardResponse> page = service.getDeckCards(userId, deckId, 0, 20, "new");
+
+        assertEquals(1, page.getContent().size());
+        assertFalse(page.getContent().get(0).isLearningMode());
+    }
+
+    @Test
     void getDeckCardsRejectsDeckNotOwned() {
         UUID userId = UUID.randomUUID();
         UUID deckId = UUID.randomUUID();
@@ -229,6 +245,34 @@ class CardServiceTest {
         service.deleteCard(userId, card.getId());
 
         verify(cardRepository).delete(card);
+    }
+
+    @Test
+    void deleteCardsDeletesOnlyOwnedCardsAndIgnoresMissingIds() {
+        UUID userId = UUID.randomUUID();
+        UUID deckId = UUID.randomUUID();
+        Card ownedCard = card(deckId, userId);
+        UUID missingId = UUID.randomUUID();
+        when(cardRepository.findByIdInAndUserId(List.of(ownedCard.getId(), missingId), userId))
+                .thenReturn(List.of(ownedCard));
+
+        int deleted = service.deleteCards(userId, List.of(ownedCard.getId(), missingId));
+
+        assertEquals(1, deleted);
+        verify(cardRepository).deleteAll(List.of(ownedCard));
+    }
+
+    @Test
+    void deleteCardsRejectsEmptyIds() {
+        UUID userId = UUID.randomUUID();
+
+        BusinessException exception = assertThrows(
+                BusinessException.class,
+                () -> service.deleteCards(userId, List.of()));
+
+        assertEquals(400, exception.getCode());
+        assertEquals("卡片 ID 列表不能为空", exception.getMessage());
+        verify(cardRepository, never()).deleteAll(any());
     }
 
     @Test

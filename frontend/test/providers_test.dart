@@ -197,6 +197,33 @@ void main() {
 
       expect(notifier.state.value!.single.id, 'card-1');
     });
+
+    test('deleteCards chunks requests and reloads', () async {
+      final repo = MockCardRepository();
+      when(
+        () => repo.getDeckCards('deck-1', size: 500, filter: 'all'),
+      ).thenAnswer(
+        (_) async => {
+          'content': [cardJson()],
+        },
+      );
+      when(() => repo.batchDeleteCards(any())).thenAnswer((_) async {});
+      final notifier = CardListNotifier(
+        repo,
+        const CardListArgs('deck-1', 'all'),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      when(
+        () => repo.getDeckCards('deck-1', size: 500, filter: 'all'),
+      ).thenAnswer((_) async => {'content': []});
+
+      final ids = List.generate(1001, (index) => 'card-$index');
+      await notifier.deleteCards(ids);
+
+      verify(() => repo.batchDeleteCards(any())).called(2);
+      expect(notifier.state.value, isEmpty);
+    });
   });
 
   group('ReviewNotifier', () {

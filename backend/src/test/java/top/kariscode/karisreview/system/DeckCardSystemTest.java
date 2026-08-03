@@ -3,6 +3,9 @@ package top.kariscode.karisreview.system;
 import com.fasterxml.jackson.databind.JsonNode;
 import org.junit.jupiter.api.Test;
 
+import java.sql.Timestamp;
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -93,6 +96,49 @@ class DeckCardSystemTest extends SystemTestSupport {
                 user.token(), null);
         assertEquals(1, due.get("total_elements").asInt());
         assertTrue(due.get("content").get(0).get("due").asBoolean());
+    }
+
+    @Test
+    void importedCardsCanBeFilteredAndBatchDeletedWithReviewLogCascade() {
+        TestAccount user = register("card-batch");
+        JsonNode deck = createDeck(user.token(), "批量删除");
+        String deckId = text(deck, "id");
+        JsonNode imported = data("POST", "/decks/" + deckId + "/cards/import", user.token(),
+                Map.of("cards", List.of(
+                        Map.of("front", "新卡一", "back", "反面一"),
+                        Map.of("front", "新卡二", "back", "反面二"))));
+        assertEquals(2, imported.get("imported_cards").asInt());
+        assertTrue(imported.has("imported_card_ids"));
+        String firstId = imported.get("imported_card_ids").get(0).asText();
+        String secondId = imported.get("imported_card_ids").get(1).asText();
+
+        jdbcTemplate.update(
+                "UPDATE cards SET created_at = ? WHERE id = ?",
+                Timestamp.valueOf(LocalDateTime.now().minusMinutes(1)),
+                UUID.fromString(firstId));
+
+        JsonNode newCards = data("GET", "/decks/" + deckId + "/cards?filter=new",
+                user.token(), null);
+        assertEquals(2, newCards.get("total_elements").asInt());
+        assertEquals(secondId, text(newCards.get("content").get(0), "id"));
+
+        data("POST", "/review/" + firstId + "/rate", user.token(),
+                Map.of("rating", "FAMILIAR"));
+        Integer logsBefore = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM review_logs WHERE user_id = ?",
+                Integer.class, userId(user.email()));
+        assertEquals(1, logsBefore);
+
+        JsonNode deleted = data("POST", "/cards/batch-delete", user.token(),
+                Map.of("card_ids", List.of(firstId, secondId)));
+        assertEquals(2, deleted.get("deleted_cards").asInt());
+
+        JsonNode remaining = data("GET", "/decks/" + deckId + "/cards", user.token(), null);
+        assertEquals(0, remaining.get("total_elements").asInt());
+        Integer logsAfter = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM review_logs WHERE user_id = ?",
+                Integer.class, userId(user.email()));
+        assertEquals(0, logsAfter);
     }
 
     private JsonNode createDeck(String token, String name) {
