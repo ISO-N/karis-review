@@ -10,6 +10,7 @@ import '../../shared/widgets/section_widgets.dart';
 import '../models/auth_config.dart';
 import '../providers/auth_provider.dart';
 
+import '../../l10n/app_localizations.dart';
 class RegisterPage extends ConsumerStatefulWidget {
   const RegisterPage({super.key});
 
@@ -18,6 +19,7 @@ class RegisterPage extends ConsumerStatefulWidget {
 }
 
 class _RegisterPageState extends ConsumerState<RegisterPage> {
+  KarisReviewLocalizations get l10n => KarisReviewLocalizations.of(context)!;
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -115,18 +117,18 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 24),
+                SizedBox(height: 24),
                 const Kicker('KARIS REVIEW'),
-                const SizedBox(height: 8),
+                SizedBox(height: 8),
                 KarisHeading(
                   child: Text('创建账号', style: karisDisplay(fontSize: 32)),
                 ),
-                const SizedBox(height: 10),
-                const Text(
-                  '一个专注的间隔重复复习空间',
+                SizedBox(height: 10),
+                Text(
+          l10n.authRegisterSubtitle,
                   style: TextStyle(color: KarisColors.stone, fontSize: 14),
                 ),
-                const SizedBox(height: 32),
+                SizedBox(height: 32),
                 TextFormField(
                   controller: _emailController,
                   focusNode: _emailFocus,
@@ -146,7 +148,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                     return null;
                   },
                 ),
-                const SizedBox(height: 14),
+                SizedBox(height: 14),
                 TextFormField(
                   controller: _passwordController,
                   focusNode: _passwordFocus,
@@ -176,7 +178,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                     return null;
                   },
                 ),
-                const SizedBox(height: 14),
+                SizedBox(height: 14),
                 TextFormField(
                   controller: _confirmController,
                   focusNode: _confirmFocus,
@@ -194,7 +196,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                   },
                 ),
                 if (config.inviteCodeRequired) ...[
-                  const SizedBox(height: 14),
+                  SizedBox(height: 14),
                   TextFormField(
                     controller: _inviteController,
                     focusNode: _inviteFocus,
@@ -213,7 +215,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                   ),
                 ],
                 if (authState.error != null) ...[
-                  const SizedBox(height: 14),
+                  SizedBox(height: 14),
                   Text(
                     authState.error!,
                     style: const TextStyle(
@@ -222,11 +224,11 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                     ),
                   ),
                 ],
-                const SizedBox(height: 24),
+                SizedBox(height: 24),
                 FilledButton(
                   onPressed: authState.isLoading ? null : () => _register(config),
                   child: authState.isLoading
-                      ? const SizedBox(
+                      ? SizedBox(
                           width: 20,
                           height: 20,
                           child: CircularProgressIndicator(
@@ -236,7 +238,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                         )
                       : const Text('注册'),
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: 12),
                 TextButton(
                   onPressed: () => context.go('/login'),
                   child: const Text('已有账号？立即登录'),

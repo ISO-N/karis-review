@@ -18,6 +18,7 @@ import '../../sync/providers.dart';
 import '../providers/settings_provider.dart';
 import '../repositories/settings_repository.dart';
 
+import '../../l10n/app_localizations.dart';
 class SettingsPage extends ConsumerWidget {
   const SettingsPage({super.key});
 
@@ -46,7 +47,7 @@ class SettingsPage extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const _SettingsHeader(),
-                  const SizedBox(height: 20),
+                  SizedBox(height: 20),
                   if (settingsState.isLoading)
                     const Padding(
                       padding: EdgeInsets.symmetric(vertical: 60),
@@ -56,7 +57,7 @@ class SettingsPage extends ConsumerWidget {
                     )
                   else ...[
                     _AccountBlock(settingsState: settingsState),
-                    const SizedBox(height: 22),
+                    SizedBox(height: 22),
                     if (isTablet)
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -67,7 +68,7 @@ class SettingsPage extends ConsumerWidget {
                               ref: ref,
                             ),
                           ),
-                          const SizedBox(width: 28),
+                          SizedBox(width: 28),
                           Expanded(
                             child: _DataBlock(context: context, ref: ref),
                           ),
@@ -78,10 +79,10 @@ class SettingsPage extends ConsumerWidget {
                         settingsState: settingsState,
                         ref: ref,
                       ),
-                      const SizedBox(height: 22),
+                      SizedBox(height: 22),
                       _DataBlock(context: context, ref: ref),
                     ],
-                    const SizedBox(height: 22),
+                    SizedBox(height: 22),
                     _LogoutButton(ref: ref),
                   ],
                 ],
@@ -112,6 +113,7 @@ class _SettingsHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+      final l10n = KarisReviewLocalizations.of(context)!;
     return Row(
       children: [
         Expanded(
@@ -119,9 +121,9 @@ class _SettingsHeader extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Kicker('SETTINGS'),
-              const SizedBox(height: 7),
+              SizedBox(height: 7),
               KarisHeading(
-                child: Text('设置', style: karisDisplay(fontSize: 27)),
+                child: Text(l10n.settingsTitle, style: karisDisplay(fontSize: 27)),
               ),
             ],
           ),
@@ -149,10 +151,11 @@ class _AccountBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+      final l10n = KarisReviewLocalizations.of(context)!;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SectionHeader(title: '账号'),
+        SectionHeader(title: l10n.settingsAccount),
         Container(
           width: double.infinity,
           constraints: const BoxConstraints(minHeight: 58),
@@ -166,13 +169,13 @@ class _AccountBlock extends StatelessWidget {
           child: Row(
             children: [
               const _SettingIcon(icon: Icons.mail_outline),
-              const SizedBox(width: 12),
+              SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      '邮箱',
+                    Text(
+          l10n.settingsEmail,
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
@@ -180,7 +183,7 @@ class _AccountBlock extends StatelessWidget {
                         letterSpacing: 0,
                       ),
                     ),
-                    const SizedBox(height: 3),
+                    SizedBox(height: 3),
                     Text(
                       settingsState.email,
                       style: karisMono(fontSize: 11, color: KarisColors.stone),
@@ -204,14 +207,15 @@ class _ReviewSettingsBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+      final l10n = KarisReviewLocalizations.of(context)!;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SectionHeader(title: '复习设置'),
+        SectionHeader(title: l10n.settingsReview),
         SettingsActionTile(
           icon: Icons.schedule_outlined,
-          title: '每日刷新时间',
-          subtitle: '过此时间后计入新的一天',
+          title: l10n.settingsRefreshTime,
+          subtitle: l10n.settingsRefreshSubtitle,
           onTap: () => _pickTime(context),
           trailing: Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
@@ -253,31 +257,34 @@ class _DataBlock extends StatelessWidget {
   final BuildContext context;
   final WidgetRef ref;
 
+  KarisReviewLocalizations get l10n => KarisReviewLocalizations.of(context)!;
+
   const _DataBlock({required this.context, required this.ref});
 
   @override
   Widget build(BuildContext context) {
+      final l10n = KarisReviewLocalizations.of(context)!;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SectionHeader(title: '数据管理'),
+        SectionHeader(title: l10n.settingsData),
         SettingsActionTile(
           icon: Icons.file_download_outlined,
-          title: '导出数据',
-          subtitle: '保存全部牌组、卡片与复习记录',
+          title: l10n.settingsExport,
+          subtitle: l10n.settingsExportSubtitle,
           onTap: () => _export(context, ref),
         ),
         SettingsActionTile(
           icon: Icons.file_upload_outlined,
-          title: '导入数据',
-          subtitle: '从备份文件覆盖恢复',
+          title: l10n.settingsImport,
+          subtitle: l10n.settingsImportSubtitle,
           danger: true,
           onTap: () => _import(context, ref),
         ),
         SettingsActionTile(
           icon: Icons.cloud_sync_outlined,
-          title: '以服务器为准',
-          subtitle: '丢弃待同步评分并重新拉取服务器数据',
+          title: l10n.settingsForceServer,
+          subtitle: l10n.settingsForceServerSubtitle,
           danger: true,
           onTap: () => _forceServer(context, ref),
         ),
@@ -289,12 +296,12 @@ class _DataBlock extends StatelessWidget {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('以服务器为准'),
-        content: const Text('这会丢弃所有未同步的离线评分，并用服务器数据覆盖本地。确定继续吗？'),
+        title: Text(l10n.settingsForceServer),
+        content: Text(l10n.settingsForceServerContent),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('取消'),
+            child: Text(l10n.settingsForceServerCancel),
           ),
           FilledButton(
             style: FilledButton.styleFrom(
@@ -302,7 +309,7 @@ class _DataBlock extends StatelessWidget {
               foregroundColor: KarisColors.surface,
             ),
             onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('确定覆盖'),
+            child: Text(l10n.settingsForceServerConfirm),
           ),
         ],
       ),
@@ -325,7 +332,7 @@ class _DataBlock extends StatelessWidget {
       if (context.mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(const SnackBar(content: Text('同步失败，请检查网络后重试')));
+        ).showSnackBar(SnackBar(content: Text(l10n.settingsSyncFail)));
       }
     }
   }
@@ -345,10 +352,10 @@ class _DataBlock extends StatelessWidget {
       );
     } catch (e) {
       if (context.mounted) {
-        announceMessage(context, '导出失败，请检查网络后重试');
+        announceMessage(context, l10n.settingsExportFail);
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('导出失败，请检查网络后重试')));
+        ).showSnackBar(SnackBar(content: Text(l10n.settingsExportFail)));
       }
     }
   }
@@ -371,10 +378,10 @@ class _DataBlock extends StatelessWidget {
       data = decoded;
     } catch (e) {
       if (context.mounted) {
-        announceMessage(context, '读取备份失败，请确认文件格式正确后重试');
+        announceMessage(context, l10n.settingsImportReadFail);
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('读取备份失败，请确认文件格式正确后重试')));
+        ).showSnackBar(SnackBar(content: Text(l10n.settingsImportReadFail)));
       }
       return;
     }
@@ -383,12 +390,12 @@ class _DataBlock extends StatelessWidget {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('导入数据'),
-        content: const Text('导入将覆盖当前所有数据，此操作不可逆。确定要继续吗？'),
+        title: Text(l10n.settingsImport),
+        content: Text(l10n.settingsImportContent),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('取消'),
+            child: Text(l10n.settingsForceServerCancel),
           ),
           FilledButton(
             style: FilledButton.styleFrom(
@@ -396,7 +403,7 @@ class _DataBlock extends StatelessWidget {
               foregroundColor: KarisColors.surface,
             ),
             onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('确定导入'),
+            child: Text(l10n.settingsImportConfirm),
           ),
         ],
       ),
@@ -422,10 +429,10 @@ class _DataBlock extends StatelessWidget {
       }
     } catch (e) {
       if (context.mounted) {
-        announceMessage(context, '导入失败，请检查网络或备份文件后重试');
+        announceMessage(context, l10n.settingsImportFail);
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('导入失败，请检查网络或备份文件后重试')));
+        ).showSnackBar(SnackBar(content: Text(l10n.settingsImportFail)));
       }
     }
   }
@@ -438,13 +445,14 @@ class _LogoutButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+      final l10n = KarisReviewLocalizations.of(context)!;
     return OutlinedButton.icon(
       onPressed: () async {
         await ref.read(authProvider.notifier).logout();
         if (context.mounted) context.go('/login');
       },
       icon: const Icon(Icons.logout, size: 17),
-      label: const Text('退出登录'),
+      label: Text(l10n.settingsLogout),
       style: OutlinedButton.styleFrom(
         foregroundColor: KarisColors.cinnabar,
         side: BorderSide(color: KarisColors.cinnabar.withValues(alpha: 0.45)),

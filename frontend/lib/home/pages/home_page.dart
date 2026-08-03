@@ -15,6 +15,7 @@ import '../../shared/widgets/stage_ruler.dart';
 import '../../stats/models/stats.dart';
 import '../../stats/providers/stats_provider.dart';
 
+import '../../l10n/app_localizations.dart';
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
 
@@ -68,7 +69,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _HomeHeader(initial: initial),
-                  const SizedBox(height: 20),
+                  SizedBox(height: 20),
                   if (isTablet)
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -77,7 +78,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                           flex: 5,
                           child: _HomeMainColumn(statsAsync: statsAsync),
                         ),
-                        const SizedBox(width: 30),
+                        SizedBox(width: 30),
                         Expanded(
                           flex: 6,
                           child: _DeckSection(decksAsync: decksAsync),
@@ -86,7 +87,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                     )
                   else ...[
                     _HomeMainColumn(statsAsync: statsAsync),
-                    const SizedBox(height: 24),
+                    SizedBox(height: 24),
                     _DeckSection(decksAsync: decksAsync),
                   ],
                 ],
@@ -127,7 +128,7 @@ class _HomeHeader extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Kicker('KARIS REVIEW · 今日'),
-              const SizedBox(height: 7),
+              SizedBox(height: 7),
               KarisHeading(
                 child: Text(today, style: karisDisplay(fontSize: 27)),
               ),
@@ -165,6 +166,7 @@ class _HomeMainColumn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+      final l10n = KarisReviewLocalizations.of(context)!;
     final stats = statsAsync.maybeWhen(
       data: (value) => value,
       orElse: () => null,
@@ -190,8 +192,8 @@ class _HomeMainColumn extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      '今日待复习',
+                    Text(
+          l10n.homeTodayReview,
                       style: TextStyle(
                         color: KarisColors.jade,
                         fontSize: 11,
@@ -199,7 +201,7 @@ class _HomeMainColumn extends StatelessWidget {
                         letterSpacing: 0,
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    SizedBox(height: 8),
                     Text.rich(
                       TextSpan(
                         children: [
@@ -221,7 +223,7 @@ class _HomeMainColumn extends StatelessWidget {
                         ],
                       ),
                     ),
-                    const SizedBox(height: 6),
+                    SizedBox(height: 6),
                     Text(
                       statsAsync.isLoading
                           ? '正在整理今日队列'
@@ -249,16 +251,16 @@ class _HomeMainColumn extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(height: 18),
+        SizedBox(height: 18),
         const SectionHeader(title: '记忆刻度', trailing: '0-180 天'),
-        const SizedBox(height: 14),
+        SizedBox(height: 14),
         StageRuler(distribution: distribution, currentStage: dominant),
-        const SizedBox(height: 10),
+        SizedBox(height: 10),
         Text(
           statsAsync.isLoading
               ? '正在读取阶段分布'
               : due == 0
-              ? '今天没有待复习卡片'
+              ? l10n.homeNoCards
               : '今日到期集中在 ${KarisTheme.stageName(dominant ?? 0)}阶段',
           style: const TextStyle(
             color: KarisColors.stone,
@@ -287,6 +289,7 @@ class _DeckSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = KarisReviewLocalizations.of(context)!;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -301,7 +304,7 @@ class _DeckSection extends ConsumerWidget {
             child: const Text('新建'),
           ),
         ),
-        const SizedBox(height: 6),
+        SizedBox(height: 6),
         decksAsync.when(
           loading: () => const Padding(
             padding: EdgeInsets.symmetric(vertical: 28),
@@ -316,7 +319,7 @@ class _DeckSection extends ConsumerWidget {
                   '加载牌组失败，请检查网络后重试',
                   style: TextStyle(color: KarisColors.cinnabar, fontSize: 13),
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: 8),
                 TextButton(
                   onPressed: () =>
                       ref.read(deckListProvider.notifier).loadDecks(),
@@ -329,12 +332,12 @@ class _DeckSection extends ConsumerWidget {
             if (decks.isEmpty) {
               return EmptyState(
                 icon: Icons.layers_outlined,
-                title: '还没有牌组',
-                message: '创建第一个牌组，开始记录你的复习队列',
+                title: l10n.homeNoDecksTitle,
+                message: l10n.homeNoDecksMessage,
                 action: FilledButton.icon(
                   onPressed: () => context.push('/decks'),
                   icon: const Icon(Icons.add, size: 17),
-                  label: const Text('创建牌组'),
+                  label: Text(l10n.homeCreateDeck),
                 ),
               );
             }
@@ -342,7 +345,7 @@ class _DeckSection extends ConsumerWidget {
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               itemCount: decks.length,
-              separatorBuilder: (_, _) => const SizedBox(height: 10),
+              separatorBuilder: (_, _) => SizedBox(height: 10),
               itemBuilder: (context, index) {
                 final deck = decks[index];
                 return DeckRow(

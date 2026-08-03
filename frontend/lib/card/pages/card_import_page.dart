@@ -14,6 +14,7 @@ import '../models/card_import.dart';
 import '../repositories/card_repository.dart';
 import 'card_editor_page.dart';
 
+import '../../l10n/app_localizations.dart';
 const String _importSampleJson = '''
 [
   {
@@ -39,6 +40,7 @@ class CardImportPage extends StatefulWidget {
 }
 
 class _CardImportPageState extends State<CardImportPage> {
+  KarisReviewLocalizations get l10n => KarisReviewLocalizations.of(context)!;
   CardRepository get _repository => widget.repository;
   final TextEditingController _jsonController = TextEditingController();
   final List<CardImportPreviewItem> _items = [];
@@ -106,13 +108,13 @@ class _CardImportPageState extends State<CardImportPage> {
                 ? null
                 : (_showPreview ? _backToSource : _closePage),
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Kicker('卡片'),
-                const SizedBox(height: 4),
+                SizedBox(height: 4),
                 KarisHeading(
                   child: Text(
                     _showPreview ? '导入预览' : '快捷导入',
@@ -148,7 +150,7 @@ class _CardImportPageState extends State<CardImportPage> {
                   },
                 ),
               ),
-              const SizedBox(width: 10),
+              SizedBox(width: 10),
               Expanded(
                 child: _SourceButton(
                   label: '选择文件',
@@ -159,7 +161,7 @@ class _CardImportPageState extends State<CardImportPage> {
               ),
             ],
           ),
-          const SizedBox(height: 18),
+          SizedBox(height: 18),
           if (_usePaste)
             TextField(
               controller: _jsonController,
@@ -180,12 +182,12 @@ class _CardImportPageState extends State<CardImportPage> {
           else
             _buildFileStatus(),
           if (_error != null) ...[
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             _buildErrorBox(_error!),
           ],
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           _buildFormatGuide(),
-          const SizedBox(height: 20),
+          SizedBox(height: 20),
           KarisPrimaryButton(
             label: _parsing ? '解析中…' : '解析并预览',
             icon: Icons.fact_check_outlined,
@@ -247,7 +249,7 @@ class _CardImportPageState extends State<CardImportPage> {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(12),
@@ -265,7 +267,7 @@ class _CardImportPageState extends State<CardImportPage> {
               ),
             ),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           const Text(
             '格式要点',
             style: TextStyle(
@@ -275,7 +277,7 @@ class _CardImportPageState extends State<CardImportPage> {
               letterSpacing: 0,
             ),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           const _FormatRule(
             icon: Icons.data_object_rounded,
             text: '顶层必须是 JSON 数组，单次最多 1000 张',
@@ -316,7 +318,7 @@ class _CardImportPageState extends State<CardImportPage> {
             size: 22,
             color: _fileName == null ? KarisColors.stone : KarisColors.jade,
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -330,7 +332,7 @@ class _CardImportPageState extends State<CardImportPage> {
                     letterSpacing: 0,
                   ),
                 ),
-                const SizedBox(height: 5),
+                SizedBox(height: 5),
                 Text(
                   _fileContent == null
                       ? '请选择一个 .json 文件，读取后会自动解析'
@@ -388,7 +390,7 @@ class _CardImportPageState extends State<CardImportPage> {
               : ListView.separated(
                   padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
                   itemCount: _items.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 10),
+                  separatorBuilder: (_, _) => SizedBox(height: 10),
                   itemBuilder: (context, index) =>
                       _buildPreviewItem(index, _items[index]),
                 ),
@@ -427,7 +429,7 @@ class _CardImportPageState extends State<CardImportPage> {
                       letterSpacing: 0,
                     ),
                   ),
-                if (invalid && item.message != null) const SizedBox(height: 6),
+                if (invalid && item.message != null) SizedBox(height: 6),
                 if (item.front.trim().isNotEmpty)
                   RichCardContent(
                     content: item.front,
@@ -449,7 +451,7 @@ class _CardImportPageState extends State<CardImportPage> {
                       letterSpacing: 0,
                     ),
                   ),
-                const SizedBox(height: 10),
+                SizedBox(height: 10),
                 const Text(
                   '反面',
                   style: TextStyle(
@@ -459,7 +461,7 @@ class _CardImportPageState extends State<CardImportPage> {
                     letterSpacing: 0,
                   ),
                 ),
-                const SizedBox(height: 4),
+                SizedBox(height: 4),
                 if (item.back.trim().isNotEmpty)
                   RichCardContent(
                     content: item.back,
@@ -483,7 +485,7 @@ class _CardImportPageState extends State<CardImportPage> {
               ],
             ),
           ),
-          const SizedBox(width: 8),
+          SizedBox(width: 8),
           Column(
             children: [
               IconButton(
@@ -500,7 +502,7 @@ class _CardImportPageState extends State<CardImportPage> {
                   ),
                 ),
               ),
-              const SizedBox(height: 6),
+              SizedBox(height: 6),
               IconButton(
                 onPressed: () => _deleteItem(index),
                 tooltip: '删除',
@@ -549,10 +551,10 @@ class _CardImportPageState extends State<CardImportPage> {
                 ),
               ),
             if (_importError != null) ...[
-              const SizedBox(height: 8),
+              SizedBox(height: 8),
               _buildErrorBox(_importError!),
             ],
-            const SizedBox(height: 10),
+            SizedBox(height: 10),
             Row(
               children: [
                 Expanded(
@@ -562,7 +564,7 @@ class _CardImportPageState extends State<CardImportPage> {
                     onPressed: _importing ? null : _backToSource,
                   ),
                 ),
-                const SizedBox(width: 10),
+                SizedBox(width: 10),
                 Expanded(
                   flex: 2,
                   child: KarisPrimaryButton(
@@ -570,7 +572,7 @@ class _CardImportPageState extends State<CardImportPage> {
                         ? '导入中…'
                         : _validCount > 0
                         ? '导入 $_validCount 张卡片'
-                        : '导入卡片',
+                        : l10n.cardImportTitle,
                     icon: Icons.file_upload_outlined,
                     onPressed:
                         _validCount > 0 && _invalidCount == 0 && !_importing
@@ -850,7 +852,7 @@ class _FormatRule extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(icon, size: 16, color: KarisColors.jade),
-          const SizedBox(width: 8),
+          SizedBox(width: 8),
           Expanded(
             child: Text(
               text,
@@ -900,7 +902,7 @@ class _SummaryBadge extends StatelessWidget {
               letterSpacing: 0,
             ),
           ),
-          const SizedBox(width: 8),
+          SizedBox(width: 8),
           Text(value, style: karisMono(fontSize: 12, color: color)),
         ],
       ),

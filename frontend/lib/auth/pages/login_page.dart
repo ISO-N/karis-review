@@ -7,6 +7,7 @@ import '../../shared/widgets/section_widgets.dart';
 import '../../shared/widgets/app_semantics.dart';
 import '../providers/auth_provider.dart';
 
+import '../../l10n/app_localizations.dart';
 class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key});
 
@@ -48,6 +49,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = KarisReviewLocalizations.of(context)!;
     final authState = ref.watch(authProvider);
 
     return Scaffold(
@@ -87,8 +89,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       child: Text('回到记忆刻度', style: karisDisplay(fontSize: 32)),
                     ),
                     const SizedBox(height: 10),
-                    const Text(
-                      '登录后开始今天的复习',
+                    Text(
+          l10n.authLoginSubtitle,
                       style: TextStyle(color: KarisColors.stone, fontSize: 14),
                     ),
                     const SizedBox(height: 32),
