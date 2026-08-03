@@ -663,4 +663,74 @@ class KarisReviewLocalizationsEn extends KarisReviewLocalizations {
 
   @override
   String get backendServerResourceNotfound => 'Resource not found';
+
+  @override
+  String get settingsLogs => 'Operation Logs';
+
+  @override
+  String get settingsLogsSubtitle =>
+      'View desensitized logs to diagnose issues';
+
+  @override
+  String get logTitle => 'Operation Logs';
+
+  @override
+  String get logFilterAll => 'All';
+
+  @override
+  String get logLevelInfo => 'INFO';
+
+  @override
+  String get logLevelWarn => 'WARN';
+
+  @override
+  String get logLevelError => 'ERROR';
+
+  @override
+  String get logCategoryAuth => 'Auth';
+
+  @override
+  String get logCategoryReview => 'Review';
+
+  @override
+  String get logCategoryCard => 'Card';
+
+  @override
+  String get logCategoryDeck => 'Deck';
+
+  @override
+  String get logCategoryBackup => 'Backup';
+
+  @override
+  String get logCategorySettings => 'Settings';
+
+  @override
+  String get logCategorySystem => 'System';
+
+  @override
+  String get logEmpty => 'No logs yet';
+
+  @override
+  String get logDetails => 'Details';
+
+  @override
+  String get logNoMore => 'No more logs';
+
+  @override
+  String get logLoadMore => 'Load more';
+
+  @override
+  String get logLevel => 'Level';
+
+  @override
+  String get logCategory => 'Category';
+
+  @override
+  String get logTime => 'Time';
+
+  @override
+  String get logMessage => 'Message';
+
+  @override
+  String get logDiagnostics => 'Diagnostics';
 }

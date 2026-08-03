@@ -650,4 +650,73 @@ class KarisReviewLocalizationsZh extends KarisReviewLocalizations {
 
   @override
   String get backendServerResourceNotfound => '资源不存在';
+
+  @override
+  String get settingsLogs => '操作日志';
+
+  @override
+  String get settingsLogsSubtitle => '查看脱敏日志，辅助诊断问题';
+
+  @override
+  String get logTitle => '操作日志';
+
+  @override
+  String get logFilterAll => '全部';
+
+  @override
+  String get logLevelInfo => 'INFO';
+
+  @override
+  String get logLevelWarn => 'WARN';
+
+  @override
+  String get logLevelError => 'ERROR';
+
+  @override
+  String get logCategoryAuth => '认证';
+
+  @override
+  String get logCategoryReview => '复习';
+
+  @override
+  String get logCategoryCard => '卡片';
+
+  @override
+  String get logCategoryDeck => '牌组';
+
+  @override
+  String get logCategoryBackup => '备份';
+
+  @override
+  String get logCategorySettings => '设置';
+
+  @override
+  String get logCategorySystem => '系统';
+
+  @override
+  String get logEmpty => '暂无日志';
+
+  @override
+  String get logDetails => '详情';
+
+  @override
+  String get logNoMore => '没有更多了';
+
+  @override
+  String get logLoadMore => '加载更多';
+
+  @override
+  String get logLevel => '级别';
+
+  @override
+  String get logCategory => '分类';
+
+  @override
+  String get logTime => '时间';
+
+  @override
+  String get logMessage => '消息';
+
+  @override
+  String get logDiagnostics => '诊断';
 }

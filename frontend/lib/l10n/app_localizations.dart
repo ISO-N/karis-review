@@ -1330,6 +1330,144 @@ abstract class KarisReviewLocalizations {
   /// In en, this message translates to:
   /// **'Resource not found'**
   String get backendServerResourceNotfound;
+
+  /// No description provided for @settingsLogs.
+  ///
+  /// In en, this message translates to:
+  /// **'Operation Logs'**
+  String get settingsLogs;
+
+  /// No description provided for @settingsLogsSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'View desensitized logs to diagnose issues'**
+  String get settingsLogsSubtitle;
+
+  /// No description provided for @logTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Operation Logs'**
+  String get logTitle;
+
+  /// No description provided for @logFilterAll.
+  ///
+  /// In en, this message translates to:
+  /// **'All'**
+  String get logFilterAll;
+
+  /// No description provided for @logLevelInfo.
+  ///
+  /// In en, this message translates to:
+  /// **'INFO'**
+  String get logLevelInfo;
+
+  /// No description provided for @logLevelWarn.
+  ///
+  /// In en, this message translates to:
+  /// **'WARN'**
+  String get logLevelWarn;
+
+  /// No description provided for @logLevelError.
+  ///
+  /// In en, this message translates to:
+  /// **'ERROR'**
+  String get logLevelError;
+
+  /// No description provided for @logCategoryAuth.
+  ///
+  /// In en, this message translates to:
+  /// **'Auth'**
+  String get logCategoryAuth;
+
+  /// No description provided for @logCategoryReview.
+  ///
+  /// In en, this message translates to:
+  /// **'Review'**
+  String get logCategoryReview;
+
+  /// No description provided for @logCategoryCard.
+  ///
+  /// In en, this message translates to:
+  /// **'Card'**
+  String get logCategoryCard;
+
+  /// No description provided for @logCategoryDeck.
+  ///
+  /// In en, this message translates to:
+  /// **'Deck'**
+  String get logCategoryDeck;
+
+  /// No description provided for @logCategoryBackup.
+  ///
+  /// In en, this message translates to:
+  /// **'Backup'**
+  String get logCategoryBackup;
+
+  /// No description provided for @logCategorySettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Settings'**
+  String get logCategorySettings;
+
+  /// No description provided for @logCategorySystem.
+  ///
+  /// In en, this message translates to:
+  /// **'System'**
+  String get logCategorySystem;
+
+  /// No description provided for @logEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No logs yet'**
+  String get logEmpty;
+
+  /// No description provided for @logDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'Details'**
+  String get logDetails;
+
+  /// No description provided for @logNoMore.
+  ///
+  /// In en, this message translates to:
+  /// **'No more logs'**
+  String get logNoMore;
+
+  /// No description provided for @logLoadMore.
+  ///
+  /// In en, this message translates to:
+  /// **'Load more'**
+  String get logLoadMore;
+
+  /// No description provided for @logLevel.
+  ///
+  /// In en, this message translates to:
+  /// **'Level'**
+  String get logLevel;
+
+  /// No description provided for @logCategory.
+  ///
+  /// In en, this message translates to:
+  /// **'Category'**
+  String get logCategory;
+
+  /// No description provided for @logTime.
+  ///
+  /// In en, this message translates to:
+  /// **'Time'**
+  String get logTime;
+
+  /// No description provided for @logMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Message'**
+  String get logMessage;
+
+  /// No description provided for @logDiagnostics.
+  ///
+  /// In en, this message translates to:
+  /// **'Diagnostics'**
+  String get logDiagnostics;
 }
 
 class _KarisReviewLocalizationsDelegate
