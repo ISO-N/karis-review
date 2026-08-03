@@ -72,6 +72,7 @@ public abstract class SystemTestSupport {
     protected JsonNode call(String method, String path, String token, Object body, int expectedStatus) {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.set("Accept-Language", "en");
         if (token != null) {
             headers.setBearerAuth(token);
         }
