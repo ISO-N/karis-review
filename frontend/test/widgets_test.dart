@@ -24,6 +24,7 @@ import 'package:karisreview/review/widgets/review_flip_card.dart';
 import 'package:karisreview/review/pages/start_flow_page.dart';
 import 'package:karisreview/settings/pages/settings_page.dart';
 import 'package:karisreview/shared/widgets/adaptive_scaffold.dart';
+import 'package:karisreview/shared/widgets/app_feedback.dart';
 import 'package:karisreview/shared/widgets/metric_tile.dart';
 import 'package:karisreview/stats/pages/stats_page.dart';
 import 'package:karisreview/stats/models/stats.dart';
@@ -445,6 +446,45 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('今日复习完成'), findsOneWidget);
+    });
+
+    testWidgets('rating feedback follows the app feedback style', (
+      tester,
+    ) async {
+      final repo = MockReviewRepository();
+      when(
+        () => repo.getDueCards(deckId: null),
+      ).thenAnswer((_) async => [ReviewCard.fromJson(reviewCardJson())]);
+      when(
+        () => repo.rateCard('card-1', 'FAMILIAR'),
+      ).thenAnswer((_) async => ReviewResult.fromJson(reviewResultJson()));
+      final router = GoRouter(
+        initialLocation: '/review',
+        routes: [
+          GoRoute(path: '/review', builder: (_, _) => const ReviewPage()),
+        ],
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: reviewOverrides(repo, const ReviewSessionState()),
+          child: MaterialApp.router(routerConfig: router),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byType(ReviewFlipCard));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('熟悉'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+
+      expect(find.byType(KarisFeedbackBar), findsOneWidget);
+      expect(find.text('已评分 熟悉'), findsOneWidget);
+      expect(find.text('下次 1 天'), findsOneWidget);
+
+      await tester.pump(const Duration(seconds: 2));
+      await tester.pumpAndSettle();
     });
 
     testWidgets('mobile review fills card and returns to front from answer', (
