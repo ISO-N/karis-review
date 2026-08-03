@@ -1,6 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../offline/offline_repository.dart';
 import '../../offline/providers.dart';
+import '../../shared/providers/data_refresh_provider.dart';
 import '../../sync/providers.dart';
 import '../../sync/sync_service.dart';
 import '../repositories/deck_repository.dart';
@@ -89,13 +93,30 @@ class DeckListNotifier extends StateNotifier<AsyncValue<List<Deck>>> {
       state = AsyncValue.error(e, st);
     }
   }
+
+  Future<void> reloadAfterDataChange() async {
+    if (offline == null) {
+      await loadDecks();
+      return;
+    }
+    final meta = await offline!.getActiveSyncMeta();
+    if (meta == null) {
+      await loadDecks();
+      return;
+    }
+    await _loadLocal();
+  }
 }
 
 final deckListProvider =
     StateNotifierProvider<DeckListNotifier, AsyncValue<List<Deck>>>((ref) {
-      return DeckListNotifier(
+      final notifier = DeckListNotifier(
         DeckRepository(),
         offline: ref.watch(offlineRepositoryProvider),
         sync: ref.watch(syncServiceProvider),
       );
+      ref.listen(dataVersionProvider, (_, _) {
+        unawaited(notifier.reloadAfterDataChange());
+      });
+      return notifier;
     });

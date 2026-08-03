@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../offline/offline_repository.dart';
 import '../../offline/providers.dart';
+import '../../shared/providers/data_refresh_provider.dart';
 import '../../sync/providers.dart';
 import '../../sync/sync_service.dart';
 import '../repositories/card_repository.dart';
@@ -127,6 +130,19 @@ class CardListNotifier extends StateNotifier<AsyncValue<List<FlashCard>>> {
     }
   }
 
+  Future<void> reloadAfterDataChange() async {
+    if (offline == null) {
+      await loadCards();
+      return;
+    }
+    final meta = await offline!.getActiveSyncMeta();
+    if (meta == null) {
+      await loadCards();
+      return;
+    }
+    await _loadLocalCards();
+  }
+
   Future<List<FlashCard>> _localCards(String userId) {
     return offline!.getFilteredFlashCards(
       userId,
@@ -141,11 +157,15 @@ final cardListProvider =
       CardListNotifier,
       AsyncValue<List<FlashCard>>,
       CardListArgs
-    >(
-      (ref, args) => CardListNotifier(
+    >((ref, args) {
+      final notifier = CardListNotifier(
         CardRepository(),
         args,
         offline: ref.watch(offlineRepositoryProvider),
         sync: ref.watch(syncServiceProvider),
-      ),
-    );
+      );
+      ref.listen(dataVersionProvider, (_, _) {
+        unawaited(notifier.reloadAfterDataChange());
+      });
+      return notifier;
+    });
