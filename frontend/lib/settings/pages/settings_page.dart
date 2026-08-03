@@ -8,13 +8,12 @@ import 'package:go_router/go_router.dart';
 
 import '../../app/theme.dart';
 import '../../auth/providers/auth_provider.dart';
-import '../../deck/providers/deck_provider.dart';
 import '../../offline/providers.dart';
+import '../../shared/providers/data_refresh_provider.dart';
 import '../../shared/widgets/adaptive_scaffold.dart';
 import '../../shared/widgets/app_semantics.dart';
 import '../../shared/widgets/section_widgets.dart';
 import '../../shared/widgets/settings_action_tile.dart';
-import '../../stats/providers/stats_provider.dart';
 import '../../sync/providers.dart';
 import '../providers/settings_provider.dart';
 import '../repositories/settings_repository.dart';
@@ -244,6 +243,9 @@ class _ReviewSettingsBlock extends StatelessWidget {
     final value =
         '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}:00';
     await ref.read(settingsProvider.notifier).updateSettings(value);
+    final controller = ref.read(dataRefreshControllerProvider);
+    controller.notifyLocalChanged();
+    await controller.armDailyRefresh();
   }
 }
 
@@ -307,18 +309,23 @@ class _DataBlock extends StatelessWidget {
     );
     if (confirmed != true || !context.mounted) return;
     try {
-      final meta = await ref.read(offlineRepositoryProvider).getActiveSyncMeta();
+      final meta = await ref
+          .read(offlineRepositoryProvider)
+          .getActiveSyncMeta();
       if (meta != null) {
-        await ref.read(syncServiceProvider).forceServerAuthoritative(userId: meta.userId);
-        ref.invalidate(deckListProvider);
-        ref.invalidate(statsProvider);
+        await ref
+            .read(syncServiceProvider)
+            .forceServerAuthoritative(userId: meta.userId);
+        final controller = ref.read(dataRefreshControllerProvider);
+        await controller.refreshFromServer(force: true);
+        await controller.armDailyRefresh();
         ref.invalidate(settingsProvider);
       }
     } catch (_) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('同步失败，请检查网络后重试')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('同步失败，请检查网络后重试')));
       }
     }
   }
@@ -398,8 +405,9 @@ class _DataBlock extends StatelessWidget {
 
     try {
       final result = await SettingsRepository().importBackup(data);
-      ref.invalidate(deckListProvider);
-      ref.invalidate(statsProvider);
+      final controller = ref.read(dataRefreshControllerProvider);
+      await controller.refreshFromServer(force: true);
+      await controller.armDailyRefresh();
       ref.invalidate(settingsProvider);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

@@ -3,9 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../auth/pages/login_page.dart';
+import '../auth/providers/auth_provider.dart';
+import '../shared/navigation/auto_refresh_observer.dart';
+import '../shared/providers/data_refresh_provider.dart';
 import '../shared/utils/motion.dart';
 import '../auth/pages/register_page.dart';
-import '../auth/providers/auth_provider.dart';
 import '../card/pages/card_editor_page.dart';
 import '../card/pages/card_import_page.dart';
 import '../card/pages/card_list_page.dart';
@@ -54,9 +56,16 @@ CustomTransitionPage<Object?> _fadeSlidePage(
 
 final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authProvider);
+  final autoRefreshObserver = AutoRefreshNavigatorObserver(
+    onDataRouteChanged: () async {
+      if (!ref.read(authProvider).isAuthenticated) return;
+      await ref.read(dataRefreshControllerProvider).refreshFromServer();
+    },
+  );
 
   return GoRouter(
     initialLocation: '/home',
+    observers: [autoRefreshObserver],
     redirect: (context, state) {
       final isLoggedIn = authState.isAuthenticated;
       final isAuthRoute =
