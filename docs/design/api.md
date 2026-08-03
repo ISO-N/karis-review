@@ -246,6 +246,48 @@
 
 ---
 
+### GET /api/logs
+
+获取当前用户的操作日志（脱敏后）。
+
+**Headers:** `Authorization: Bearer <token>`
+
+**Query Parameters:**
+
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| page | int | 0 | 页码（从 0 开始） |
+| size | int | 50 | 每页条数，服务端限制在 1-100 |
+| level | string | 空 | 按日志级别过滤，如 INFO/WARN/ERROR |
+| category | string | 空 | 按日志分类过滤，如 AUTH/REVIEW/SYNC |
+
+**Response (200):**
+
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": {
+    "content": [
+      {
+        "id": "uuid",
+        "level": "INFO",
+        "category": "AUTH",
+        "message": "Registration successful",
+        "details": null,
+        "created_at": "2025-08-02T12:00:00Z"
+      }
+    ],
+    "page": 0,
+    "size": 50,
+    "total_elements": 1,
+    "total_pages": 1
+  }
+}
+```
+
+---
+
 ## 4. 卡组模块
 
 ### GET /api/decks

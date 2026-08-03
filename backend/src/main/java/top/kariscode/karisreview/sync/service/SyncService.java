@@ -91,11 +91,18 @@ public class SyncService {
                 List.of(),
                 List.of(),
                 syncEventRepository.latestSeq(user.getId()),
-                false,
-                false);
+                false, false);
     }
 
     private BootstrapResponse deltaBootstrap(User user, OffsetDateTime serverTime, long cursor) {
+        long latestSeq = syncEventRepository.latestSeq(user.getId());
+        if (cursor > latestSeq) {
+            return new BootstrapResponse(
+                    serverTime, toBootstrapUser(user), List.of(), List.of(),
+                    List.of(), List.of(), List.of(), List.of(),
+                    latestSeq, false, true);
+        }
+
         List<SyncEventRepository.SyncEventRow> events =
                 syncEventRepository.findAfter(user.getId(), cursor, DELTA_PAGE_SIZE);
 
@@ -103,7 +110,7 @@ public class SyncService {
             return new BootstrapResponse(
                     serverTime, toBootstrapUser(user), List.of(), List.of(),
                     List.of(), List.of(), List.of(), List.of(),
-                    syncEventRepository.latestSeq(user.getId()), false, false);
+                    latestSeq, false, false);
         }
 
         Set<UUID> deckIds = new HashSet<>();

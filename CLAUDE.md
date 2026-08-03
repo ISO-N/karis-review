@@ -100,9 +100,9 @@ Android release 包名为 `top.kariscode.karisreview`，debug 包名为 `top.kar
 
 ## 测试
 
-- 后端：`mvn test` 会运行纯算法/工具测试、Service 与 Controller 部件测试，以及真实 PostgreSQL + HTTP 的系统测试；系统测试只创建/清理 `system-test-*@example.com` 测试用户，不清理其他用户数据。
-- 前端：`flutter test` 覆盖模型、Repository、Provider、离线调度/Drift 和主要页面 Widget；`flutter analyze` 需保持无警告。
-- 数据库当前已有 `V10__add_card_search_indexes.sql`（pg_trgm 搜索索引）与 `V9__add_sync_events.sql`（同步事件表和触发器），新增表结构必须继续追加迁移。
+- 后端：`mvn test` 会运行纯算法/工具测试、Service/Controller 部件测试，以及真实 PostgreSQL + HTTP 的系统测试，包含日志、会话分页、同步失效和数据量冒烟；系统测试只创建/清理 `system-test-*@example.com` 测试用户，不清理其他用户数据。
+- 前端：`flutter test` 覆盖模型、Repository、Provider、离线调度/Drift、ApiClient、同步服务、操作日志和主要页面 Widget；`flutter analyze` 需保持无警告；`flutter test --coverage` 和 release Web 构建用于 CI 验证。
+- 数据库当前已有 V9 同步事件、V10 搜索索引和 V11 `user_logs`，新增表结构必须继续追加迁移。
 - 测试层级、运行命令和数据隔离说明见 `docs/design/testing.md`。
 
 ## 文档

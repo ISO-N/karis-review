@@ -77,11 +77,10 @@ cp .env.prod.example .env.prod
 - FORGET / VAGUE / FAMILIAR 评分与 2^n 重学队列插入
 - 学习统计概览、卡组进度、复习趋势
 - JSON 数据备份导出与覆盖恢复
-- 每日定时应用级备份与用户自定义刷新时间
+- 离线 SQLite 缓存、增量同步与跨设备评分锁
+- 同步/复习接口 Protobuf 内容协商与 ETag/304
+- 每日定时应用级备份、用户自定义刷新时间与操作日志
 
-## 测试
-
-```bash
 ## 测试
 
 后端完整测试包含部件测试与系统测试，需要 PostgreSQL：
@@ -89,7 +88,7 @@ cp .env.prod.example .env.prod
 ```bash
 docker compose up -d postgres
 cd backend
-mvn test
+./mvnw test
 ```
 
 前端测试不需要真实后端：
@@ -99,6 +98,8 @@ cd frontend
 flutter pub get
 flutter analyze
 flutter test
+flutter test --coverage
+flutter build web --release
 ```
 
 测试层级、数据隔离与场景说明见 [docs/design/testing.md](docs/design/testing.md)。

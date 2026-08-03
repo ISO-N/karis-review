@@ -20,18 +20,18 @@ class ApiClient {
   static void Function()? onUnauthorized;
   static final ApiClient shared = ApiClient();
 
-  ApiClient() {
-    _dio = Dio(
-      BaseOptions(
-        baseUrl: ApiEndpoints.baseUrl,
-        connectTimeout: const Duration(seconds: 8),
-        receiveTimeout: const Duration(seconds: 20),
-        validateStatus: (status) =>
-            status != null && (status < 300 || status == 304),
-        headers: {'Content-Type': 'application/json'},
-      ),
-    );
-
+  ApiClient({Dio? dio}) {
+    _dio = dio ??
+        Dio(
+          BaseOptions(
+            baseUrl: ApiEndpoints.baseUrl,
+            connectTimeout: const Duration(seconds: 8),
+            receiveTimeout: const Duration(seconds: 20),
+            validateStatus: (status) =>
+                status != null && (status < 300 || status == 304),
+            headers: {'Content-Type': 'application/json'},
+          ),
+        );
     _dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) async {
