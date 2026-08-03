@@ -6,6 +6,7 @@ import 'package:flutter_quill/flutter_quill.dart'
     show FlutterQuillLocalizations;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../l10n/app_localizations.dart';
 import '../shared/providers/data_refresh_provider.dart';
 import 'router.dart';
 import 'theme.dart';
@@ -56,9 +57,9 @@ class _KarisReviewAppState extends ConsumerState<KarisReviewApp>
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
+        KarisReviewLocalizations.delegate,
       ],
-      supportedLocales: FlutterQuillLocalizations.supportedLocales,
-      locale: const Locale('zh'),
+      supportedLocales: KarisReviewLocalizations.supportedLocales,
     );
   }
 }

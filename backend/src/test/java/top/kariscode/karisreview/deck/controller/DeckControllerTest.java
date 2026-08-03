@@ -75,7 +75,7 @@ class DeckControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\"新牌组\"}"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.message").value("牌组已创建"))
+                .andExpect(jsonPath("$.message").value("deck.created"))
                 .andExpect(jsonPath("$.data.name").value("新牌组"));
     }
 
@@ -112,20 +112,20 @@ class DeckControllerTest {
         mockMvc.perform(delete("/api/decks/{deckId}", deckId)
                         .with(authentication(userId)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.message").value("牌组已删除"));
+                .andExpect(jsonPath("$.message").value("deck.deleted"));
     }
 
     @Test
     void missingDeckReturns404() throws Exception {
         UUID userId = UUID.randomUUID();
         UUID deckId = UUID.randomUUID();
-        doThrow(new BusinessException(404, "牌组不存在"))
+        doThrow(new BusinessException(404, "deck.notfound"))
                 .when(deckService).deleteDeck(userId, deckId);
 
         mockMvc.perform(delete("/api/decks/{deckId}", deckId)
                         .with(authentication(userId)))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.message").value("牌组不存在"));
+                .andExpect(jsonPath("$.message").value("deck.notfound"));
     }
 
     private DeckResponse response(String name) {

@@ -14,7 +14,7 @@ class SecuritySystemTest extends SystemTestSupport {
     void protectedEndpointsRejectMissingAndInvalidTokens() {
         JsonNode missing = call("GET", "/decks", null, null, 401);
         assertEquals(401, missing.get("code").asInt());
-        assertEquals("未登录或Token已过期", text(missing, "message"));
+        assertEquals("Not logged in or token expired", text(missing, "message"));
 
         JsonNode invalid = call("GET", "/decks", "invalid-token", null, 401);
         assertEquals(401, invalid.get("code").asInt());

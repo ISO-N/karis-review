@@ -18,6 +18,7 @@ import top.kariscode.karisreview.deck.entity.Deck;
 import top.kariscode.karisreview.deck.repository.DeckRepository;
 import top.kariscode.karisreview.review.entity.ReviewLog;
 import top.kariscode.karisreview.review.repository.ReviewLogRepository;
+import top.kariscode.karisreview.log.service.UserLogService;
 
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -27,6 +28,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -56,12 +58,15 @@ class BackupServiceTest {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     private BackupService service;
+    @Mock
+    private UserLogService userLogService;
+
 
     @BeforeEach
     void setUp() {
         service = new BackupService(
                 userRepository, deckRepository, cardRepository,
-                reviewLogRepository, backupRepository, objectMapper);
+                reviewLogRepository, backupRepository, objectMapper, userLogService);
     }
 
     @Test

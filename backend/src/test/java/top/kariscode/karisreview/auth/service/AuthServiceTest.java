@@ -14,6 +14,7 @@ import top.kariscode.karisreview.auth.repository.UserRepository;
 import top.kariscode.karisreview.common.exception.BusinessException;
 import top.kariscode.karisreview.config.InviteCodeConfig;
 import top.kariscode.karisreview.config.JwtProvider;
+import top.kariscode.karisreview.log.service.UserLogService;
 
 import java.util.Optional;
 import java.util.UUID;
@@ -41,11 +42,14 @@ class AuthServiceTest {
     private JwtProvider jwtProvider;
 
     private AuthService service;
+    @Mock
+    private UserLogService userLogService;
+
 
     @BeforeEach
     void setUp() {
         service = new AuthService(userRepository, passwordEncoder, jwtProvider,
-                new InviteCodeConfig(false, ""));
+                new InviteCodeConfig(false, ""), userLogService);
     }
 
     @Test
@@ -79,7 +83,7 @@ class AuthServiceTest {
                 BusinessException.class, () -> service.register(request));
 
         assertEquals(400, exception.getCode());
-        assertEquals("邮箱已被注册", exception.getMessage());
+        assertEquals("auth.email.registered", exception.getMessage());
         verify(userRepository, never()).save(any());
     }
 
@@ -92,7 +96,7 @@ class AuthServiceTest {
                 BusinessException.class, () -> enabledService.register(request));
 
         assertEquals(400, exception.getCode());
-        assertEquals("请输入邀请码", exception.getMessage());
+        assertEquals("auth.invite.required", exception.getMessage());
         verify(userRepository, never()).existsByEmail(any());
         verify(userRepository, never()).save(any());
     }
@@ -107,7 +111,7 @@ class AuthServiceTest {
                 BusinessException.class, () -> enabledService.register(request));
 
         assertEquals(400, exception.getCode());
-        assertEquals("邀请码无效", exception.getMessage());
+        assertEquals("auth.invite.invalid", exception.getMessage());
         verify(userRepository, never()).existsByEmail(any());
         verify(userRepository, never()).save(any());
     }
@@ -179,7 +183,7 @@ class AuthServiceTest {
                 BusinessException.class, () -> service.login(request));
 
         assertEquals(401, exception.getCode());
-        assertEquals("邮箱或密码错误", exception.getMessage());
+        assertEquals("auth.email.password.wrong", exception.getMessage());
     }
 
     @Test
@@ -193,7 +197,7 @@ class AuthServiceTest {
                 BusinessException.class, () -> service.login(request));
 
         assertEquals(401, exception.getCode());
-        assertEquals("邮箱或密码错误", exception.getMessage());
+        assertEquals("auth.email.password.wrong", exception.getMessage());
     }
 
     @Test
@@ -211,6 +215,6 @@ class AuthServiceTest {
 
     private AuthService service(boolean enabled, String code) {
         return new AuthService(userRepository, passwordEncoder, jwtProvider,
-                new InviteCodeConfig(enabled, code));
+                new InviteCodeConfig(enabled, code), userLogService);
     }
 }

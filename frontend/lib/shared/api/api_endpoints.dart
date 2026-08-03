@@ -45,4 +45,7 @@ class ApiEndpoints {
   // Backup
   static const String backupExport = '$baseUrl/backup/export';
   static const String backupImport = '$baseUrl/backup/import';
+
+  // Logs
+  static const String logs = '$baseUrl/logs';
 }

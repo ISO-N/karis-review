@@ -10,6 +10,7 @@ import top.kariscode.karisreview.card.entity.Card;
 import top.kariscode.karisreview.card.repository.CardRepository;
 import top.kariscode.karisreview.common.exception.BusinessException;
 import top.kariscode.karisreview.common.util.DateUtils;
+import top.kariscode.karisreview.log.service.UserLogService;
 import top.kariscode.karisreview.review.dto.RateRequest;
 import top.kariscode.karisreview.review.dto.RateResponse;
 import top.kariscode.karisreview.review.dto.ReviewCardResponse;
@@ -52,19 +53,22 @@ public class ReviewService {
     private final SchedulingEngine schedulingEngine;
     private final ReviewSessionRepository reviewSessionRepository;
     private final ReviewQueueItemRepository reviewQueueItemRepository;
+    private final UserLogService userLogService;
 
     public ReviewService(CardRepository cardRepository,
                          ReviewLogRepository reviewLogRepository,
                          UserRepository userRepository,
                          SchedulingEngine schedulingEngine,
                          ReviewSessionRepository reviewSessionRepository,
-                         ReviewQueueItemRepository reviewQueueItemRepository) {
+                         ReviewQueueItemRepository reviewQueueItemRepository,
+                         UserLogService userLogService) {
         this.cardRepository = cardRepository;
         this.reviewLogRepository = reviewLogRepository;
         this.userRepository = userRepository;
         this.schedulingEngine = schedulingEngine;
         this.reviewSessionRepository = reviewSessionRepository;
         this.reviewQueueItemRepository = reviewQueueItemRepository;
+        this.userLogService = userLogService;
     }
 
     public List<ReviewCardResponse> getDueCards(UUID userId, UUID deckId) {
@@ -212,6 +216,9 @@ public class ReviewService {
             synced++;
         }
 
+        userLogService.log(userId, "INFO", "SYNC", String.format(
+                "Review sync: %d synced, %d conflicts, %d missing", synced, conflicts, missing));
+
         return new ReviewSyncResponse(synced, conflicts, missing, results);
     }
 
@@ -224,6 +231,11 @@ public class ReviewService {
             if (existing.isPresent()) {
                 ReviewLog log = existing.get();
                 if (!log.getCardId().equals(cardId) || !log.getRating().equals(request.getRating())) {
+                    userLogService.log(userId, "WARN", "REVIEW", String.format(
+                            "Rating conflict: card=%s, clientRequestId=%s, expected=%s/%s, got=%s/%s",
+                            cardId, clientRequestId,
+                            log.getCardId(), log.getRating(),
+                            cardId, request.getRating()));
                     throw new BusinessException(409, "review.conflict.request");
                 }
                 Card current = cardRepository.findByIdAndUserId(cardId, userId)
@@ -239,6 +251,9 @@ public class ReviewService {
 
         if (request.getReviewVersion() != null
                 && request.getReviewVersion() != card.getReviewVersion()) {
+            userLogService.log(userId, "WARN", "REVIEW", String.format(
+                    "Version conflict: card=%s, expected=%d, got=%d",
+                    cardId, card.getReviewVersion(), request.getReviewVersion()));
             throw new BusinessException(409, "review.conflict.version");
         }
 

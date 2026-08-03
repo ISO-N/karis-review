@@ -42,9 +42,9 @@ public abstract class SystemTestSupport {
     @BeforeEach
     @AfterEach
     void cleanSystemTestUsers() {
+        jdbcTemplate.update("DELETE FROM user_logs WHERE user_id IN (SELECT id FROM users WHERE email LIKE ?)", TEST_USER_PATTERN);
         jdbcTemplate.update("DELETE FROM users WHERE email LIKE ?", TEST_USER_PATTERN);
     }
-
     protected TestAccount register(String prefix) {
         return register(prefix, "");
     }
@@ -72,6 +72,7 @@ public abstract class SystemTestSupport {
     protected JsonNode call(String method, String path, String token, Object body, int expectedStatus) {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.set("Accept-Language", "en");
         if (token != null) {
             headers.setBearerAuth(token);
         }

@@ -16,6 +16,7 @@ import '../home/pages/home_page.dart';
 import '../review/pages/review_page.dart';
 import '../review/pages/start_flow_page.dart';
 import '../settings/pages/settings_page.dart';
+import '../log/pages/logs_page.dart';
 import '../stats/pages/stats_page.dart';
 
 CustomTransitionPage<Object?> _fadeSlidePage(
@@ -168,6 +169,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/settings',
         pageBuilder: (context, state) =>
             _fadeSlidePage(context, state, const SettingsPage()),
+      ),
+      GoRoute(
+        path: '/settings/logs',
+        pageBuilder: (context, state) =>
+            _fadeSlidePage(context, state, const LogsPage()),
       ),
     ],
   );

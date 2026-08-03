@@ -121,7 +121,7 @@ class AuthControllerTest {
     @Test
     void loginMapsBusinessExceptionToUnauthorized() throws Exception {
         when(authService.login(any(LoginRequest.class)))
-                .thenThrow(new BusinessException(401, "邮箱或密码错误"));
+                .thenThrow(new BusinessException(401, "auth.email.password.wrong"));
 
         mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -130,7 +130,7 @@ class AuthControllerTest {
                                 """))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value(401))
-                .andExpect(jsonPath("$.message").value("邮箱或密码错误"));
+                .andExpect(jsonPath("$.message").value("auth.email.password.wrong"));
     }
 
     @Test
@@ -145,7 +145,7 @@ class AuthControllerTest {
         mockMvc.perform(post("/api/auth/logout")
                         .with(authentication(UUID.randomUUID())))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.message").value("已登出"));
+                .andExpect(jsonPath("$.message").value("auth.logout.success"));
     }
 
     private RequestPostProcessor authentication(UUID userId) {

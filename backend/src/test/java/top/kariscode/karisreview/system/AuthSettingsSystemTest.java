@@ -28,7 +28,7 @@ class AuthSettingsSystemTest extends SystemTestSupport {
         assertEquals("03:00:00", text(reRead, "refresh_time"));
 
         JsonNode logout = call("POST", "/auth/logout", account.token(), null, 200);
-        assertEquals("已登出", text(logout, "message"));
+        assertEquals("auth.logout.success", text(logout, "message"));
 
         TestAccount loggedIn = login(account.email());
         assertNotNull(loggedIn.token());
@@ -43,12 +43,12 @@ class AuthSettingsSystemTest extends SystemTestSupport {
                 "email", account.email(),
                 "password", PASSWORD), 400);
         assertEquals(400, duplicate.get("code").asInt());
-        assertEquals("邮箱已被注册", text(duplicate, "message"));
+        assertEquals("Email already registered", text(duplicate, "message"));
 
         JsonNode wrongPassword = call("POST", "/auth/login", null, Map.of(
                 "email", account.email(),
                 "password", "wrong-password"), 401);
         assertEquals(401, wrongPassword.get("code").asInt());
-        assertEquals("邮箱或密码错误", text(wrongPassword, "message"));
+        assertEquals("Incorrect email or password", text(wrongPassword, "message"));
     }
 }

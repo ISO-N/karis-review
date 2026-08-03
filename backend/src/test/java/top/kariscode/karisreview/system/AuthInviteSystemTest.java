@@ -24,13 +24,13 @@ class AuthInviteSystemTest extends SystemTestSupport {
         JsonNode missing = call("POST", "/auth/register", null, Map.of(
                 "email", "system-test-invite-missing-" + UUID.randomUUID() + "@example.com",
                 "password", PASSWORD), 400);
-        assertEquals("请输入邀请码", text(missing, "message"));
+        assertEquals("Please enter invitation code", text(missing, "message"));
 
         JsonNode wrong = call("POST", "/auth/register", null, Map.of(
                 "email", "system-test-invite-wrong-" + UUID.randomUUID() + "@example.com",
                 "password", PASSWORD,
                 "invite_code", "wrong-code"), 400);
-        assertEquals("邀请码无效", text(wrong, "message"));
+        assertEquals("Invalid invitation code", text(wrong, "message"));
 
         TestAccount account = register("invite", "system-test-invite");
         assertNotNull(account.token());

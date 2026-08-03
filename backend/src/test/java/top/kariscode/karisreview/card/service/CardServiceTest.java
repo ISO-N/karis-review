@@ -133,7 +133,7 @@ class CardServiceTest {
                 () -> service.getDeckCards(userId, deckId, 0, 20, "all"));
 
         assertEquals(404, exception.getCode());
-        assertEquals("牌组不存在", exception.getMessage());
+        assertEquals("deck.notfound", exception.getMessage());
     }
 
     @Test
@@ -255,7 +255,7 @@ class CardServiceTest {
                         userId, deckId, 0, 20, "all", "a".repeat(101)));
 
         assertEquals(400, exception.getCode());
-        assertEquals("搜索词不能超过 100 个字符", exception.getMessage());
+        assertEquals("card.search.too.long", exception.getMessage());
     }
 
     @Test
@@ -338,7 +338,7 @@ class CardServiceTest {
                 () -> service.updateCard(userId, cardId, request));
 
         assertEquals(404, exception.getCode());
-        assertEquals("卡片不存在", exception.getMessage());
+        assertEquals("card.notfound", exception.getMessage());
     }
 
     @Test
@@ -394,7 +394,7 @@ class CardServiceTest {
                 () -> service.deleteCards(userId, List.of()));
 
         assertEquals(400, exception.getCode());
-        assertEquals("卡片 ID 列表不能为空", exception.getMessage());
+        assertEquals("card.id.list.empty", exception.getMessage());
         verify(cardRepository, never()).deleteAll(any());
     }
 

@@ -14,7 +14,7 @@ class InviteCodeConfigTest {
         IllegalStateException exception = assertThrows(
                 IllegalStateException.class, () -> new InviteCodeConfig(true, "  "));
 
-        assertEquals("auth.invite.enabled=true 时 auth.invite.code 不能为空", exception.getMessage());
+        assertEquals("auth.invite.code must not be empty when auth.invite.enabled=true", exception.getMessage());
     }
 
     @Test
