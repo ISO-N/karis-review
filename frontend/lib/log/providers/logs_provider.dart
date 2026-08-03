@@ -1,7 +1,7 @@
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../repositories/logs_repository.dart';
-
 class LogEntry {
   final String id;
   final String level;
@@ -52,14 +52,16 @@ class LogsState {
     this.error,
   });
 
+  static const Object _unset = Object();
+
   LogsState copyWith({
     List<LogEntry>? logs,
     bool? isLoading,
     bool? isLoadingMore,
     bool? hasMore,
     int? page,
-    String? levelFilter,
-    String? categoryFilter,
+    Object? levelFilter = _unset,
+    Object? categoryFilter = _unset,
     String? error,
   }) {
     return LogsState(
@@ -68,11 +70,16 @@ class LogsState {
       isLoadingMore: isLoadingMore ?? this.isLoadingMore,
       hasMore: hasMore ?? this.hasMore,
       page: page ?? this.page,
-      levelFilter: levelFilter,
-      categoryFilter: categoryFilter,
+      levelFilter: identical(levelFilter, _unset)
+          ? this.levelFilter
+          : levelFilter as String?,
+      categoryFilter: identical(categoryFilter, _unset)
+          ? this.categoryFilter
+          : categoryFilter as String?,
       error: error,
     );
   }
+
 }
 
 class LogsNotifier extends StateNotifier<LogsState> {
@@ -100,10 +107,9 @@ class LogsNotifier extends StateNotifier<LogsState> {
         page: currentPage,
       );
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
+      state = state.copyWith(isLoading: false, error: _errorText(e));
     }
   }
-
   Future<void> loadMore() async {
     if (state.isLoadingMore || !state.hasMore) return;
     state = state.copyWith(isLoadingMore: true);
@@ -125,18 +131,27 @@ class LogsNotifier extends StateNotifier<LogsState> {
         page: nextPage,
       );
     } catch (e) {
-      state = state.copyWith(isLoadingMore: false, error: e.toString());
+      state = state.copyWith(isLoadingMore: false, error: _errorText(e));
     }
   }
-
-  void setLevelFilter(String? level) {
+  Future<void> setLevelFilter(String? level) {
     state = state.copyWith(levelFilter: level);
-    loadLogs();
+    return loadLogs();
   }
 
-  void setCategoryFilter(String? category) {
+  Future<void> setCategoryFilter(String? category) {
     state = state.copyWith(categoryFilter: category);
-    loadLogs();
+    return loadLogs();
+  }
+
+  String _errorText(Object e) {
+    if (e is DioException) {
+      final data = e.response?.data;
+      if (data is Map && data['message'] is String) {
+        return data['message'] as String;
+      }
+    }
+    return e.toString();
   }
 }
 
