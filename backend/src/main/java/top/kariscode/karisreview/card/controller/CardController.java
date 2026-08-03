@@ -34,8 +34,10 @@ public class CardController {
             @PathVariable UUID deckId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
-            @RequestParam(defaultValue = "all") String filter) {
-        Page<CardResponse> cardPage = cardService.getDeckCards(userId, deckId, page, size, filter);
+            @RequestParam(defaultValue = "all") String filter,
+            @RequestParam(defaultValue = "") String q) {
+        Page<CardResponse> cardPage = cardService.getDeckCards(
+                userId, deckId, page, size, filter, q);
         Map<String, Object> data = Map.of(
                 "content", cardPage.getContent(),
                 "page", cardPage.getNumber(),

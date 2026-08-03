@@ -35,23 +35,42 @@ public class CardService {
         this.deckRepository = deckRepository;
         this.userRepository = userRepository;
     }
-
     public Page<CardResponse> getDeckCards(UUID userId, UUID deckId, int page, int size, String filter) {
+        return getDeckCards(userId, deckId, page, size, filter, "");
+    }
+
+    public Page<CardResponse> getDeckCards(UUID userId, UUID deckId, int page, int size, String filter, String query) {
         if (!deckRepository.existsByIdAndUserId(deckId, userId)) {
             throw new BusinessException(404, "牌组不存在");
         }
 
+        String effectiveFilter = filter == null ? "all" : filter;
+        String normalizedQuery = normalizeSearchQuery(query);
         PageRequest pageRequest = PageRequest.of(page, size);
         LocalDate today = todayFor(userId);
-        Page<Card> cards = switch (filter == null ? "all" : filter) {
-            case "due" -> cardRepository
-                    .findByDeckIdAndNextReviewDateNotNullAndNextReviewDateLessThanEqualOrderByNextReviewDateAsc(
-                            deckId, today, pageRequest);
-            case "learning" -> cardRepository
-                    .findByDeckIdAndLearningModeTrueOrderByCreatedAtAsc(deckId, pageRequest);
-            case "new" -> cardRepository.findNewByDeckIdOrderByCreatedAtDesc(deckId, pageRequest);
-            default -> cardRepository.findByDeckIdOrderByCreatedAtAsc(deckId, pageRequest);
-        };
+        Page<Card> cards;
+        if (normalizedQuery.isEmpty()) {
+            cards = switch (effectiveFilter) {
+                case "due" -> cardRepository
+                        .findByDeckIdAndNextReviewDateNotNullAndNextReviewDateLessThanEqualOrderByNextReviewDateAsc(
+                                deckId, today, pageRequest);
+                case "learning" -> cardRepository
+                        .findByDeckIdAndLearningModeTrueOrderByCreatedAtAsc(deckId, pageRequest);
+                case "new" -> cardRepository.findNewByDeckIdOrderByCreatedAtDesc(deckId, pageRequest);
+                default -> cardRepository.findByDeckIdOrderByCreatedAtAsc(deckId, pageRequest);
+            };
+        } else {
+            String pattern = searchPattern(normalizedQuery);
+            cards = switch (effectiveFilter) {
+                case "due" -> cardRepository
+                        .searchByDeckIdAndNextReviewDateNotNullAndNextReviewDateLessThanEqualOrderByNextReviewDateAsc(
+                                deckId, today, pattern, pageRequest);
+                case "learning" -> cardRepository
+                        .searchByDeckIdAndLearningModeTrueOrderByCreatedAtAsc(deckId, pattern, pageRequest);
+                case "new" -> cardRepository.searchNewByDeckIdOrderByCreatedAtDesc(deckId, pattern, pageRequest);
+                default -> cardRepository.searchByDeckIdOrderByCreatedAtAsc(deckId, pattern, pageRequest);
+            };
+        }
         return cards.map(card -> toCardResponse(card, today));
     }
 
@@ -98,6 +117,25 @@ public class CardService {
         List<Card> ownedCards = cardRepository.findByIdInAndUserId(cardIds, userId);
         cardRepository.deleteAll(ownedCards);
         return ownedCards.size();
+    }
+
+    private static final int MAX_SEARCH_QUERY_LENGTH = 100;
+
+    private String normalizeSearchQuery(String query) {
+        if (query == null) return "";
+        String trimmed = query.trim();
+        if (trimmed.length() > MAX_SEARCH_QUERY_LENGTH) {
+            throw new BusinessException(400, "搜索词不能超过 100 个字符");
+        }
+        return trimmed;
+    }
+
+    private String searchPattern(String query) {
+        String escaped = query
+                .replace("\\", "\\\\")
+                .replace("%", "\\%")
+                .replace("_", "\\_");
+        return "%" + escaped + "%";
     }
 
     public Card getCardForUser(UUID userId, UUID cardId) {
