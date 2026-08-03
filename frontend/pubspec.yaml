@@ -49,4 +49,5 @@ hooks:
       source: sqlite3
 
 flutter:
+  generate: true
   uses-material-design: true
