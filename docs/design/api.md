@@ -246,11 +246,11 @@
 
 ---
 
-## 4. 牌组模块
+## 4. 卡组模块
 
 ### GET /api/decks
 
-获取当前用户所有牌组列表。
+获取当前用户所有卡组列表。
 
 **Headers:** `Authorization: Bearer <token>`
 
@@ -278,7 +278,7 @@
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| card_count | int | 牌组内卡片总数 |
+| card_count | int | 卡组内卡片总数 |
 | due_count | int | 今日待复习卡片数 |
 | new_count | int | 可学习的新卡数（Stage 0 且非重学） |
 | mastered_count | int | 已掌握卡片数（Stage ≥ 5） |
@@ -289,7 +289,7 @@
 
 ### POST /api/decks
 
-创建新牌组。
+创建新卡组。
 
 **Request Body:**
 
@@ -301,14 +301,14 @@
 
 | 字段 | 类型 | 必填 | 说明 |
 |------|------|------|------|
-| name | string | 是 | 牌组名称（1-100 字符） |
+| name | string | 是 | 卡组名称（1-100 字符） |
 
 **Response (200):**
 
 ```json
 {
   "code": 200,
-  "message": "牌组已创建",
+  "message": "卡组已创建",
   "data": {
     "id": "uuid",
     "name": "日语N5",
@@ -327,7 +327,7 @@
 
 ### PUT /api/decks/{deckId}
 
-重命名牌组。
+重命名卡组。
 
 **Request Body:**
 
@@ -342,7 +342,7 @@
 ```json
 {
   "code": 200,
-  "message": "牌组已更新",
+  "message": "卡组已更新",
   "data": {
     "id": "uuid",
     "name": "日语N5-改",
@@ -361,7 +361,7 @@
 
 ### DELETE /api/decks/{deckId}
 
-删除牌组（级联删除牌组内所有卡片及复习记录）。
+删除卡组（级联删除卡组内所有卡片及复习记录）。
 
 **Headers:** `Authorization: Bearer <token>`
 
@@ -370,12 +370,12 @@
 ```json
 {
   "code": 200,
-  "message": "牌组已删除",
+  "message": "卡组已删除",
   "data": null
 }
 ```
 
-**错误码：** 404（牌组不存在或不属于当前用户）
+**错误码：** 404（卡组不存在或不属于当前用户）
 
 ---
 
@@ -383,7 +383,7 @@
 
 ### GET /api/decks/{deckId}/cards
 
-获取牌组内所有卡片列表。
+获取卡组内所有卡片列表。
 
 **Headers:** `Authorization: Bearer <token>`
 
@@ -604,7 +604,7 @@
 
 ### POST /api/decks/{deckId}/cards/import
 
-将预览后的卡片批量导入当前牌组。
+将预览后的卡片批量导入当前卡组。
 
 **Headers:** `Authorization: Bearer <token>`
 
@@ -643,7 +643,7 @@
 | imported_cards | int | 本次导入卡片数 |
 | imported_card_ids | array | 本次导入卡片 ID，供前端提供“撤销导入”操作 |
 
-> 导入接口会重新校验牌组归属和每行内容；有任何无效行则整体拒绝，不做部分导入。导入的卡片均为 Stage 0 新卡，不包含排期状态与复习日志。
+> 导入接口会重新校验卡组归属和每行内容；有任何无效行则整体拒绝，不做部分导入。导入的卡片均为 Stage 0 新卡，不包含排期状态与复习日志。
 
 ---
 
@@ -659,7 +659,7 @@
 
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
-| deck_id | UUID | null | 可选，按牌组筛选 |
+| deck_id | UUID | null | 可选，按卡组筛选 |
 | limit | int | 500 | 最大返回量 |
 **Response (200):**
 
@@ -700,7 +700,7 @@
 
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
-| deck_id | UUID | null | 可选，按牌组筛选 |
+| deck_id | UUID | null | 可选，按卡组筛选 |
 | limit | int | 10 | 最大返回量 |
 **Response (200):**
 
@@ -859,6 +859,7 @@
     "reviewed_today": 12,
     "learned_today": 3,
     "mastered_cards": 120,
+    "new_cards": 20,
     "learning_cards": 80,
     "stage_distribution": [20, 28, 25, 22, 20, 18, 16, 15, 12],
     "due_stage_distribution": [3, 5, 4, 3, 2, 1, 0, 0, 0],
@@ -872,6 +873,7 @@
 | reviewed_today | int | 今日复习数（不含新学，重学计入） |
 | learned_today | int | 今日新学数（新卡 FAMILIAR） |
 | mastered_cards | int | 已掌握卡片（Stage ≥ 5） |
+| new_cards | int | 可学习的新卡数 |
 | learning_cards | int | 学习中卡片（Stage 0-4） |
 | stage_distribution | array<int> | 全部卡片阶段分布（0-8） |
 | due_stage_distribution | array<int> | 今日到期卡片阶段分布（0-8） |
@@ -880,7 +882,7 @@
 
 ### GET /api/stats/deck/{deckId}
 
-获取牌组级统计。
+获取卡组级统计。
 
 **Headers:** `Authorization: Bearer <token>`
 
@@ -907,9 +909,9 @@
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| deck_id | string | 牌组 ID |
-| deck_name | string | 牌组名称 |
-| total_cards | int | 牌组卡片总数 |
+| deck_id | string | 卡组 ID |
+| deck_name | string | 卡组名称 |
+| total_cards | int | 卡组卡片总数 |
 | due_today | int | 今日待复习卡片数 |
 | reviewed_today | int | 今日复习数（不含新学，重学计入） |
 | new_cards | int | 可学习的新卡数 |
@@ -1104,10 +1106,10 @@
 |------|------|------|
 | server_time | string | 服务端 UTC 时间 |
 | user | object | 用户邮箱与刷新时间 |
-| decks | array | 全量时为牌组嵌套卡片；增量时为变更牌组 |
+| decks | array | 全量时为卡组嵌套卡片；增量时为变更卡组 |
 | changed_cards | array | 增量时发生创建/更新的卡片 |
 | review_logs | array | 全量时全部日志；增量时新增日志；离线评分日志包含 `client_request_id` |
-| deleted_deck_ids | array | 增量时被删除的牌组 ID |
+| deleted_deck_ids | array | 增量时被删除的卡组 ID |
 | deleted_card_ids | array | 增量时被删除的卡片 ID |
 | deleted_review_log_ids | array | 增量时被删除的复习日志 ID |
 | event_cursor | long | 本次已处理到的事件游标，客户端应保存并用于下次请求 |

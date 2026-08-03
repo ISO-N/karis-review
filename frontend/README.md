@@ -1,6 +1,6 @@
 # Karis Review Flutter 客户端
 
-Karis Review 的 Flutter 客户端，面向 Windows、Android、iOS。应用采用离线优先架构：首次登录后拉取全量快照到本地 Drift/SQLite，之后可离线浏览牌组、卡片、统计并继续评分；评分先写本地待同步队列，恢复网络后自动补传。
+Karis Review 的 Flutter 客户端，面向 Windows、Android、iOS。应用采用离线优先架构：首次登录后拉取全量快照到本地 Drift/SQLite，之后可离线浏览卡组、卡片、统计并继续评分；评分先写本地待同步队列，恢复网络后自动补传。
 
 ## 常用命令
 

@@ -90,7 +90,7 @@ CREATE TABLE users (
 |------|------|------|------|
 | id | UUID | PK, DEFAULT gen_random_uuid() | 主键 |
 | user_id | UUID | NOT NULL, FK → users(id) ON DELETE CASCADE | 所属用户 |
-| name | VARCHAR(255) | NOT NULL | 牌组名称 |
+| name | VARCHAR(255) | NOT NULL | 卡组名称 |
 | created_at | TIMESTAMP | NOT NULL, DEFAULT NOW() | 创建时间 |
 | updated_at | TIMESTAMP | NOT NULL, DEFAULT NOW() | 更新时间 |
 
@@ -111,7 +111,7 @@ CREATE INDEX idx_decks_user_id ON decks(user_id);
 | 字段 | 类型 | 约束 | 说明 |
 |------|------|------|------|
 | id | UUID | PK, DEFAULT gen_random_uuid() | 主键 |
-| deck_id | UUID | NOT NULL, FK → decks(id) ON DELETE CASCADE | 所属牌组 |
+| deck_id | UUID | NOT NULL, FK → decks(id) ON DELETE CASCADE | 所属卡组 |
 | user_id | UUID | NOT NULL, FK → users(id) ON DELETE CASCADE | 所属用户 |
 | front | TEXT | NOT NULL | 正面内容（富文本/LaTeX/代码） |
 | back | TEXT | NOT NULL | 反面内容（富文本/LaTeX/代码） |
@@ -221,7 +221,7 @@ CREATE INDEX idx_backup_snapshots_user_id ON backup_snapshots(user_id);
 | event_seq | BIGSERIAL | NOT NULL, UNIQUE | 单调事件游标 |
 | occurred_at | TIMESTAMP | NOT NULL, DEFAULT NOW() | 发生时间 |
 
-数据库触发器自动写入事件，覆盖牌组、卡片、复习日志、用户设置变更；删除用户时级联删除事件，不再为用户删除写入事件。
+数据库触发器自动写入事件，覆盖卡组、卡片、复习日志、用户设置变更；删除用户时级联删除事件，不再为用户删除写入事件。
 
 ## 4. Flyway 迁移脚本结构
 src/main/resources/db/migration/
