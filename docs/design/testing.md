@@ -30,8 +30,8 @@
 - Repository 测试：`repositories_test.dart` 用 Fake ApiClient 验证 JSON/Protobuf 请求路径、参数、请求体和响应解析，包含注册配置与邀请码字段。
 - 离线同步测试：`offline_repository_test.dart` 覆盖全量 Bootstrap、增量 upsert/删除、事件游标、单飞行刷新和保留待同步日志。
 - Provider 测试：`providers_test.dart` 覆盖 Auth、Deck、Card、Review、Stats、Settings 的状态转换与错误路径。
+- 自动刷新测试：`auto_refresh_test.dart` 覆盖每日刷新点延迟、`DataRefreshController` 本地/服务端刷新与冷却、统计/牌组/卡片 Provider 版本重算，以及路由变化触发刷新。
 - Widget 测试：`widgets_test.dart` 覆盖登录/注册（含邀请码显示/隐藏）、首页、牌组、卡片列表、卡片编辑正反面切换、导入页面、开始流程、复习翻面与评分、统计、设置和共享组件。
-
 ## 运行命令
 
 后端完整测试需要 PostgreSQL：
