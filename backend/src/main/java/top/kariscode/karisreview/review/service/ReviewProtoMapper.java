@@ -1,6 +1,7 @@
 package top.kariscode.karisreview.review.service;
 
 import org.springframework.stereotype.Component;
+import top.kariscode.karisreview.config.AppTimeZone;
 import top.kariscode.karisreview.proto.KarisReviewProto;
 import top.kariscode.karisreview.review.dto.ReviewCardResponse;
 import top.kariscode.karisreview.review.dto.ReviewSessionCreateRequest;
@@ -12,7 +13,6 @@ import top.kariscode.karisreview.review.dto.ReviewSyncResponse;
 
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
 import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.UUID;
@@ -126,13 +126,11 @@ public class ReviewProtoMapper {
         return builder.build();
     }
 
-    private static LocalDateTime parseRatedAt(String value) {
+    private static OffsetDateTime parseRatedAt(String value) {
         try {
-            return OffsetDateTime.parse(value)
-                    .withOffsetSameInstant(ZoneOffset.UTC)
-                    .toLocalDateTime();
+            return OffsetDateTime.parse(value);
         } catch (DateTimeParseException ignored) {
-            return LocalDateTime.parse(value);
+            return LocalDateTime.parse(value).atZone(AppTimeZone.get()).toOffsetDateTime();
         }
     }
 }

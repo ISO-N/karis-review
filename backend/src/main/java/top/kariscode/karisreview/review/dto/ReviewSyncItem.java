@@ -5,7 +5,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.UUID;
 
 public class ReviewSyncItem {
@@ -21,7 +21,7 @@ public class ReviewSyncItem {
     private String rating;
 
     @NotNull(message = "评分时间不能为空")
-    private LocalDateTime ratedAt;
+    private OffsetDateTime ratedAt;
 
     @Min(value = 0, message = "review_version 不能小于 0")
     private long reviewVersion;
@@ -32,8 +32,8 @@ public class ReviewSyncItem {
     public void setCardId(UUID cardId) { this.cardId = cardId; }
     public String getRating() { return rating; }
     public void setRating(String rating) { this.rating = rating; }
-    public LocalDateTime getRatedAt() { return ratedAt; }
-    public void setRatedAt(LocalDateTime ratedAt) { this.ratedAt = ratedAt; }
+    public OffsetDateTime getRatedAt() { return ratedAt; }
+    public void setRatedAt(OffsetDateTime ratedAt) { this.ratedAt = ratedAt; }
     public long getReviewVersion() { return reviewVersion; }
     public void setReviewVersion(long reviewVersion) { this.reviewVersion = reviewVersion; }
 }

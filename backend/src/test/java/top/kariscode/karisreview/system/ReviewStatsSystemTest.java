@@ -116,6 +116,23 @@ class ReviewStatsSystemTest extends SystemTestSupport {
         assertEquals(1, trend.get(trend.size() - 1).get("learned").asInt());
     }
     @Test
+    void overviewDueCountMatchesReviewSessionTotal() {
+        TestAccount user = register("due-session");
+        String deckId = text(createDeck(user.token(), "会话队列"), "id");
+        String cardId = text(createCard(user.token(), deckId, "到期卡", "反面"), "id");
+        backdateCardForUser(user.email(), cardId);
+
+        JsonNode overview = data("GET", "/stats/overview", user.token(), null);
+        int due = overview.get("due_today").asInt();
+        assertTrue(due > 0);
+
+        JsonNode session = data("POST", "/review/sessions", user.token(),
+                Map.of("mode", "due", "batch_size", 10));
+        assertEquals(due, session.get("total").asInt());
+        assertEquals(1, session.get("cards").size());
+    }
+
+    @Test
     void staleDeviceRatingCannotDoubleSchedule() {
         TestAccount user = register("review-lock");
         String deckId = text(createDeck(user.token(), "并发锁"), "id");

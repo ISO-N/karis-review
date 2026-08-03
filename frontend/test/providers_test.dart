@@ -30,10 +30,7 @@ void main() {
       LoginRequest(email: 'fallback@example.com', password: 'fallback'),
     );
     registerFallbackValue(
-      RegisterRequest(
-        email: 'fallback@example.com',
-        password: 'fallback',
-      ),
+      RegisterRequest(email: 'fallback@example.com', password: 'fallback'),
     );
   });
 
@@ -223,6 +220,50 @@ void main() {
       expect(notifier.state.currentIndex, 1);
       expect(notifier.state.reviewedCount, 1);
       expect(notifier.state.isComplete, isTrue);
+    });
+    test('server session keeps total count from page total', () async {
+      final db = AppDatabase(NativeDatabase.memory());
+      final offline = OfflineRepository(db);
+      await offline.saveBootstrap(
+        userId: 'user-1',
+        email: 'a@b.c',
+        refreshTime: '04:00:00',
+        serverTime: DateTime.utc(2025, 8, 2, 12),
+        decks: [],
+        reviewLogs: [],
+      );
+
+      final api = FakeApiClient();
+      api.onPostProto = (_, _, _) async {
+        throw apiError('unsupported', statusCode: 415);
+      };
+      api.onPost = (_, _) async => okResponse({
+        'session_id': 'session-1',
+        'mode': 'due',
+        'deck_id': null,
+        'batch_size': 10,
+        'total': 25,
+        'cursor': 10,
+        'has_more': true,
+        'cards': [
+          for (var i = 0; i < 10; i++)
+            reviewCardJson(id: 'card-$i', front: '正面 $i'),
+        ],
+      });
+
+      final notifier = ReviewNotifier(
+        ReviewRepository(),
+        offline: offline,
+        sync: SyncRepository(client: api),
+        syncService: SyncService(SyncRepository(client: api), offline),
+      );
+      await notifier.loadQueue(mode: 'due');
+
+      expect(notifier.state.cards, hasLength(10));
+      expect(notifier.state.serverTotal, 25);
+      expect(notifier.state.totalCount, 25);
+      expect(notifier.state.sessionTotal, 25);
+      await db.close();
     });
 
     test('uses local queue when pending ratings still cannot sync', () async {

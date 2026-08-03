@@ -3,10 +3,10 @@ import 'package:drift/drift.dart';
 import '../../card/models/card.dart';
 import '../../deck/models/deck.dart';
 import '../../review/models/review_card.dart';
+import '../../shared/utils/app_timezone.dart';
 import '../../stats/models/stats.dart';
 import 'database/app_database.dart';
 import 'local_scheduling_engine.dart';
-
 class OfflineRepository {
   final AppDatabase db;
 
@@ -739,13 +739,12 @@ class OfflineRepository {
   }
 
   DateTime? _dateTime(dynamic value) {
-    if (value == null) return null;
-    return DateTime.tryParse(value.toString());
+    return parseServerDateTime(value);
   }
 
   DateTime? _dateTimeFromString(String? value) {
     if (value == null || value.isEmpty) return null;
-    return DateTime.tryParse(value);
+    return parseServerDateTime(value);
   }
 
   int _int(dynamic value) => (value as num?)?.toInt() ?? 0;

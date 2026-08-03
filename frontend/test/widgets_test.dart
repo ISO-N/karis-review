@@ -33,6 +33,19 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'helpers/test_helpers.dart';
 
+class _StaticReviewNotifier extends ReviewNotifier {
+  _StaticReviewNotifier(super.repository, ReviewSessionState initial) {
+    state = initial;
+  }
+
+  @override
+  Future<void> loadQueue({
+    required String mode,
+    String? deckId,
+    int limit = 10,
+  }) async {}
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -42,10 +55,7 @@ void main() {
       LoginRequest(email: 'fallback@example.com', password: 'fallback'),
     );
     registerFallbackValue(
-      RegisterRequest(
-        email: 'fallback@example.com',
-        password: 'fallback',
-      ),
+      RegisterRequest(email: 'fallback@example.com', password: 'fallback'),
     );
   });
 
@@ -481,8 +491,43 @@ void main() {
       expect(find.text('正面'), findsWidgets);
       expect(tester.takeException(), isNull);
     });
-  });
+    testWidgets('completion view uses server session total', (tester) async {
+      final repo = MockReviewRepository();
+      final state = ReviewSessionState(
+        mode: 'new',
+        cards: [
+          for (var i = 0; i < 25; i++)
+            ReviewCard.fromJson(reviewCardJson(id: 'card-$i')),
+        ],
+        currentIndex: 25,
+        reviewedCount: 25,
+        totalCount: 10,
+        serverTotal: 25,
+        hasMore: false,
+      );
+      final router = GoRouter(
+        initialLocation: '/review?mode=new',
+        routes: [
+          GoRoute(path: '/review', builder: (_, _) => const ReviewPage()),
+        ],
+      );
 
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            reviewProvider.overrideWith(
+              (ref) => _StaticReviewNotifier(repo, state),
+            ),
+          ],
+          child: MaterialApp.router(routerConfig: router),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('本轮学习完成'), findsOneWidget);
+      expect(find.text('本次 25 张 · 已学习 25'), findsOneWidget);
+    });
+  });
   group('Card editor page', () {
     testWidgets('switches between front and back without losing drafts', (
       tester,

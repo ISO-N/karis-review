@@ -165,9 +165,7 @@ class _ReviewStage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final isTablet = MediaQuery.sizeOf(context).width >= 600;
     final current = state.currentIndex + 1;
-    final total = state.serverTotal > state.totalCount
-        ? state.serverTotal
-        : state.totalCount;
+    final total = state.sessionTotal;
     final progress = total == 0 ? 0.0 : current / total;
 
     return Column(
@@ -852,8 +850,8 @@ class _CompleteView extends ConsumerWidget {
             const SizedBox(height: 8),
             Text(
               state.mode == 'new'
-                  ? '本次 ${state.totalCount} 张 · 已学习 ${state.reviewedCount}'
-                  : '本次 ${state.totalCount} 张 · 已复习 ${state.reviewedCount}',
+                  ? '本次 ${state.sessionTotal} 张 · 已学习 ${state.reviewedCount}'
+                  : '本次 ${state.sessionTotal} 张 · 已复习 ${state.reviewedCount}',
               style: const TextStyle(
                 color: KarisColors.stone,
                 fontSize: 13,

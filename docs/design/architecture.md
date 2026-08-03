@@ -306,6 +306,8 @@ settings ──► auth, common
 
 自动刷新不打断当前页面，失败时静默保留本地数据；用户仍可下拉刷新显式重试。当前不引入前台周期轮询或服务端推送，跨设备实时同步可作为后续增强。
 
+“今天”和每日刷新点按全局业务时区计算：后端通过 `app.timezone`（默认 `Asia/Shanghai`）判断，前端 `LocalSchedulingEngine` 与每日刷新调度也按 UTC+8 换算，不依赖设备时区。同步接口的 `server_time` 保持 UTC。
+
 ## 8. 跨设备评分锁
 
 `cards.review_version` 是 JPA `@Version` 乐观锁字段。评分和同步接口在事务内用 `PESSIMISTIC_WRITE` 锁住卡片并校验版本，旧设备提交会得到冲突，不会重复排期。

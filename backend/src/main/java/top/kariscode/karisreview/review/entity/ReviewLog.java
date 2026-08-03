@@ -1,6 +1,8 @@
 package top.kariscode.karisreview.review.entity;
 
 import jakarta.persistence.*;
+import top.kariscode.karisreview.common.util.DateUtils;
+
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -39,7 +41,7 @@ public class ReviewLog {
     @PrePersist
     protected void onCreate() {
         if (reviewedAt == null) {
-            reviewedAt = LocalDateTime.now();
+            reviewedAt = DateUtils.now();
         }
     }
 

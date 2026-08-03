@@ -94,12 +94,9 @@ void main() {
   });
 
   test('forget relearning requires five familiar ratings', () {
-    var current = engine.rate(
-      card(stage: 6),
-      'FORGET',
-      nowUtc: now,
-      refreshTime: '04:00:00',
-    ).card;
+    var current = engine
+        .rate(card(stage: 6), 'FORGET', nowUtc: now, refreshTime: '04:00:00')
+        .card;
     for (var i = 0; i < 4; i++) {
       final next = engine.rate(
         current,
@@ -119,5 +116,22 @@ void main() {
     );
     expect(completed.card.learningMode, isFalse);
     expect(completed.card.stage, 1);
+  });
+
+  test('calculateToday uses Asia/Shanghai instead of device local time', () {
+    expect(
+      LocalSchedulingEngine.calculateToday(
+        DateTime.utc(2025, 8, 1, 19),
+        '04:00:00',
+      ),
+      DateTime(2025, 8, 1),
+    );
+    expect(
+      LocalSchedulingEngine.calculateToday(
+        DateTime.utc(2025, 8, 1, 20),
+        '04:00:00',
+      ),
+      DateTime(2025, 8, 2),
+    );
   });
 }

@@ -66,6 +66,8 @@ class ReviewSessionState {
 
   int get remaining => cards.length - currentIndex;
 
+  int get sessionTotal => serverTotal > 0 ? serverTotal : totalCount;
+
   ReviewSessionState copyWith({
     String? mode,
     String? deckId,
@@ -170,6 +172,7 @@ class ReviewNotifier extends StateNotifier<ReviewSessionState> {
         batchSize: limit,
       );
       final cards = _parseCards(page['cards']);
+      final serverTotal = (page['total'] as num?)?.toInt() ?? cards.length;
       final currentUserId = userId ?? await _activeUserId();
       if (currentUserId != null) {
         for (final card in cards) {
@@ -182,8 +185,8 @@ class ReviewNotifier extends StateNotifier<ReviewSessionState> {
         isFlipped: false,
         isLoading: false,
         reviewedCount: 0,
-        totalCount: cards.length,
-        serverTotal: (page['total'] as num?)?.toInt() ?? cards.length,
+        totalCount: serverTotal,
+        serverTotal: serverTotal,
         cursor: (page['cursor'] as num?)?.toInt() ?? cards.length,
         hasMore: page['has_more'] as bool? ?? false,
         sessionId: page['session_id'] as String?,
