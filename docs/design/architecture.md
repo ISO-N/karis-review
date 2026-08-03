@@ -54,10 +54,9 @@
 
 ## 2. 架构风格
 
-- **前后端分离**：Flutter 客户端仅负责 UI 渲染，无本地业务数据存储
-- **RESTful API**：客户端与服务端通过 HTTP/JSON 通信
+- **前后端分离**：Flutter 客户端负责 UI 渲染、交互和离线缓存；服务端保持业务权威，客户端离线写入会在联网后同步
+- **RESTful API**：客户端与服务端通过 HTTP 通信，默认 JSON，高流量接口支持 `application/x-protobuf` 内容协商
 - **无状态服务端**：认证通过 JWT Token 实现，服务端不维护会话状态
-
 ## 3. 包结构
 
 ### 3.1 后端（Java）
@@ -71,30 +70,32 @@ top.kariscode.karisreview
 │   ├── CorsConfig.java                  # 跨域配置
 │   ├── JacksonConfig.java               # JSON 序列化配置
 │   ├── OpenApiConfig.java               # OpenAPI 3 + JWT Bearer 配置
-│   └── InviteCodeConfig.java            # 注册邀请码开关与校验
+│   ├── InviteCodeConfig.java            # 注册邀请码开关与校验
+│   ├── JwtProvider.java                 # JWT 签发/校验
+│   ├── JwtAuthenticationFilter.java     # Bearer Token 过滤器
+│   └── ProtobufHttpMessageConverter.java
 │
 ├── common/
 │   ├── exception/
-│   │   ├── GlobalExceptionHandler.java  # 全局异常处理
+│   │   ├── GlobalExceptionHandler.java  # 全局异常处理（JSON/Protobuf）
 │   │   └── BusinessException.java       # 业务异常
 │   ├── dto/
 │   │   └── ApiResponse.java             # 统一响应格式
+│   ├── etag/
+│   │   └── UserEtagService.java         # 用户级 ETag
 │   └── util/
-│       └── DateUtils.java               # 日期工具
+│       └── DateUtils.java               # 业务日期工具
 │
 ├── auth/
 │   ├── controller/AuthController.java
 │   ├── service/AuthService.java
 │   ├── entity/User.java
 │   ├── repository/UserRepository.java
-│   ├── dto/
-│   │   ├── AuthConfigResponse.java
-│   │   ├── RegisterRequest.java
-│   │   ├── LoginRequest.java
-│   │   └── LoginResponse.java
-│   └── jwt/
-│       ├── JwtProvider.java
-│       └── JwtAuthenticationFilter.java
+│   └── dto/
+│       ├── AuthConfigResponse.java
+│       ├── RegisterRequest.java
+│       ├── LoginRequest.java
+│       └── LoginResponse.java
 │
 ├── deck/
 │   ├── controller/DeckController.java
@@ -108,42 +109,74 @@ top.kariscode.karisreview
 │
 ├── card/
 │   ├── controller/CardController.java
-│   ├── service/CardService.java
+│   ├── controller/CardImportController.java
+│   ├── service/
+│   │   ├── CardService.java
+│   │   ├── CardImportService.java
+│   │   └── CardImportParser.java
 │   ├── entity/Card.java
 │   ├── repository/CardRepository.java
 │   └── dto/
 │       ├── CardCreateRequest.java
 │       ├── CardUpdateRequest.java
-│       └── CardResponse.java
+│       ├── CardResponse.java
+│       └── CardImport*.java
 │
 ├── review/
 │   ├── controller/ReviewController.java
 │   ├── service/
 │   │   ├── ReviewService.java
+│   │   ├── ReviewProtoMapper.java
 │   │   └── SchedulingEngine.java       # 排期算法核心
-│   ├── entity/ReviewLog.java
-│   ├── repository/ReviewLogRepository.java
+│   ├── entity/
+│   │   ├── ReviewLog.java
+│   │   ├── ReviewSession.java
+│   │   └── ReviewQueueItem.java
+│   ├── repository/
+│   │   ├── ReviewLogRepository.java
+│   │   ├── ReviewSessionRepository.java
+│   │   └── ReviewQueueItemRepository.java
 │   └── dto/
 │       ├── ReviewCardResponse.java
-│       └── RateRequest.java
+│       ├── RateRequest.java
+│       └── ReviewSync*.java
 │
 ├── stats/
 │   ├── controller/StatsController.java
 │   ├── service/StatsService.java
 │   └── dto/
 │       ├── OverviewStatsResponse.java
+│       ├── DeckStatsResponse.java
 │       └── TrendStatsResponse.java
 │
 ├── backup/
 │   ├── controller/BackupController.java
-│   ├── service/BackupService.java
-│   └── entity/BackupSnapshot.java
+│   ├── service/
+│   │   ├── BackupService.java
+│   │   └── BackupScheduler.java
+│   ├── entity/BackupSnapshot.java
+│   └── repository/BackupRepository.java
 │
-└── settings/
-    ├── controller/SettingsController.java
-    ├── service/SettingsService.java
-    └── dto/
-        └── UserSettingsResponse.java
+├── settings/
+│   ├── controller/SettingsController.java
+│   ├── service/SettingsService.java
+│   └── dto/
+│       ├── UserSettingsResponse.java
+│       └── UpdateSettingsRequest.java
+│
+├── sync/
+│   ├── controller/SyncController.java
+│   ├── service/
+│   │   ├── SyncService.java
+│   │   └── SyncProtoMapper.java
+│   └── repository/SyncEventRepository.java
+│
+└── log/
+    ├── controller/LogController.java
+    ├── service/UserLogService.java
+    ├── entity/UserLog.java
+    ├── repository/UserLogRepository.java
+    └── util/LogDesensitizer.java
 ```
 
 ### 3.2 前端（Flutter）
@@ -159,25 +192,40 @@ lib/
 │
 ├── shared/
 │   ├── api/
-│   │   ├── api_client.dart              # Dio HTTP 客户端
+│   │   ├── api_client.dart              # Dio HTTP 客户端（Token/ETag/重试/Protobuf）
 │   │   └── api_endpoints.dart           # API 端点常量
-│   ├── widgets/
-│   │   ├── adaptive_scaffold.dart       # 手机/平板悬浮导航
-│   │   ├── stage_ruler.dart             # 九段记忆刻度
-│   │   ├── metric_tile.dart
-│   │   ├── settings_action_tile.dart
-│   │   ├── section_widgets.dart
-│   │   ├── loading_widget.dart
-│   │   └── error_widget.dart
-│   └── utils/
-│       └── date_utils.dart
+│   ├── proto/
+│   │   ├── karis_review.pb.dart
+│   │   └── proto_mappers.dart
+│   ├── providers/
+│   │   ├── data_refresh_provider.dart
+│   │   └── locale_provider.dart
+│   ├── navigation/auto_refresh_observer.dart
+│   ├── utils/
+│   │   ├── app_timezone.dart
+│   │   ├── daily_refresh.dart
+│   │   └── date_utils.dart
+│   └── widgets/
+│       ├── adaptive_scaffold.dart
+│       ├── stage_ruler.dart
+│       ├── metric_tile.dart
+│       ├── settings_action_tile.dart
+│       ├── section_widgets.dart
+│       ├── loading_widget.dart
+│       ├── error_widget.dart
+│       └── rich_card_content.dart
+│
+├── offline/
+│   ├── database/app_database.dart       # Drift/SQLite
+│   ├── local_scheduling_engine.dart
+│   ├── offline_repository.dart
+│   └── providers.dart
 │
 ├── auth/
-│   ├── auth_provider.dart               # Riverpod Provider
-│   ├── auth_repository.dart             # API 调用
-│   ├── pages/
-│   │   ├── login_page.dart
-│   │   └── register_page.dart
+│   ├── providers/auth_provider.dart
+│   ├── repositories/auth_repository.dart
+│   ├── pages/login_page.dart
+│   ├── pages/register_page.dart
 │   └── models/
 │       ├── auth_config.dart
 │       ├── login_request.dart
@@ -185,53 +233,55 @@ lib/
 │       └── register_request.dart
 │
 ├── deck/
-│   ├── deck_provider.dart
-│   ├── deck_repository.dart
-│   ├── pages/
-│   │   └── deck_list_page.dart
-│   ├── widgets/
-│   │   └── deck_row.dart
-│   └── models/
-│       └── deck.dart
+│   ├── providers/deck_provider.dart
+│   ├── repositories/deck_repository.dart
+│   ├── pages/deck_list_page.dart
+│   ├── widgets/deck_row.dart
+│   └── models/deck.dart
 │
 ├── card/
-│   ├── card_provider.dart
-│   ├── card_repository.dart
+│   ├── providers/card_provider.dart
+│   ├── repositories/card_repository.dart
 │   ├── pages/
 │   │   ├── card_list_page.dart
 │   │   ├── card_editor_page.dart
 │   │   └── card_import_page.dart
 │   └── models/
-│       └── card.dart
+│       ├── card.dart
+│       └── card_import.dart
 │
 ├── review/
-│   ├── review_provider.dart
-│   ├── review_repository.dart
+│   ├── providers/review_provider.dart
+│   ├── repositories/review_repository.dart
 │   ├── pages/
 │   │   ├── review_page.dart
 │   │   └── start_flow_page.dart
-│   ├── widgets/
-│   │   └── review_flip_card.dart
-│   └── models/
-│       └── review_card.dart
+│   ├── widgets/review_flip_card.dart
+│   └── models/review_card.dart
 │
-├── home/
-│   └── pages/
-│       └── home_page.dart
+├── sync/
+│   ├── repositories/sync_repository.dart
+│   ├── sync_service.dart
+│   └── providers.dart
+│
+├── log/
+│   ├── repositories/logs_repository.dart
+│   ├── providers/logs_provider.dart
+│   └── pages/logs_page.dart
+│
+├── home/pages/home_page.dart
 │
 ├── stats/
-│   ├── stats_provider.dart
-│   ├── stats_repository.dart
-│   ├── pages/
-│   │   └── stats_page.dart
-│   └── models/
-│       └── stats.dart
+│   ├── providers/stats_provider.dart
+│   ├── providers/deck_stats_provider.dart
+│   ├── repositories/stats_repository.dart
+│   ├── pages/stats_page.dart
+│   └── models/stats.dart
 │
 └── settings/
-    ├── settings_provider.dart
-    ├── settings_repository.dart
-    └── pages/
-        └── settings_page.dart
+    ├── providers/settings_provider.dart
+    ├── repositories/settings_repository.dart
+    └── pages/settings_page.dart
 ```
 
 ## 4. 关键技术选型
@@ -272,7 +322,8 @@ review ────► card, deck, auth, common  (依赖 SchedulingEngine)
 stats ─────► review, deck, auth, common
 backup ────► deck, card, review, auth, common  (全量导出)
 settings ──► auth, common
-
+sync ──────► auth, deck, card, review, common
+log ───────► common
 - 每个模块内部按 `controller → service → repository` 单向依赖
 - 模块间**严禁循环依赖**（review 可调用 card 的 Service，但 card 不可反向调用 review）
 - `SchedulingEngine` 作为独立的核心算法类，零外部依赖，便于单元测试

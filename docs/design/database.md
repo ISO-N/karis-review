@@ -223,9 +223,24 @@ CREATE INDEX idx_backup_snapshots_user_id ON backup_snapshots(user_id);
 
 数据库触发器自动写入事件，覆盖卡组、卡片、复习日志、用户设置变更；删除用户时级联删除事件，不再为用户删除写入事件。
 
+### 3.8 user_logs
+
+`user_logs` 保存脱敏后的操作日志，用于用户可查看的诊断信息。
+
+| 字段 | 类型 | 约束 | 说明 |
+|------|------|------|------|
+| id | UUID | PK, DEFAULT gen_random_uuid() | 主键 |
+| user_id | UUID | NOT NULL, FK → users(id) ON DELETE CASCADE | 所属用户 |
+| level | VARCHAR(10) | NOT NULL | INFO/WARN/ERROR |
+| category | VARCHAR(50) | NOT NULL | AUTH/REVIEW/CARD/DECK/BACKUP/SETTINGS/SYNC/SYSTEM 等 |
+| message | TEXT | NOT NULL | 脱敏消息 |
+| details | JSONB | NULL | 结构化详情 |
+| created_at | TIMESTAMP | NOT NULL, DEFAULT NOW() | 创建时间 |
+
+日志默认保留 30 天，由 `UserLogService.cleanupOldLogs()` 每日清理。
+
 ## 4. Flyway 迁移脚本结构
 src/main/resources/db/migration/
-├── V1__create_users_table.sql
 ├── V2__create_decks_table.sql
 ├── V3__create_cards_table.sql
 ├── V4__create_review_logs_table.sql
@@ -234,7 +249,8 @@ src/main/resources/db/migration/
 ├── V7__add_new_card_flag_to_review_logs.sql
 ├── V8__add_review_lock_and_sessions.sql
 ├── V9__add_sync_events.sql
-└── V10__add_card_search_indexes.sql
+├── V10__add_card_search_indexes.sql
+└── V11__create_user_logs.sql
 
 ## 5. 关键查询说明
 

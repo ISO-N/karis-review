@@ -4,11 +4,11 @@
 
 ### 后端部件测试
 
-- 纯算法与工具：`SchedulingEngineTest`、`CardImportParserTest`、`DateUtilsTest`、`JwtProviderTest`、`InviteCodeConfigTest`。
-- Service 部件测试：`AuthServiceTest` 覆盖邀请码禁用/启用、缺失/错误/正确邀请码与注册配置；`DeckServiceTest`、`CardServiceTest`、`CardImportServiceTest`、`ReviewServiceTest`、`StatsServiceTest`、`SettingsServiceTest`、`BackupServiceTest`。
-- Controller 切片测试：全部 Controller 使用 `@WebMvcTest` + MockMvc，覆盖 HTTP 映射、参数校验、统一响应和业务异常。
+- 纯算法与工具：`SchedulingEngineTest`、`CardImportParserTest`、`DateUtilsTest`、`JwtProviderTest`、`InviteCodeConfigTest`、`LogDesensitizerTest`。
+- Service 部件测试：`AuthServiceTest`、`DeckServiceTest`、`CardServiceTest`、`CardImportServiceTest`、`ReviewServiceTest`、`ReviewSessionServiceTest`、`SyncServiceTest`、`StatsServiceTest`、`SettingsServiceTest`、`BackupServiceTest`、`BackupSchedulerTest`、`UserLogServiceTest`、`UserEtagServiceTest`。
+- Mapper 与异常：`SyncProtoMapperTest`、`ReviewProtoMapperTest`、`GlobalExceptionHandlerTest`。
+- Controller 切片测试：`@WebMvcTest` + MockMvc 覆盖 HTTP 映射、参数校验、统一响应、Protobuf 响应和业务异常。
 - 安全配置测试：`SecurityConfigTest` 覆盖放行路径、未认证访问、无效 Token 和 `/api/auth/config` 公开访问。
-
 ### 后端系统测试
 
 系统测试位于 `src/test/java/.../system/`，启动完整 Spring Boot 随机端口和真实 PostgreSQL，通过 `TestRestTemplate` 走真实 HTTP 全流程：
@@ -19,27 +19,31 @@
 - `ReviewStatsSystemTest`：新卡队列、FAMILIAR/FORGET/VAGUE 排期、概览/卡组/趋势统计。
 - `ImportBackupSystemTest`：JSON 预览、批量导入、备份导出与覆盖恢复、无效导入整体拒绝。
 - `SecuritySystemTest`：401、放行路径和跨用户 404。
-- `SyncSystemTest`：增量游标、变更实体、删除 ID 和删除事件同步。
+- `SyncSystemTest`：增量游标、变更实体、删除 ID、用户设置变更、删除卡片和游标失效重置。
+- `ReviewSessionSystemTest`：会话创建、cursor 分页、删除会话、过期 410 和跨用户 404。
+- `LogSystemTest`：注册日志可见、level/category 过滤和分页。
+- `PerformanceSmokeSystemTest`：1001 张卡片下的列表分页、搜索、统计和复习队列冒烟。
 - `HttpTransportSystemTest`：gzip 压缩、Protobuf 内容协商、ETag/304。
-
 系统测试只会创建和清理 `system-test-*@example.com` 前缀测试用户及其级联数据，不会清空其他用户数据。
 
 ### 前端部件测试
 
 - 模型测试：`models_test.dart` 覆盖卡组、卡片、复习结果、统计、导入预览等 JSON 解析。
-- Repository 测试：`repositories_test.dart` 用 Fake ApiClient 验证 JSON/Protobuf 请求路径、参数、请求体和响应解析，包含注册配置与邀请码字段。
-- 离线同步测试：`offline_repository_test.dart` 覆盖全量 Bootstrap、增量 upsert/删除、事件游标、单飞行刷新和保留待同步日志。
-- Provider 测试：`providers_test.dart` 覆盖 Auth、Deck、Card、Review、Stats、Settings 的状态转换与错误路径。
+- API 客户端测试：`api_client_test.dart` 覆盖 Bearer Token、401 回调、ETag/304、瞬态错误重试和 Protobuf 错误。
+- Repository 测试：`repositories_test.dart`、`logs_repository_test.dart` 用 Fake ApiClient 验证请求路径、参数、请求体和响应解析。
+- 离线同步测试：`offline_repository_test.dart` 覆盖全量 Bootstrap、增量 upsert/删除、事件游标、单飞行刷新、保留待同步日志和本地统计口径；`sync_service_test.dart` 覆盖同步结果状态处理与全量回退。
+- Provider 测试：`providers_test.dart`、`logs_provider_test.dart` 覆盖 Auth、Deck、Card、Review、Stats、Settings、Logs 的状态转换、分页和错误路径。
 - 自动刷新测试：`auto_refresh_test.dart` 覆盖每日刷新点延迟、`DataRefreshController` 本地/服务端刷新与冷却、统计/卡组/卡片 Provider 版本重算，以及路由变化触发刷新。
-- Widget 测试：`widgets_test.dart` 覆盖登录/注册（含邀请码显示/隐藏）、首页、卡组、卡片列表、卡片编辑正反面切换、导入页面、开始流程、复习翻面与评分、统计、设置和共享组件。
+- Widget 测试：`widgets_test.dart`、`logs_page_test.dart`、`router_test.dart` 覆盖登录/注册、首页、卡组、卡片列表、编辑、导入、复习、统计、设置、操作日志、路由鉴权和共享组件。
 ## 运行命令
 
-后端完整测试需要 PostgreSQL：
+后端完整测试需要 PostgreSQL，生成 JaCoCo 报告时使用 `verify`：
 
 ```bash
 docker compose up -d postgres
 cd backend
-mvn test
+./mvnw test
+./mvnw verify   # 额外生成 target/site/jacoco/index.html
 ```
 
 前端测试不需要真实后端：
@@ -49,6 +53,7 @@ cd frontend
 flutter pub get
 flutter analyze
 flutter test
+flutter test --coverage
+flutter build web --release
 ```
-
-CI 中后端测试复用 GitHub Actions 的 PostgreSQL service，前端测试运行 `flutter analyze` 与 `flutter test`。
+CI 中后端测试复用 GitHub Actions 的 PostgreSQL service；前端测试运行 `flutter analyze`、`flutter test --coverage` 与 release Web 构建。
