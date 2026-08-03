@@ -7,6 +7,7 @@ import '../../shared/utils/app_timezone.dart';
 import '../../stats/models/stats.dart';
 import 'database/app_database.dart';
 import 'local_scheduling_engine.dart';
+
 class OfflineRepository {
   final AppDatabase db;
 
@@ -29,15 +30,17 @@ class OfflineRepository {
   }
 
   Future<List<LocalDeck>> getDecks(String userId) async {
-    final rows = await (db.select(db.localDecks)
-          ..where((t) => t.userId.equals(userId))
-          ..orderBy([(t) => OrderingTerm.asc(t.createdAt)]))
-        .get();
+    final rows =
+        await (db.select(db.localDecks)
+              ..where((t) => t.userId.equals(userId))
+              ..orderBy([(t) => OrderingTerm.asc(t.createdAt)]))
+            .get();
     return rows;
   }
 
   Future<List<LocalCard>> getCards(String userId, {String? deckId}) async {
-    final query = db.select(db.localCards)..where((t) => t.userId.equals(userId));
+    final query = db.select(db.localCards)
+      ..where((t) => t.userId.equals(userId));
     if (deckId != null) {
       query.where((t) => t.deckId.equals(deckId));
     }
@@ -53,21 +56,34 @@ class OfflineRepository {
     String userId, {
     String? deckId,
     String filter = 'all',
+    String query = '',
   }) async {
     final cards = await getCards(userId, deckId: deckId);
     final meta = await getSyncMeta(userId);
     final today = _formatDate(_today(meta));
-    final filtered = switch (filter) {
-      'due' => cards.where((c) =>
-          c.nextReviewDate != null && c.nextReviewDate!.compareTo(today) <= 0),
-      'learning' => cards.where((c) => c.learningMode),
-      'new' => cards
-          .where((c) => c.stage == 0 && !c.learningMode)
-          .toList()
-        ..sort((a, b) => (b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0))
-            .compareTo(a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0))),
-      _ => cards.where((_) => true),
-    };
+    final normalizedQuery = query.trim().toLowerCase();
+    final filtered =
+        switch (filter) {
+          'due' => cards.where(
+            (c) =>
+                c.nextReviewDate != null &&
+                c.nextReviewDate!.compareTo(today) <= 0,
+          ),
+          'learning' => cards.where((c) => c.learningMode),
+          'new' =>
+            cards.where((c) => c.stage == 0 && !c.learningMode).toList()..sort(
+              (a, b) => (b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0))
+                  .compareTo(
+                    a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0),
+                  ),
+            ),
+          _ => cards.where((_) => true),
+        }.where(
+          (card) =>
+              normalizedQuery.isEmpty ||
+              card.front.toLowerCase().contains(normalizedQuery) ||
+              card.back.toLowerCase().contains(normalizedQuery),
+        );
     return filtered.map(_toFlashCard).toList();
   }
 
@@ -75,29 +91,36 @@ class OfflineRepository {
     final cards = await getCards(userId, deckId: deckId);
     final meta = await getSyncMeta(userId);
     final today = _today(meta);
-    final due = cards
-        .where(
-          (c) =>
-              !c.learningMode &&
-              c.nextReviewDate != null &&
-              c.nextReviewDate!.compareTo(_formatDate(today)) <= 0,
-        )
-        .toList()
-      ..sort((a, b) => (a.nextReviewDate ?? '').compareTo(b.nextReviewDate ?? ''));
-    final learning = cards
-        .where(
-          (c) =>
-              c.learningMode &&
-              c.nextReviewDate != null &&
-              c.nextReviewDate!.compareTo(_formatDate(today)) <= 0,
-        )
-        .toList()
-      ..sort((a, b) {
-        final step = a.learningStep.compareTo(b.learningStep);
-        if (step != 0) return step;
-        return (a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0))
-            .compareTo(b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0));
-      });
+    final due =
+        cards
+            .where(
+              (c) =>
+                  !c.learningMode &&
+                  c.nextReviewDate != null &&
+                  c.nextReviewDate!.compareTo(_formatDate(today)) <= 0,
+            )
+            .toList()
+          ..sort(
+            (a, b) =>
+                (a.nextReviewDate ?? '').compareTo(b.nextReviewDate ?? ''),
+          );
+    final learning =
+        cards
+            .where(
+              (c) =>
+                  c.learningMode &&
+                  c.nextReviewDate != null &&
+                  c.nextReviewDate!.compareTo(_formatDate(today)) <= 0,
+            )
+            .toList()
+          ..sort((a, b) {
+            final step = a.learningStep.compareTo(b.learningStep);
+            if (step != 0) return step;
+            return (a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0))
+                .compareTo(
+                  b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0),
+                );
+          });
 
     final queue = List<LocalCard>.from(due);
     for (final card in learning) {
@@ -108,13 +131,17 @@ class OfflineRepository {
     return queue.map(_toReviewCard).toList();
   }
 
-  Future<List<ReviewCard>> getNewQueue(String userId, {String? deckId, int limit = 10}) async {
+  Future<List<ReviewCard>> getNewQueue(
+    String userId, {
+    String? deckId,
+    int limit = 10,
+  }) async {
     final cards = await getCards(userId, deckId: deckId);
-    final queue = cards
-        .where((c) => c.stage == 0 && !c.learningMode)
-        .toList()
-      ..sort((a, b) => (a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0))
-          .compareTo(b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0)));
+    final queue = cards.where((c) => c.stage == 0 && !c.learningMode).toList()
+      ..sort(
+        (a, b) => (a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0))
+            .compareTo(b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0)),
+      );
     return queue.take(limit).map(_toReviewCard).toList();
   }
 
@@ -126,14 +153,26 @@ class OfflineRepository {
     return decks.map((deck) {
       final deckCards = cards.where((c) => c.deckId == deck.id).toList();
       final due = deckCards
-          .where((c) => c.nextReviewDate != null && c.nextReviewDate!.compareTo(today) <= 0)
+          .where(
+            (c) =>
+                c.nextReviewDate != null &&
+                c.nextReviewDate!.compareTo(today) <= 0,
+          )
           .length;
-      final newCount = deckCards.where((c) => c.stage == 0 && !c.learningMode).length;
+      final newCount = deckCards
+          .where((c) => c.stage == 0 && !c.learningMode)
+          .length;
       final mastered = deckCards.where((c) => c.stage >= 5).length;
-      final distribution = _distribution(deckCards.map((c) => c.stage).toList());
+      final distribution = _distribution(
+        deckCards.map((c) => c.stage).toList(),
+      );
       final dueDistribution = _distribution(
         deckCards
-            .where((c) => c.nextReviewDate != null && c.nextReviewDate!.compareTo(today) <= 0)
+            .where(
+              (c) =>
+                  c.nextReviewDate != null &&
+                  c.nextReviewDate!.compareTo(today) <= 0,
+            )
             .map((c) => c.stage)
             .toList(),
       );
@@ -159,10 +198,17 @@ class OfflineRepository {
     final refreshTime = meta?.refreshTime ?? '04:00:00';
     final today = _formatDate(_today(meta));
     final dueToday = cards
-        .where((c) => c.nextReviewDate != null && c.nextReviewDate!.compareTo(today) <= 0)
+        .where(
+          (c) =>
+              c.nextReviewDate != null &&
+              c.nextReviewDate!.compareTo(today) <= 0,
+        )
         .length;
     final reviewedToday = logs
-        .where((l) => !l.isNewCard && _onRefreshDay(l.reviewedAt, refreshTime, today))
+        .where(
+          (l) =>
+              !l.isNewCard && _onRefreshDay(l.reviewedAt, refreshTime, today),
+        )
         .length;
     final learnedToday = logs
         .where(
@@ -184,7 +230,11 @@ class OfflineRepository {
       stageDistribution: _distribution(stages),
       dueStageDistribution: _distribution(
         cards
-            .where((c) => c.nextReviewDate != null && c.nextReviewDate!.compareTo(today) <= 0)
+            .where(
+              (c) =>
+                  c.nextReviewDate != null &&
+                  c.nextReviewDate!.compareTo(today) <= 0,
+            )
             .map((c) => c.stage)
             .toList(),
       ),
@@ -214,7 +264,11 @@ class OfflineRepository {
       deckName: deck?.name ?? '',
       totalCards: cards.length,
       dueToday: cards
-          .where((c) => c.nextReviewDate != null && c.nextReviewDate!.compareTo(today) <= 0)
+          .where(
+            (c) =>
+                c.nextReviewDate != null &&
+                c.nextReviewDate!.compareTo(today) <= 0,
+          )
           .length,
       reviewedToday: reviewedToday,
       newCards: cards.where((c) => c.stage == 0 && !c.learningMode).length,
@@ -223,7 +277,11 @@ class OfflineRepository {
       stageDistribution: _distribution(stages),
       dueStageDistribution: _distribution(
         cards
-            .where((c) => c.nextReviewDate != null && c.nextReviewDate!.compareTo(today) <= 0)
+            .where(
+              (c) =>
+                  c.nextReviewDate != null &&
+                  c.nextReviewDate!.compareTo(today) <= 0,
+            )
             .map((c) => c.stage)
             .toList(),
       ),
@@ -268,19 +326,25 @@ class OfflineRepository {
     final clockOffset = serverTime.difference(localTime).inMilliseconds;
 
     await db.transaction(() async {
-      await (db.delete(db.localCards)..where((t) => t.userId.equals(userId))).go();
-      await (db.delete(db.localDecks)..where((t) => t.userId.equals(userId))).go();
-      await (db.delete(db.localReviewLogs)
-            ..where(
-              (t) =>
-                  t.userId.equals(userId) &
-                  (t.syncStatus.equals('SYNCED') | t.syncStatus.equals('DISCARDED')),
-            ))
+      await (db.delete(
+        db.localCards,
+      )..where((t) => t.userId.equals(userId))).go();
+      await (db.delete(
+        db.localDecks,
+      )..where((t) => t.userId.equals(userId))).go();
+      await (db.delete(db.localReviewLogs)..where(
+            (t) =>
+                t.userId.equals(userId) &
+                (t.syncStatus.equals('SYNCED') |
+                    t.syncStatus.equals('DISCARDED')),
+          ))
           .go();
 
       for (final deckJson in decks) {
         final deckId = deckJson['id'] as String;
-        await db.into(db.localDecks).insertOnConflictUpdate(
+        await db
+            .into(db.localDecks)
+            .insertOnConflictUpdate(
               LocalDecksCompanion.insert(
                 id: deckId,
                 userId: userId,
@@ -291,7 +355,9 @@ class OfflineRepository {
             );
         for (final cardJson in (deckJson['cards'] as List? ?? const [])) {
           final map = cardJson as Map<String, dynamic>;
-          await db.into(db.localCards).insertOnConflictUpdate(
+          await db
+              .into(db.localCards)
+              .insertOnConflictUpdate(
                 LocalCardsCompanion.insert(
                   id: map['id'] as String,
                   deckId: deckId,
@@ -304,7 +370,9 @@ class OfflineRepository {
                   learningMode: Value(map['learning_mode'] as bool? ?? false),
                   reentryStage: Value(_intOrNull(map['reentry_stage'])),
                   learningStep: Value(_int(map['learning_step'])),
-                  reviewVersion: Value(BigInt.from(_int(map['review_version']))),
+                  reviewVersion: Value(
+                    BigInt.from(_int(map['review_version'])),
+                  ),
                   createdAt: Value(_dateTime(map['created_at'])),
                   updatedAt: Value(_dateTime(map['updated_at'])),
                 ),
@@ -315,20 +383,22 @@ class OfflineRepository {
       for (final logJson in reviewLogs) {
         final map = logJson;
         final rating = map['rating'] as String? ?? 'FAMILIAR';
-        final isNewCard = (map['is_new_card'] as bool?) ??
+        final isNewCard =
+            (map['is_new_card'] as bool?) ??
             (map['new_card'] as bool?) ??
             (rating == 'FAMILIAR' && _int(map['stage_before']) == 0);
         final clientRequestId = map['client_request_id'] as String?;
         if (clientRequestId != null) {
-          await (db.delete(db.localReviewLogs)
-                ..where(
-                  (t) =>
-                      t.userId.equals(userId) &
-                      t.clientRequestId.equals(clientRequestId),
-                ))
+          await (db.delete(db.localReviewLogs)..where(
+                (t) =>
+                    t.userId.equals(userId) &
+                    t.clientRequestId.equals(clientRequestId),
+              ))
               .go();
         }
-        await db.into(db.localReviewLogs).insertOnConflictUpdate(
+        await db
+            .into(db.localReviewLogs)
+            .insertOnConflictUpdate(
               LocalReviewLogsCompanion.insert(
                 id: map['id'] as String,
                 userId: userId,
@@ -337,15 +407,17 @@ class OfflineRepository {
                 stageBefore: _int(map['stage_before']),
                 stageAfter: _int(map['stage_after']),
                 isNewCard: Value(isNewCard),
-                reviewedAt: _dateTime(map['reviewed_at']) ??
-                    DateTime.now().toUtc(),
+                reviewedAt:
+                    _dateTime(map['reviewed_at']) ?? DateTime.now().toUtc(),
                 clientRequestId: Value(clientRequestId),
                 syncStatus: const Value('SYNCED'),
               ),
             );
       }
 
-      await db.into(db.syncMeta).insertOnConflictUpdate(
+      await db
+          .into(db.syncMeta)
+          .insertOnConflictUpdate(
             SyncMetaCompanion.insert(
               userId: userId,
               email: Value(email),
@@ -355,7 +427,9 @@ class OfflineRepository {
               lastEventCursor: Value(BigInt.from(eventCursor)),
             ),
           );
-      await db.into(db.localSettings).insertOnConflictUpdate(
+      await db
+          .into(db.localSettings)
+          .insertOnConflictUpdate(
             LocalSettingsCompanion.insert(
               userId: userId,
               email: email,
@@ -375,7 +449,9 @@ class OfflineRepository {
           .cast<Map<String, dynamic>>();
       for (final deckJson in decks) {
         final deckId = deckJson['id'] as String;
-        await db.into(db.localDecks).insertOnConflictUpdate(
+        await db
+            .into(db.localDecks)
+            .insertOnConflictUpdate(
               LocalDecksCompanion.insert(
                 id: deckId,
                 userId: userId,
@@ -399,20 +475,22 @@ class OfflineRepository {
       for (final logJson in (data['review_logs'] as List? ?? const [])) {
         final map = logJson as Map<String, dynamic>;
         final rating = map['rating'] as String? ?? 'FAMILIAR';
-        final isNewCard = (map['is_new_card'] as bool?) ??
+        final isNewCard =
+            (map['is_new_card'] as bool?) ??
             (map['new_card'] as bool?) ??
             (rating == 'FAMILIAR' && _int(map['stage_before']) == 0);
         final clientRequestId = map['client_request_id'] as String?;
         if (clientRequestId != null) {
-          await (db.delete(db.localReviewLogs)
-                ..where(
-                  (t) =>
-                      t.userId.equals(userId) &
-                      t.clientRequestId.equals(clientRequestId),
-                ))
+          await (db.delete(db.localReviewLogs)..where(
+                (t) =>
+                    t.userId.equals(userId) &
+                    t.clientRequestId.equals(clientRequestId),
+              ))
               .go();
         }
-        await db.into(db.localReviewLogs).insertOnConflictUpdate(
+        await db
+            .into(db.localReviewLogs)
+            .insertOnConflictUpdate(
               LocalReviewLogsCompanion.insert(
                 id: map['id'] as String,
                 userId: userId,
@@ -421,8 +499,8 @@ class OfflineRepository {
                 stageBefore: _int(map['stage_before']),
                 stageAfter: _int(map['stage_after']),
                 isNewCard: Value(isNewCard),
-                reviewedAt: _dateTime(map['reviewed_at']) ??
-                    DateTime.now().toUtc(),
+                reviewedAt:
+                    _dateTime(map['reviewed_at']) ?? DateTime.now().toUtc(),
                 clientRequestId: Value(clientRequestId),
                 syncStatus: const Value('SYNCED'),
               ),
@@ -432,17 +510,14 @@ class OfflineRepository {
       final deletedDeckIds = (data['deleted_deck_ids'] as List? ?? const [])
           .cast<String>();
       if (deletedDeckIds.isNotEmpty) {
-        await (db.delete(db.localDecks)
-              ..where(
-                (t) =>
-                    t.userId.equals(userId) & t.id.isIn(deletedDeckIds),
-              ))
+        await (db.delete(db.localDecks)..where(
+              (t) => t.userId.equals(userId) & t.id.isIn(deletedDeckIds),
+            ))
             .go();
         for (final deckId in deletedDeckIds) {
-          await (db.delete(db.localCards)
-                ..where(
-                  (t) => t.userId.equals(userId) & t.deckId.equals(deckId),
-                ))
+          await (db.delete(db.localCards)..where(
+                (t) => t.userId.equals(userId) & t.deckId.equals(deckId),
+              ))
               .go();
         }
       }
@@ -450,30 +525,30 @@ class OfflineRepository {
       final deletedCardIds = (data['deleted_card_ids'] as List? ?? const [])
           .cast<String>();
       if (deletedCardIds.isNotEmpty) {
-        await (db.delete(db.localCards)
-              ..where(
-                (t) => t.userId.equals(userId) & t.id.isIn(deletedCardIds),
-              ))
+        await (db.delete(db.localCards)..where(
+              (t) => t.userId.equals(userId) & t.id.isIn(deletedCardIds),
+            ))
             .go();
       }
 
-      final deletedLogIds = (data['deleted_review_log_ids'] as List? ?? const [])
-          .cast<String>();
+      final deletedLogIds =
+          (data['deleted_review_log_ids'] as List? ?? const []).cast<String>();
       if (deletedLogIds.isNotEmpty) {
-        await (db.delete(db.localReviewLogs)
-              ..where(
-                (t) => t.userId.equals(userId) & t.id.isIn(deletedLogIds),
-              ))
+        await (db.delete(
+              db.localReviewLogs,
+            )..where((t) => t.userId.equals(userId) & t.id.isIn(deletedLogIds)))
             .go();
       }
 
       final eventCursor = (data['event_cursor'] as num?)?.toInt() ?? 0;
-      await (db.update(db.syncMeta)
-            ..where((t) => t.userId.equals(userId)))
-          .write(SyncMetaCompanion(
-            lastEventCursor: Value(BigInt.from(eventCursor)),
-            lastBootstrapAt: Value(DateTime.now().toUtc()),
-          ));
+      await (db.update(
+        db.syncMeta,
+      )..where((t) => t.userId.equals(userId))).write(
+        SyncMetaCompanion(
+          lastEventCursor: Value(BigInt.from(eventCursor)),
+          lastBootstrapAt: Value(DateTime.now().toUtc()),
+        ),
+      );
     });
   }
 
@@ -482,14 +557,14 @@ class OfflineRepository {
     Map<String, dynamic> map,
   ) async {
     final cardId = map['id'] as String;
-    final pending = await (db.select(db.localReviewLogs)
-          ..where(
-            (t) =>
-                t.userId.equals(userId) &
-                t.cardId.equals(cardId) &
-                t.syncStatus.equals('PENDING'),
-          ))
-        .get();
+    final pending =
+        await (db.select(db.localReviewLogs)..where(
+              (t) =>
+                  t.userId.equals(userId) &
+                  t.cardId.equals(cardId) &
+                  t.syncStatus.equals('PENDING'),
+            ))
+            .get();
     final existing = await getLocalCard(userId, cardId);
     final serverVersion = BigInt.from(_int(map['review_version']));
     if (pending.isNotEmpty &&
@@ -499,7 +574,9 @@ class OfflineRepository {
     }
 
     final deckId = map['deck_id'] as String? ?? existing?.deckId ?? '';
-    await db.into(db.localCards).insertOnConflictUpdate(
+    await db
+        .into(db.localCards)
+        .insertOnConflictUpdate(
           LocalCardsCompanion.insert(
             id: cardId,
             deckId: deckId,
@@ -513,16 +590,20 @@ class OfflineRepository {
             reentryStage: Value(_intOrNull(map['reentry_stage'])),
             learningStep: Value(_int(map['learning_step'])),
             reviewVersion: Value(serverVersion),
-            createdAt: Value(existing?.createdAt ?? _dateTime(map['created_at'])),
-            updatedAt: Value(_dateTime(map['updated_at']) ?? DateTime.now().toUtc()),
+            createdAt: Value(
+              existing?.createdAt ?? _dateTime(map['created_at']),
+            ),
+            updatedAt: Value(
+              _dateTime(map['updated_at']) ?? DateTime.now().toUtc(),
+            ),
           ),
         );
   }
 
   Future<LocalCard?> getLocalCard(String userId, String cardId) async {
-    final rows = await (db.select(db.localCards)
-          ..where((t) => t.userId.equals(userId) & t.id.equals(cardId)))
-        .get();
+    final rows = await (db.select(
+      db.localCards,
+    )..where((t) => t.userId.equals(userId) & t.id.equals(cardId))).get();
     return rows.firstOrNull;
   }
 
@@ -536,7 +617,9 @@ class OfflineRepository {
     required bool isNewCard,
   }) async {
     await db.transaction(() async {
-      await db.into(db.localCards).insertOnConflictUpdate(
+      await db
+          .into(db.localCards)
+          .insertOnConflictUpdate(
             LocalCardsCompanion.insert(
               id: card.id,
               deckId: card.deckId,
@@ -554,7 +637,9 @@ class OfflineRepository {
               updatedAt: Value(ratedAt),
             ),
           );
-      await db.into(db.localReviewLogs).insertOnConflictUpdate(
+      await db
+          .into(db.localReviewLogs)
+          .insertOnConflictUpdate(
             LocalReviewLogsCompanion.insert(
               id: clientRequestId,
               userId: userId,
@@ -573,9 +658,11 @@ class OfflineRepository {
   }
 
   Future<List<LocalReviewLog>> getPendingRatings(String userId) async {
-    final rows = await (db.select(db.localReviewLogs)
-          ..where((t) => t.userId.equals(userId) & t.syncStatus.equals('PENDING')))
-        .get();
+    final rows =
+        await (db.select(db.localReviewLogs)..where(
+              (t) => t.userId.equals(userId) & t.syncStatus.equals('PENDING'),
+            ))
+            .get();
     rows.sort((a, b) => a.reviewedAt.compareTo(b.reviewedAt));
     return rows;
   }
@@ -589,20 +676,21 @@ class OfflineRepository {
   }
 
   Future<void> discardAllPending(String userId) async {
-    await (db.update(db.localReviewLogs)
-          ..where((t) => t.userId.equals(userId) & t.syncStatus.equals('PENDING')))
+    await (db.update(db.localReviewLogs)..where(
+          (t) => t.userId.equals(userId) & t.syncStatus.equals('PENDING'),
+        ))
         .write(LocalReviewLogsCompanion(syncStatus: const Value('DISCARDED')));
   }
 
   Future<void> updateCardFromServer(String userId, ReviewCard card) async {
-    final pending = await (db.select(db.localReviewLogs)
-          ..where(
-            (t) =>
-                t.userId.equals(userId) &
-                t.cardId.equals(card.id) &
-                t.syncStatus.equals('PENDING'),
-          ))
-        .get();
+    final pending =
+        await (db.select(db.localReviewLogs)..where(
+              (t) =>
+                  t.userId.equals(userId) &
+                  t.cardId.equals(card.id) &
+                  t.syncStatus.equals('PENDING'),
+            ))
+            .get();
     final existing = await getLocalCard(userId, card.id);
     final serverVersion = BigInt.from(card.reviewVersion);
     if (pending.isNotEmpty &&
@@ -611,7 +699,9 @@ class OfflineRepository {
       return;
     }
     final created = existing?.createdAt;
-    await db.into(db.localCards).insertOnConflictUpdate(
+    await db
+        .into(db.localCards)
+        .insertOnConflictUpdate(
           LocalCardsCompanion.insert(
             id: card.id,
             deckId: card.deckId,
@@ -632,40 +722,64 @@ class OfflineRepository {
   }
 
   Future<void> removeCard(String userId, String cardId) async {
-    await (db.delete(db.localCards)
-          ..where((t) => t.userId.equals(userId) & t.id.equals(cardId)))
-        .go();
+    await (db.delete(
+      db.localCards,
+    )..where((t) => t.userId.equals(userId) & t.id.equals(cardId))).go();
   }
 
   Future<void> clearUserData(String userId) async {
     await db.transaction(() async {
-      await (db.delete(db.localCards)..where((t) => t.userId.equals(userId))).go();
-      await (db.delete(db.localDecks)..where((t) => t.userId.equals(userId))).go();
-      await (db.delete(db.localReviewLogs)..where((t) => t.userId.equals(userId))).go();
-      await (db.delete(db.localSettings)..where((t) => t.userId.equals(userId))).go();
-      await (db.delete(db.syncMeta)..where((t) => t.userId.equals(userId))).go();
+      await (db.delete(
+        db.localCards,
+      )..where((t) => t.userId.equals(userId))).go();
+      await (db.delete(
+        db.localDecks,
+      )..where((t) => t.userId.equals(userId))).go();
+      await (db.delete(
+        db.localReviewLogs,
+      )..where((t) => t.userId.equals(userId))).go();
+      await (db.delete(
+        db.localSettings,
+      )..where((t) => t.userId.equals(userId))).go();
+      await (db.delete(
+        db.syncMeta,
+      )..where((t) => t.userId.equals(userId))).go();
     });
   }
 
   Future<SyncMetaData?> getActiveSyncMeta() async {
     final rows = await db.select(db.syncMeta).get();
-    rows.sort((a, b) => (b.lastBootstrapAt ?? DateTime.fromMillisecondsSinceEpoch(0))
-        .compareTo(a.lastBootstrapAt ?? DateTime.fromMillisecondsSinceEpoch(0)));
+    rows.sort(
+      (a, b) => (b.lastBootstrapAt ?? DateTime.fromMillisecondsSinceEpoch(0))
+          .compareTo(
+            a.lastBootstrapAt ?? DateTime.fromMillisecondsSinceEpoch(0),
+          ),
+    );
     return rows.firstOrNull;
   }
 
   Future<SyncMetaData?> getSyncMeta(String userId) async {
-    final rows = await (db.select(db.syncMeta)..where((t) => t.userId.equals(userId))).get();
+    final rows = await (db.select(
+      db.syncMeta,
+    )..where((t) => t.userId.equals(userId))).get();
     return rows.firstOrNull;
   }
 
   Future<LocalSetting?> getSettings(String userId) async {
-    final rows = await (db.select(db.localSettings)..where((t) => t.userId.equals(userId))).get();
+    final rows = await (db.select(
+      db.localSettings,
+    )..where((t) => t.userId.equals(userId))).get();
     return rows.firstOrNull;
   }
 
-  Future<void> saveSettings(String userId, String email, String refreshTime) async {
-    await db.into(db.localSettings).insertOnConflictUpdate(
+  Future<void> saveSettings(
+    String userId,
+    String email,
+    String refreshTime,
+  ) async {
+    await db
+        .into(db.localSettings)
+        .insertOnConflictUpdate(
           LocalSettingsCompanion.insert(
             userId: userId,
             email: email,
@@ -673,7 +787,9 @@ class OfflineRepository {
             updatedAt: Value(DateTime.now().toUtc()),
           ),
         );
-    await db.into(db.syncMeta).insertOnConflictUpdate(
+    await db
+        .into(db.syncMeta)
+        .insertOnConflictUpdate(
           SyncMetaCompanion.insert(
             userId: userId,
             email: Value(email),
@@ -683,9 +799,9 @@ class OfflineRepository {
   }
 
   Future<List<LocalReviewLog>> _getLogs(String userId) async {
-    final rows = await (db.select(db.localReviewLogs)
-          ..where((t) => t.userId.equals(userId)))
-        .get();
+    final rows = await (db.select(
+      db.localReviewLogs,
+    )..where((t) => t.userId.equals(userId))).get();
 
     final clientDeduped = <LocalReviewLog>[];
     final byClientId = <String, LocalReviewLog>{};
@@ -751,14 +867,17 @@ class OfflineRepository {
     ].join('|');
   }
 
-  Future<void> _updateLogStatus(String userId, String clientRequestId, String status) async {
-    await (db.update(db.localReviewLogs)
-          ..where(
-            (t) =>
-                t.userId.equals(userId) &
-                t.clientRequestId.equals(clientRequestId) &
-                t.syncStatus.equals('PENDING'),
-          ))
+  Future<void> _updateLogStatus(
+    String userId,
+    String clientRequestId,
+    String status,
+  ) async {
+    await (db.update(db.localReviewLogs)..where(
+          (t) =>
+              t.userId.equals(userId) &
+              t.clientRequestId.equals(clientRequestId) &
+              t.syncStatus.equals('PENDING'),
+        ))
         .write(LocalReviewLogsCompanion(syncStatus: Value(status)));
   }
 
