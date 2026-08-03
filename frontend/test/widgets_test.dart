@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'package:karisreview/l10n/app_localizations.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -76,7 +78,16 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: authOverrides(repo),
-          child: const MaterialApp(home: LoginPage()),
+          child: MaterialApp(
+            localizationsDelegates: const [
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+              KarisReviewLocalizations.delegate,
+            ],
+            supportedLocales: KarisReviewLocalizations.supportedLocales,
+          locale: const Locale('zh'),
+            home: LoginPage()),
         ),
       );
       await tester.pumpAndSettle();
@@ -104,7 +115,16 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: authOverrides(repo),
-          child: const MaterialApp(home: RegisterPage()),
+          child: MaterialApp(
+            localizationsDelegates: const [
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+              KarisReviewLocalizations.delegate,
+            ],
+            supportedLocales: KarisReviewLocalizations.supportedLocales,
+          locale: const Locale('zh'),
+            home: RegisterPage()),
         ),
       );
       await tester.pumpAndSettle();
@@ -134,7 +154,16 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: authOverrides(repo, inviteCodeRequired: true),
-          child: const MaterialApp(home: RegisterPage()),
+          child: MaterialApp(
+            localizationsDelegates: const [
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+              KarisReviewLocalizations.delegate,
+            ],
+            supportedLocales: KarisReviewLocalizations.supportedLocales,
+          locale: const Locale('zh'),
+            home: RegisterPage()),
         ),
       );
       await tester.pumpAndSettle();
@@ -180,7 +209,16 @@ void main() {
             ...deckOverrides(deckRepo),
             ...statsOverrides(statsRepo),
           ],
-          child: const MaterialApp(home: HomePage()),
+          child: MaterialApp(
+            localizationsDelegates: const [
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+              KarisReviewLocalizations.delegate,
+            ],
+            supportedLocales: KarisReviewLocalizations.supportedLocales,
+          locale: const Locale('zh'),
+            home: HomePage()),
         ),
       );
       await tester.pumpAndSettle();
@@ -198,7 +236,16 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: deckOverrides(repo),
-          child: const MaterialApp(home: DeckListPage()),
+          child: MaterialApp(
+            localizationsDelegates: const [
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+              KarisReviewLocalizations.delegate,
+            ],
+            supportedLocales: KarisReviewLocalizations.supportedLocales,
+          locale: const Locale('zh'),
+            home: DeckListPage()),
         ),
       );
       await tester.pumpAndSettle();
@@ -216,7 +263,16 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: deckOverrides(repo),
-          child: const MaterialApp(home: DeckListPage()),
+          child: MaterialApp(
+            localizationsDelegates: const [
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+              KarisReviewLocalizations.delegate,
+            ],
+            supportedLocales: KarisReviewLocalizations.supportedLocales,
+          locale: const Locale('zh'),
+            home: DeckListPage()),
         ),
       );
       await tester.pumpAndSettle();
@@ -234,7 +290,16 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: deckOverrides(emptyRepo),
-          child: const MaterialApp(home: DeckListPage()),
+          child: MaterialApp(
+            localizationsDelegates: const [
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+              KarisReviewLocalizations.delegate,
+            ],
+            supportedLocales: KarisReviewLocalizations.supportedLocales,
+          locale: const Locale('zh'),
+            home: DeckListPage()),
         ),
       );
       await tester.pumpAndSettle();
@@ -253,7 +318,16 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: deckOverrides(repo),
-          child: const MaterialApp(home: StartFlowPage()),
+          child: MaterialApp(
+            localizationsDelegates: const [
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+              KarisReviewLocalizations.delegate,
+            ],
+            supportedLocales: KarisReviewLocalizations.supportedLocales,
+          locale: const Locale('zh'),
+            home: StartFlowPage()),
         ),
       );
       await tester.pumpAndSettle();
@@ -288,7 +362,16 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [...cardOverrides(cardRepo), ...statsOverrides(statsRepo)],
-          child: const MaterialApp(home: CardListPage(deckId: 'deck-1')),
+          child: MaterialApp(
+            localizationsDelegates: const [
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+              KarisReviewLocalizations.delegate,
+            ],
+            supportedLocales: KarisReviewLocalizations.supportedLocales,
+          locale: const Locale('zh'),
+            home: CardListPage(deckId: 'deck-1')),
         ),
       );
       await tester.pumpAndSettle();
@@ -336,7 +419,16 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [...cardOverrides(cardRepo), ...statsOverrides(statsRepo)],
-          child: const MaterialApp(home: CardListPage(deckId: 'deck-1')),
+          child: MaterialApp(
+            localizationsDelegates: const [
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+              KarisReviewLocalizations.delegate,
+            ],
+            supportedLocales: KarisReviewLocalizations.supportedLocales,
+          locale: const Locale('zh'),
+            home: CardListPage(deckId: 'deck-1')),
         ),
       );
       await tester.pumpAndSettle();
@@ -393,7 +485,16 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [...cardOverrides(cardRepo), ...statsOverrides(statsRepo)],
-          child: const MaterialApp(home: CardListPage(deckId: 'deck-1')),
+          child: MaterialApp(
+            localizationsDelegates: const [
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+              KarisReviewLocalizations.delegate,
+            ],
+            supportedLocales: KarisReviewLocalizations.supportedLocales,
+          locale: const Locale('zh'),
+            home: CardListPage(deckId: 'deck-1')),
         ),
       );
       await tester.pumpAndSettle();
@@ -437,7 +538,16 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [...cardOverrides(cardRepo), ...statsOverrides(statsRepo)],
-          child: const MaterialApp(home: CardListPage(deckId: 'deck-1')),
+          child: MaterialApp(
+            localizationsDelegates: const [
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+              KarisReviewLocalizations.delegate,
+            ],
+            supportedLocales: KarisReviewLocalizations.supportedLocales,
+          locale: const Locale('zh'),
+            home: CardListPage(deckId: 'deck-1')),
         ),
       );
       await tester.pumpAndSettle();
@@ -497,8 +607,14 @@ void main() {
           overrides: [...cardOverrides(cardRepo), ...statsOverrides(statsRepo)],
           child: MaterialApp.router(
             localizationsDelegates:
-                quill.FlutterQuillLocalizations.localizationsDelegates,
-            supportedLocales: quill.FlutterQuillLocalizations.supportedLocales,
+                [
+                ...quill.FlutterQuillLocalizations.localizationsDelegates,
+                GlobalMaterialLocalizations.delegate,
+                GlobalWidgetsLocalizations.delegate,
+                GlobalCupertinoLocalizations.delegate,
+                KarisReviewLocalizations.delegate,
+            ],
+            supportedLocales: KarisReviewLocalizations.supportedLocales,
             locale: const Locale('zh'),
             routerConfig: router,
           ),
@@ -561,7 +677,17 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [...cardOverrides(cardRepo), ...statsOverrides(statsRepo)],
-          child: MaterialApp.router(routerConfig: router),
+          child: MaterialApp.router(
+            localizationsDelegates: const [
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+              KarisReviewLocalizations.delegate,
+            ],
+            supportedLocales: KarisReviewLocalizations.supportedLocales,
+          locale: const Locale('zh'),
+            routerConfig: router,
+          ),
         ),
       );
       await tester.pumpAndSettle();
@@ -605,14 +731,34 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: reviewOverrides(repo, const ReviewSessionState()),
-          child: MaterialApp.router(routerConfig: router),
+          child: MaterialApp.router(
+            localizationsDelegates: const [
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+              KarisReviewLocalizations.delegate,
+            ],
+            supportedLocales: KarisReviewLocalizations.supportedLocales,
+          locale: const Locale('zh'),
+            routerConfig: router,
+          ),
         ),
       );
       await tester.pumpAndSettle();
       await tester.pumpWidget(
         ProviderScope(
           overrides: reviewOverrides(repo, const ReviewSessionState()),
-          child: MaterialApp.router(routerConfig: router),
+          child: MaterialApp.router(
+            localizationsDelegates: const [
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+              KarisReviewLocalizations.delegate,
+            ],
+            supportedLocales: KarisReviewLocalizations.supportedLocales,
+          locale: const Locale('zh'),
+            routerConfig: router,
+          ),
         ),
       );
       await tester.pumpAndSettle();
@@ -654,7 +800,17 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: reviewOverrides(repo, const ReviewSessionState()),
-          child: MaterialApp.router(routerConfig: router),
+          child: MaterialApp.router(
+            localizationsDelegates: const [
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+              KarisReviewLocalizations.delegate,
+            ],
+            supportedLocales: KarisReviewLocalizations.supportedLocales,
+          locale: const Locale('zh'),
+            routerConfig: router,
+          ),
         ),
       );
       await tester.pumpAndSettle();
@@ -694,7 +850,17 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: reviewOverrides(repo, const ReviewSessionState()),
-          child: MaterialApp.router(routerConfig: router),
+          child: MaterialApp.router(
+            localizationsDelegates: const [
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+              KarisReviewLocalizations.delegate,
+            ],
+            supportedLocales: KarisReviewLocalizations.supportedLocales,
+          locale: const Locale('zh'),
+            routerConfig: router,
+          ),
         ),
       );
       await tester.pumpAndSettle();
@@ -745,7 +911,17 @@ void main() {
               (ref) => _StaticReviewNotifier(repo, state),
             ),
           ],
-          child: MaterialApp.router(routerConfig: router),
+          child: MaterialApp.router(
+            localizationsDelegates: const [
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+              KarisReviewLocalizations.delegate,
+            ],
+            supportedLocales: KarisReviewLocalizations.supportedLocales,
+          locale: const Locale('zh'),
+            routerConfig: router,
+          ),
         ),
       );
       await tester.pumpAndSettle();
@@ -765,7 +941,13 @@ void main() {
         ProviderScope(
           child: MaterialApp(
             localizationsDelegates:
-                quill.FlutterQuillLocalizations.localizationsDelegates,
+                [
+                ...quill.FlutterQuillLocalizations.localizationsDelegates,
+                GlobalMaterialLocalizations.delegate,
+                GlobalWidgetsLocalizations.delegate,
+                GlobalCupertinoLocalizations.delegate,
+                KarisReviewLocalizations.delegate,
+              ],
             supportedLocales: quill.FlutterQuillLocalizations.supportedLocales,
             locale: const Locale('zh'),
             home: const CardEditorPage(
@@ -816,7 +998,13 @@ void main() {
         ProviderScope(
           child: MaterialApp(
             localizationsDelegates:
-                quill.FlutterQuillLocalizations.localizationsDelegates,
+                [
+                ...quill.FlutterQuillLocalizations.localizationsDelegates,
+                GlobalMaterialLocalizations.delegate,
+                GlobalWidgetsLocalizations.delegate,
+                GlobalCupertinoLocalizations.delegate,
+                KarisReviewLocalizations.delegate,
+              ],
             supportedLocales: quill.FlutterQuillLocalizations.supportedLocales,
             locale: const Locale('zh'),
             home: const CardEditorPage(
@@ -868,7 +1056,13 @@ void main() {
         ProviderScope(
           child: MaterialApp(
             localizationsDelegates:
-                quill.FlutterQuillLocalizations.localizationsDelegates,
+                [
+                ...quill.FlutterQuillLocalizations.localizationsDelegates,
+                GlobalMaterialLocalizations.delegate,
+                GlobalWidgetsLocalizations.delegate,
+                GlobalCupertinoLocalizations.delegate,
+                KarisReviewLocalizations.delegate,
+              ],
             supportedLocales: quill.FlutterQuillLocalizations.supportedLocales,
             locale: const Locale('zh'),
             home: const CardEditorPage(
@@ -901,7 +1095,13 @@ void main() {
         ProviderScope(
           child: MaterialApp(
             localizationsDelegates:
-                quill.FlutterQuillLocalizations.localizationsDelegates,
+                [
+                ...quill.FlutterQuillLocalizations.localizationsDelegates,
+                GlobalMaterialLocalizations.delegate,
+                GlobalWidgetsLocalizations.delegate,
+                GlobalCupertinoLocalizations.delegate,
+                KarisReviewLocalizations.delegate,
+              ],
             supportedLocales: quill.FlutterQuillLocalizations.supportedLocales,
             locale: const Locale('zh'),
             home: const CardEditorPage(
@@ -940,6 +1140,14 @@ void main() {
 
       await tester.pumpWidget(
         MaterialApp(
+          localizationsDelegates: const [
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+            KarisReviewLocalizations.delegate,
+          ],
+          supportedLocales: KarisReviewLocalizations.supportedLocales,
+          locale: const Locale('zh'),
           home: CardImportPage(deckId: 'deck-1', repository: repo),
         ),
       );
@@ -978,7 +1186,17 @@ void main() {
       });
 
       await tester.pumpWidget(
-        MaterialApp(home: CardImportPage(deckId: 'deck-1')),
+        MaterialApp(
+          localizationsDelegates: const [
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+            KarisReviewLocalizations.delegate,
+          ],
+          supportedLocales: KarisReviewLocalizations.supportedLocales,
+          locale: const Locale('zh'),
+          home: CardImportPage(deckId: 'deck-1'),
+        ),
       );
       await tester.pumpAndSettle();
 
@@ -1004,6 +1222,14 @@ void main() {
 
       await tester.pumpWidget(
         MaterialApp(
+          localizationsDelegates: const [
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+            KarisReviewLocalizations.delegate,
+          ],
+          supportedLocales: KarisReviewLocalizations.supportedLocales,
+          locale: const Locale('zh'),
           builder: (context, child) => MediaQuery(
             data: MediaQuery.of(
               context,
@@ -1033,7 +1259,16 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: statsOverrides(repo),
-          child: const MaterialApp(home: StatsPage()),
+          child: MaterialApp(
+            localizationsDelegates: const [
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+              KarisReviewLocalizations.delegate,
+            ],
+            supportedLocales: KarisReviewLocalizations.supportedLocales,
+          locale: const Locale('zh'),
+            home: StatsPage()),
         ),
       );
       await tester.pumpAndSettle();
@@ -1059,7 +1294,16 @@ void main() {
             ...authOverrides(authRepo),
             ...settingsOverrides(settingsRepo),
           ],
-          child: const MaterialApp(home: SettingsPage()),
+          child: MaterialApp(
+            localizationsDelegates: const [
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+              KarisReviewLocalizations.delegate,
+            ],
+            supportedLocales: KarisReviewLocalizations.supportedLocales,
+          locale: const Locale('zh'),
+            home: SettingsPage()),
         ),
       );
       await tester.pumpAndSettle();
@@ -1078,7 +1322,15 @@ void main() {
       addTearDown(() => tester.binding.setSurfaceSize(null));
 
       await tester.pumpWidget(
-        const MaterialApp(
+        MaterialApp(
+          localizationsDelegates: const [
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+            KarisReviewLocalizations.delegate,
+          ],
+          supportedLocales: KarisReviewLocalizations.supportedLocales,
+          locale: const Locale('zh'),
           home: Scaffold(
             body: Row(
               children: [
@@ -1115,6 +1367,14 @@ void main() {
 
         await tester.pumpWidget(
           MaterialApp(
+            localizationsDelegates: const [
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+              KarisReviewLocalizations.delegate,
+            ],
+            supportedLocales: KarisReviewLocalizations.supportedLocales,
+          locale: const Locale('zh'),
             builder: (context, child) => MediaQuery(
               data: MediaQuery.of(
                 context,
@@ -1149,6 +1409,14 @@ void main() {
     ) async {
       await tester.pumpWidget(
         MaterialApp(
+          localizationsDelegates: const [
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+            KarisReviewLocalizations.delegate,
+          ],
+          supportedLocales: KarisReviewLocalizations.supportedLocales,
+          locale: const Locale('zh'),
           home: Scaffold(
             body: ReviewFlipCard(
               flipped: true,
