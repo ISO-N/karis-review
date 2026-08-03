@@ -66,7 +66,7 @@ class SettingsControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"refresh_time\":\"03:00:00\"}"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.message").value("设置已更新"))
+                .andExpect(jsonPath("$.message").value("settings.updated"))
                 .andExpect(jsonPath("$.data.refresh_time").value("03:00:00"));
     }
 
@@ -84,11 +84,11 @@ class SettingsControllerTest {
     void missingUserReturns404() throws Exception {
         UUID userId = UUID.randomUUID();
         when(settingsService.getSettings(userId))
-                .thenThrow(new BusinessException(404, "用户不存在"));
+                .thenThrow(new BusinessException(404, "settings.notfound"));
 
         mockMvc.perform(get("/api/settings").with(authentication(userId)))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.message").value("用户不存在"));
+                .andExpect(jsonPath("$.message").value("settings.notfound"));
     }
 
     private RequestPostProcessor authentication(UUID userId) {

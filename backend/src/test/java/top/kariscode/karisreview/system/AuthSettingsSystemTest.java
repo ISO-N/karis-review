@@ -28,7 +28,7 @@ class AuthSettingsSystemTest extends SystemTestSupport {
         assertEquals("03:00:00", text(reRead, "refresh_time"));
 
         JsonNode logout = call("POST", "/auth/logout", account.token(), null, 200);
-        assertEquals("已登出", text(logout, "message"));
+        assertEquals("auth.logout.success", text(logout, "message"));
 
         TestAccount loggedIn = login(account.email());
         assertNotNull(loggedIn.token());

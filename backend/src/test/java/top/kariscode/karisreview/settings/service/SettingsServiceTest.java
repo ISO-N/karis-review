@@ -10,6 +10,7 @@ import top.kariscode.karisreview.auth.repository.UserRepository;
 import top.kariscode.karisreview.common.exception.BusinessException;
 import top.kariscode.karisreview.settings.dto.UpdateSettingsRequest;
 import top.kariscode.karisreview.settings.dto.UserSettingsResponse;
+import top.kariscode.karisreview.log.service.UserLogService;
 
 import java.time.LocalTime;
 import java.util.Optional;
@@ -27,10 +28,13 @@ class SettingsServiceTest {
     private UserRepository userRepository;
 
     private SettingsService service;
+    @Mock
+    private UserLogService userLogService;
+
 
     @BeforeEach
     void setUp() {
-        service = new SettingsService(userRepository);
+        service = new SettingsService(userRepository, userLogService);
     }
 
     @Test
@@ -77,7 +81,7 @@ class SettingsServiceTest {
                 () -> service.getSettings(userId));
 
         assertEquals(404, exception.getCode());
-        assertEquals("用户不存在", exception.getMessage());
+        assertEquals("settings.notfound", exception.getMessage());
     }
 
     @Test

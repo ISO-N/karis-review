@@ -50,7 +50,7 @@ class SecurityConfigTest {
         mockMvc.perform(get("/api/decks"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value(401))
-                .andExpect(jsonPath("$.message").value("未登录或Token已过期"));
+                .andExpect(jsonPath("$.message").value("auth.unauthorized"));
     }
 
     @Test

@@ -42,9 +42,9 @@ public abstract class SystemTestSupport {
     @BeforeEach
     @AfterEach
     void cleanSystemTestUsers() {
+        jdbcTemplate.update("DELETE FROM user_logs WHERE user_id IN (SELECT id FROM users WHERE email LIKE ?)", TEST_USER_PATTERN);
         jdbcTemplate.update("DELETE FROM users WHERE email LIKE ?", TEST_USER_PATTERN);
     }
-
     protected TestAccount register(String prefix) {
         return register(prefix, "");
     }

@@ -57,7 +57,7 @@ class CardImportControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"content\":\"content\"}"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.message").value("解析完成"))
+                .andExpect(jsonPath("$.message").value("card.import.parsed"))
                 .andExpect(jsonPath("$.data.cards[0].front").value("正面"));
     }
 
@@ -76,7 +76,7 @@ class CardImportControllerTest {
                                 {"cards":[{"front":"a","back":"b"},{"front":"c","back":"d"}]}
                                 """))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.message").value("卡片已导入"))
+                .andExpect(jsonPath("$.message").value("card.import.success"))
                 .andExpect(jsonPath("$.data.imported_cards").value(2))
                 .andExpect(jsonPath("$.data.imported_card_ids[0]").value(cardId.toString()));
     }
@@ -96,14 +96,14 @@ class CardImportControllerTest {
         UUID userId = UUID.randomUUID();
         UUID deckId = UUID.randomUUID();
         when(cardImportService.preview(userId, deckId, "[]"))
-                .thenThrow(new BusinessException(404, "牌组不存在"));
+                .thenThrow(new BusinessException(404, "deck.notfound"));
 
         mockMvc.perform(post("/api/decks/{deckId}/cards/import/preview", deckId)
                         .with(authentication(userId))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"content\":\"[]\"}"))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.message").value("牌组不存在"));
+                .andExpect(jsonPath("$.message").value("deck.notfound"));
     }
 
     private RequestPostProcessor authentication(UUID userId) {

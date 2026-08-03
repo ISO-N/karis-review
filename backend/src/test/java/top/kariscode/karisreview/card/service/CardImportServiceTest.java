@@ -15,6 +15,7 @@ import top.kariscode.karisreview.card.repository.CardRepository;
 import top.kariscode.karisreview.common.exception.BusinessException;
 import top.kariscode.karisreview.deck.entity.Deck;
 import top.kariscode.karisreview.deck.repository.DeckRepository;
+import top.kariscode.karisreview.log.service.UserLogService;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -25,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -43,10 +45,13 @@ class CardImportServiceTest {
     private CardImportParser cardImportParser;
 
     private CardImportService service;
+    @Mock
+    private UserLogService userLogService;
+
 
     @BeforeEach
     void setUp() {
-        service = new CardImportService(deckRepository, cardRepository, cardImportParser);
+        service = new CardImportService(deckRepository, cardRepository, cardImportParser, userLogService);
     }
 
     @Test
@@ -128,7 +133,7 @@ class CardImportServiceTest {
                 () -> service.importCards(userId, deckId, request));
 
         assertEquals(400, exception.getCode());
-        assertEquals("反面内容不能为空", exception.getMessage());
+        assertEquals("card.import.back.empty", exception.getMessage());
         verify(cardRepository, never()).saveAll(any());
     }
 
@@ -146,7 +151,7 @@ class CardImportServiceTest {
                 () -> service.importCards(userId, deckId, request));
 
         assertEquals(404, exception.getCode());
-        assertEquals("牌组不存在", exception.getMessage());
+        assertEquals("deck.notfound", exception.getMessage());
         verify(cardRepository, never()).saveAll(any());
     }
 
@@ -165,7 +170,7 @@ class CardImportServiceTest {
                 () -> service.importCards(userId, deckId, request));
 
         assertEquals(400, exception.getCode());
-        assertEquals("卡片列表不能为空", exception.getMessage());
+        assertEquals("card.import.list.empty", exception.getMessage());
         verify(cardRepository, never()).saveAll(any());
     }
 
@@ -209,7 +214,7 @@ class CardImportServiceTest {
                 () -> service.importCards(userId, deckId, request));
 
         assertEquals(400, exception.getCode());
-        assertEquals("卡片数据不能为空", exception.getMessage());
+        assertEquals("card.import.data.empty", exception.getMessage());
         verify(cardRepository, never()).saveAll(any());
     }
 

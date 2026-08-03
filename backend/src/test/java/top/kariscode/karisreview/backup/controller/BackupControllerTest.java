@@ -49,7 +49,7 @@ class BackupControllerTest {
 
         mockMvc.perform(post("/api/backup/export").with(authentication(userId)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.message").value("备份已创建"))
+                .andExpect(jsonPath("$.message").value("backup.created"))
                 .andExpect(jsonPath("$.data.backup_id").isString());
     }
 
@@ -66,7 +66,7 @@ class BackupControllerTest {
                                 {"data":{"decks":[]}}
                                 """))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.message").value("数据已恢复"))
+                .andExpect(jsonPath("$.message").value("backup.imported"))
                 .andExpect(jsonPath("$.data.imported_decks").value(1));
     }
 
@@ -77,18 +77,18 @@ class BackupControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value("备份数据不能为空"));
+                .andExpect(jsonPath("$.message").value("backup.data.empty"));
     }
 
     @Test
     void backupServiceErrorReturns404() throws Exception {
         UUID userId = UUID.randomUUID();
         when(backupService.exportData(userId))
-                .thenThrow(new BusinessException(404, "用户不存在"));
+                .thenThrow(new BusinessException(404, "settings.notfound"));
 
         mockMvc.perform(post("/api/backup/export").with(authentication(userId)))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.message").value("用户不存在"));
+                .andExpect(jsonPath("$.message").value("settings.notfound"));
     }
 
     private RequestPostProcessor authentication(UUID userId) {

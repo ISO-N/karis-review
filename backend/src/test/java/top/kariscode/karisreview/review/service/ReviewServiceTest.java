@@ -19,6 +19,7 @@ import top.kariscode.karisreview.review.dto.ReviewSyncRequest;
 import top.kariscode.karisreview.review.dto.ReviewSyncResponse;
 import top.kariscode.karisreview.review.entity.ReviewLog;
 import top.kariscode.karisreview.review.repository.ReviewLogRepository;
+import top.kariscode.karisreview.log.service.UserLogService;
 import top.kariscode.karisreview.review.repository.ReviewQueueItemRepository;
 import top.kariscode.karisreview.review.repository.ReviewSessionRepository;
 import java.time.LocalDateTime;
@@ -58,13 +59,16 @@ class ReviewServiceTest {
     @Mock
     private ReviewQueueItemRepository reviewQueueItemRepository;
 
+    @Mock
+    private UserLogService userLogService;
+
     private ReviewService service;
 
     @BeforeEach
     void setUp() {
         service = new ReviewService(
                 cardRepository, reviewLogRepository, userRepository, schedulingEngine,
-                reviewSessionRepository, reviewQueueItemRepository);
+                reviewSessionRepository, reviewQueueItemRepository, userLogService);
     }
 
     @Test
@@ -160,7 +164,7 @@ class ReviewServiceTest {
                 () -> service.rateCard(userId, cardId, rate("UNKNOWN")));
 
         assertEquals(400, exception.getCode());
-        assertEquals("无效的评分", exception.getMessage());
+        assertEquals("review.rating.invalid", exception.getMessage());
         verify(cardRepository, never()).save(any());
         verify(reviewLogRepository, never()).save(any());
     }
@@ -176,7 +180,7 @@ class ReviewServiceTest {
                 () -> service.rateCard(userId, cardId, rate("FAMILIAR")));
 
         assertEquals(404, exception.getCode());
-        assertEquals("卡片不存在", exception.getMessage());
+        assertEquals("review.card.notfound", exception.getMessage());
     }
 
     @Test

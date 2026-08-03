@@ -91,7 +91,7 @@ class CardControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"front\":\"正面\",\"back\":\"反面\"}"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.message").value("卡片已创建"))
+                .andExpect(jsonPath("$.message").value("card.created"))
                 .andExpect(jsonPath("$.data.front").value("正面"));
     }
 
@@ -129,7 +129,7 @@ class CardControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"front\":\"新正面\",\"back\":\"新反面\"}"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.message").value("卡片已更新"));
+                .andExpect(jsonPath("$.message").value("card.updated"));
     }
 
     @Test
@@ -140,7 +140,7 @@ class CardControllerTest {
         mockMvc.perform(delete("/api/cards/{cardId}", cardId)
                         .with(authentication(userId)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.message").value("卡片已删除"));
+                .andExpect(jsonPath("$.message").value("card.deleted"));
     }
 
     @Test
@@ -154,7 +154,7 @@ class CardControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"card_ids\":[\"" + cardId + "\"]}"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.message").value("卡片已删除"))
+                .andExpect(jsonPath("$.message").value("card.batch.deleted"))
                 .andExpect(jsonPath("$.data.deleted_cards").value(1));
     }
 
@@ -172,13 +172,13 @@ class CardControllerTest {
     void missingCardReturns404() throws Exception {
         UUID userId = UUID.randomUUID();
         UUID cardId = UUID.randomUUID();
-        doThrow(new BusinessException(404, "卡片不存在"))
+        doThrow(new BusinessException(404, "card.notfound"))
                 .when(cardService).deleteCard(userId, cardId);
 
         mockMvc.perform(delete("/api/cards/{cardId}", cardId)
                         .with(authentication(userId)))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.message").value("卡片不存在"));
+                .andExpect(jsonPath("$.message").value("card.notfound"));
     }
 
     private CardResponse response(String front, String back) {

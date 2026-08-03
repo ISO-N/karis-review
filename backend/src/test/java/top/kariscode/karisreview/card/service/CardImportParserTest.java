@@ -55,11 +55,11 @@ class CardImportParserTest {
         assertEquals(6, response.getTotal());
         assertEquals(1, response.getValidCount());
         assertEquals(5, response.getInvalidCount());
-        assertTrue(response.getCards().get(0).getMessage().contains("正面内容不能为空"));
-        assertTrue(response.getCards().get(1).getMessage().contains("正面内容不能为空"));
-        assertTrue(response.getCards().get(2).getMessage().contains("正面内容必须是字符串"));
-        assertEquals("卡片必须是对象", response.getCards().get(3).getMessage());
-        assertEquals("卡片必须是对象", response.getCards().get(4).getMessage());
+        assertTrue(response.getCards().get(0).getMessage().contains("card.import.front.empty"));
+        assertTrue(response.getCards().get(1).getMessage().contains("card.import.front.empty"));
+        assertTrue(response.getCards().get(2).getMessage().contains("card.import.front.must.be.string"));
+        assertEquals("card.import.must.be.object", response.getCards().get(3).getMessage());
+        assertEquals("card.import.must.be.object", response.getCards().get(4).getMessage());
         assertNull(response.getCards().get(5).getMessage());
     }
 
@@ -77,7 +77,7 @@ class CardImportParserTest {
         assertEquals(2, response.getTotal());
         assertEquals(1, response.getValidCount());
         assertEquals("  正面  ", response.getCards().get(0).getFront());
-        assertTrue(response.getCards().get(1).getMessage().contains("正面内容不能为空"));
+        assertTrue(response.getCards().get(1).getMessage().contains("card.import.front.empty"));
     }
 
     @Test
@@ -86,7 +86,7 @@ class CardImportParserTest {
                 BusinessException.class, () -> parser.parse("{\"front\":\"a\",\"back\":\"b\"}"));
 
         assertEquals(400, exception.getCode());
-        assertEquals("JSON 必须是数组", exception.getMessage());
+        assertEquals("card.import.json.must.be.array", exception.getMessage());
     }
 
     @Test
@@ -102,7 +102,7 @@ class CardImportParserTest {
                 BusinessException.class, () -> parser.parse("[]"));
 
         assertEquals(400, exception.getCode());
-        assertEquals("JSON 数组不能为空", exception.getMessage());
+        assertEquals("card.import.json.array.empty", exception.getMessage());
     }
 
     @Test
@@ -125,7 +125,7 @@ class CardImportParserTest {
                 BusinessException.class, () -> parser.parse(json));
 
         assertEquals(400, exception.getCode());
-        assertTrue(exception.getMessage().contains("单次最多导入"));
+        assertEquals("card.import.too.many", exception.getMessage());
     }
 
     @Test
@@ -136,6 +136,6 @@ class CardImportParserTest {
                 BusinessException.class, () -> parser.parse(content));
 
         assertEquals(400, exception.getCode());
-        assertTrue(exception.getMessage().contains("2MB"));
+        assertEquals("card.import.json.too.large", exception.getMessage());
     }
 }

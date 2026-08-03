@@ -129,7 +129,7 @@ class DeckServiceTest {
                 () -> service.updateDeck(userId, deckId, request));
 
         assertEquals(404, exception.getCode());
-        assertEquals("牌组不存在", exception.getMessage());
+        assertEquals("deck.notfound", exception.getMessage());
         verify(deckRepository, never()).save(any());
     }
 
