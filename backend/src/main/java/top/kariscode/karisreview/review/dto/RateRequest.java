@@ -6,13 +6,13 @@ import jakarta.validation.constraints.Pattern;
 
 public class RateRequest {
 
-    @NotBlank(message = "评分不能为空")
-    @Pattern(regexp = "^(FORGET|VAGUE|FAMILIAR)$", message = "评分必须为 FORGET, VAGUE 或 FAMILIAR")
+    @NotBlank(message = "{validation.rating.notblank}")
+    @Pattern(regexp = "^(FORGET|VAGUE|FAMILIAR)$", message = "{validation.rating.pattern}")
     private String rating;
 
     private String clientRequestId;
 
-    @Min(value = 0, message = "review_version 不能小于 0")
+    @Min(value = 0, message = "{validation.review.version.min}")
     private Integer reviewVersion;
 
     public String getRating() { return rating; }

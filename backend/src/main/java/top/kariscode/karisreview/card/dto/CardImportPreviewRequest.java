@@ -5,8 +5,8 @@ import jakarta.validation.constraints.Size;
 
 public class CardImportPreviewRequest {
 
-    @NotBlank(message = "JSON 内容不能为空")
-    @Size(max = 2_000_000, message = "JSON 内容过大，最多支持 2MB")
+    @NotBlank(message = "{validation.card.import.json.notblank}")
+    @Size(max = 2_000_000, message = "{validation.card.import.json.too.large}")
     private String content;
 
     public String getContent() { return content; }
