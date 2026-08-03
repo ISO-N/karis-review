@@ -12,6 +12,9 @@ import top.kariscode.karisreview.auth.repository.UserRepository;
 import top.kariscode.karisreview.common.exception.BusinessException;
 import top.kariscode.karisreview.config.InviteCodeConfig;
 import top.kariscode.karisreview.config.JwtProvider;
+import top.kariscode.karisreview.log.service.UserLogService;
+
+import java.util.Map;
 
 @Service
 public class AuthService {
@@ -20,15 +23,18 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtProvider jwtProvider;
     private final InviteCodeConfig inviteCodeConfig;
+    private final UserLogService userLogService;
 
     public AuthService(UserRepository userRepository,
                        PasswordEncoder passwordEncoder,
                        JwtProvider jwtProvider,
-                       InviteCodeConfig inviteCodeConfig) {
+                       InviteCodeConfig inviteCodeConfig,
+                       UserLogService userLogService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtProvider = jwtProvider;
         this.inviteCodeConfig = inviteCodeConfig;
+        this.userLogService = userLogService;
     }
 
     public AuthConfigResponse getAuthConfig() {
@@ -59,6 +65,7 @@ public class AuthService {
         user = userRepository.save(user);
 
         String token = jwtProvider.generateToken(user.getId(), user.getEmail());
+        userLogService.log(user.getId(), "INFO", "AUTH", "Registration successful");
         return new LoginResponse(token, user.getId(), user.getEmail());
     }
 
@@ -71,6 +78,7 @@ public class AuthService {
         }
 
         String token = jwtProvider.generateToken(user.getId(), user.getEmail());
+        userLogService.log(user.getId(), "INFO", "AUTH", "Login successful");
         return new LoginResponse(token, user.getId(), user.getEmail());
     }
 

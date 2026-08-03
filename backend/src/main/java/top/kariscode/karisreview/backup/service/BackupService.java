@@ -13,6 +13,7 @@ import top.kariscode.karisreview.card.entity.Card;
 import top.kariscode.karisreview.card.repository.CardRepository;
 import top.kariscode.karisreview.deck.entity.Deck;
 import top.kariscode.karisreview.deck.repository.DeckRepository;
+import top.kariscode.karisreview.log.service.UserLogService;
 import top.kariscode.karisreview.review.entity.ReviewLog;
 import top.kariscode.karisreview.review.repository.ReviewLogRepository;
 import top.kariscode.karisreview.auth.entity.User;
@@ -22,6 +23,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+
 @Service
 public class BackupService {
 
@@ -31,19 +33,22 @@ public class BackupService {
     private final ReviewLogRepository reviewLogRepository;
     private final BackupRepository backupRepository;
     private final ObjectMapper objectMapper;
+    private final UserLogService userLogService;
 
     public BackupService(UserRepository userRepository,
                          DeckRepository deckRepository,
                          CardRepository cardRepository,
                          ReviewLogRepository reviewLogRepository,
                          BackupRepository backupRepository,
-                         ObjectMapper objectMapper) {
+                         ObjectMapper objectMapper,
+                         UserLogService userLogService) {
         this.userRepository = userRepository;
         this.deckRepository = deckRepository;
         this.cardRepository = cardRepository;
         this.reviewLogRepository = reviewLogRepository;
         this.backupRepository = backupRepository;
         this.objectMapper = objectMapper;
+        this.userLogService = userLogService;
     }
 
     @Transactional
@@ -111,6 +116,9 @@ public class BackupService {
             throw new RuntimeException("Failed to serialize backup data", e);
         }
         snapshot = backupRepository.save(snapshot);
+
+        userLogService.log(userId, "INFO", "BACKUP",
+                "Backup created with " + decks.size() + " deck(s)");
 
         // Parse the data back for the response
         try {
@@ -221,6 +229,9 @@ public class BackupService {
                 importedLogs++;
             }
         }
+
+        userLogService.log(userId, "INFO", "BACKUP",
+                "Data restored: " + importedDecks + " deck(s), " + importedCards + " card(s), " + importedLogs + " log(s)");
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("imported_decks", importedDecks);

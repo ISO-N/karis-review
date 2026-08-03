@@ -11,6 +11,7 @@ import top.kariscode.karisreview.card.repository.CardRepository;
 import top.kariscode.karisreview.common.exception.BusinessException;
 import top.kariscode.karisreview.deck.entity.Deck;
 import top.kariscode.karisreview.deck.repository.DeckRepository;
+import top.kariscode.karisreview.log.service.UserLogService;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -22,13 +23,16 @@ public class CardImportService {
     private final DeckRepository deckRepository;
     private final CardRepository cardRepository;
     private final CardImportParser cardImportParser;
+    private final UserLogService userLogService;
 
     public CardImportService(DeckRepository deckRepository,
                              CardRepository cardRepository,
-                             CardImportParser cardImportParser) {
+                             CardImportParser cardImportParser,
+                             UserLogService userLogService) {
         this.deckRepository = deckRepository;
         this.cardRepository = cardRepository;
         this.cardImportParser = cardImportParser;
+        this.userLogService = userLogService;
     }
 
     public CardImportPreviewResponse preview(UUID userId, UUID deckId, String content) {
@@ -65,6 +69,8 @@ public class CardImportService {
         List<UUID> importedCardIds = savedCards.stream()
                 .map(Card::getId)
                 .toList();
+        userLogService.log(userId, "INFO", "CARD",
+                "Imported " + savedCards.size() + " card(s) into deck");
         return new CardImportResult(savedCards.size(), importedCardIds);
     }
 

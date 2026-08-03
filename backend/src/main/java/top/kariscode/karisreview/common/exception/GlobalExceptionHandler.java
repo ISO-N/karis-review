@@ -3,10 +3,13 @@ package top.kariscode.karisreview.common.exception;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -15,19 +18,25 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 import top.kariscode.karisreview.common.dto.ApiResponse;
 import top.kariscode.karisreview.config.ProtobufHttpMessageConverter;
+import top.kariscode.karisreview.log.service.UserLogService;
 import top.kariscode.karisreview.proto.KarisReviewProto.ApiError;
 
 import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
 import java.util.stream.Collectors;
-
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
     private final MessageSource messageSource;
+    private final Optional<UserLogService> userLogService;
 
-    public GlobalExceptionHandler(MessageSource messageSource) {
+    public GlobalExceptionHandler(MessageSource messageSource,
+                                 @Autowired(required = false) UserLogService userLogService) {
         this.messageSource = messageSource;
+        this.userLogService = Optional.ofNullable(userLogService);
     }
 
     private String resolve(String key, HttpServletRequest request, Object... args) {
@@ -48,7 +57,10 @@ public class GlobalExceptionHandler {
         if (e.getMessageKey() != null) {
             message = resolve(e.getMessageKey(), request, e.getArgs() != null ? e.getArgs() : new Object[0]);
         } else {
-            message = e.getMessage();
+            message = resolve(e.getMessage(), request);
+        }
+        if (status >= 500) {
+            logUserError("log.operation.server.error", e.getMessage());
         }
         return error(status, e.getCode(), message, request);
     }
@@ -79,7 +91,25 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     public ResponseEntity<?> handleException(Exception e, HttpServletRequest request) {
         log.error("Unexpected error", e);
+        logUserError("log.operation.server.error", e.getMessage() != null ? e.getMessage() : "Unknown error");
         return error(500, 500, resolve("server.error", request), request);
+    }
+
+    private void logUserError(String messageKey, String detail) {
+        userLogService.ifPresent(service -> {
+            UUID userId = getCurrentUserId();
+            if (userId != null) {
+                service.log(userId, "ERROR", "SYSTEM", messageKey, Map.of("detail", detail != null ? detail : ""));
+            }
+        });
+    }
+
+    private UUID getCurrentUserId() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.getPrincipal() instanceof UUID) {
+            return (UUID) auth.getPrincipal();
+        }
+        return null;
     }
 
     private ResponseEntity<?> error(int httpStatus, int code, String message, HttpServletRequest request) {
