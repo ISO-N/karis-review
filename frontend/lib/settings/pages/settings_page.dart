@@ -83,6 +83,8 @@ class SettingsPage extends ConsumerWidget {
                       _DataBlock(context: context, ref: ref),
                     ],
                     SizedBox(height: 22),
+                    _DiagnosticsBlock(context: context, ref: ref),
+                    SizedBox(height: 22),
                     _LogoutButton(ref: ref),
                   ],
                 ],
@@ -435,6 +437,32 @@ class _DataBlock extends StatelessWidget {
         ).showSnackBar(SnackBar(content: Text(l10n.settingsImportFail)));
       }
     }
+  }
+}
+
+class _DiagnosticsBlock extends StatelessWidget {
+  final BuildContext context;
+  final WidgetRef ref;
+
+  KarisReviewLocalizations get l10n => KarisReviewLocalizations.of(context)!;
+
+  const _DiagnosticsBlock({required this.context, required this.ref});
+
+  @override
+  Widget build(BuildContext context) {
+      final l10n = KarisReviewLocalizations.of(context)!;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SectionHeader(title: l10n.logDiagnostics),
+        SettingsActionTile(
+          icon: Icons.terminal_outlined,
+          title: l10n.settingsLogs,
+          subtitle: l10n.settingsLogsSubtitle,
+          onTap: () => context.go('/settings/logs'),
+        ),
+      ],
+    );
   }
 }
 
