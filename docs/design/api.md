@@ -393,7 +393,7 @@
 |------|------|--------|------|
 | page | int | 0 | 页码 |
 | size | int | 20 | 每页条数 |
-| filter | string | all | 卡片筛选：`all`、`due`、`learning` |
+| filter | string | all | 卡片筛选：`all`、`new`、`due`、`learning`；`new` 返回 Stage 0 且非重学的卡片，按创建时间倒序 |
 
 **Response (200):**
 
@@ -512,6 +512,38 @@
 }
 ```
 
+### POST /api/cards/batch-delete
+
+批量删除当前用户的多张卡片。
+
+**Headers:** `Authorization: Bearer <token>`
+
+**Request Body:**
+
+```json
+{
+  "card_ids": ["uuid-1", "uuid-2"]
+}
+```
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| card_ids | array | 是 | 非空卡片 ID 列表，最多 1000 个 |
+
+**Response (200):**
+
+```json
+{
+  "code": 200,
+  "message": "卡片已删除",
+  "data": {
+    "deleted_cards": 2
+  }
+}
+```
+
+> 只删除当前用户仍存在的卡片；已不存在或不属于当前用户的 ID 忽略，返回实际删除数。
+
 ### POST /api/decks/{deckId}/cards/import/preview
 
 解析用户粘贴或上传的卡片 JSON 数组，返回逐行规范化预览。
@@ -599,10 +631,16 @@
   "code": 200,
   "message": "卡片已导入",
   "data": {
-    "imported_cards": 2
+    "imported_cards": 2,
+    "imported_card_ids": ["uuid-1", "uuid-2"]
   }
 }
 ```
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| imported_cards | int | 本次导入卡片数 |
+| imported_card_ids | array | 本次导入卡片 ID，供前端提供“撤销导入”操作 |
 
 > 导入接口会重新校验牌组归属和每行内容；有任何无效行则整体拒绝，不做部分导入。导入的卡片均为 Stage 0 新卡，不包含排期状态与复习日志。
 
