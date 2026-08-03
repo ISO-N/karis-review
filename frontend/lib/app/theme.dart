@@ -221,13 +221,20 @@ ThemeData _buildTheme() {
       ),
     ),
     snackBarTheme: SnackBarThemeData(
-      backgroundColor: KarisColors.ink,
+      backgroundColor: KarisColors.surface,
+      elevation: 0,
       contentTextStyle: const TextStyle(
-        color: KarisColors.surface,
+        color: KarisColors.ink,
         fontSize: 13,
+        fontWeight: FontWeight.w500,
+        letterSpacing: 0,
       ),
       behavior: SnackBarBehavior.floating,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      insetPadding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: const BorderSide(color: KarisColors.hairline),
+      ),
     ),
     dialogTheme: DialogThemeData(
       backgroundColor: KarisColors.surface,

@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../app/theme.dart';
 import '../../shared/widgets/adaptive_scaffold.dart';
 import '../../shared/utils/motion.dart';
+import '../../shared/widgets/app_feedback.dart';
 import '../../shared/widgets/app_semantics.dart';
 import '../../shared/widgets/rich_card_content.dart';
 import '../../shared/widgets/section_widgets.dart';
@@ -116,10 +117,14 @@ class _ReviewPageState extends ConsumerState<ReviewPage> {
     if (result == null) {
       if (mounted) {
         announceMessage(context, '评分失败，请检查网络后重试');
-        ScaffoldMessenger.of(context).hideCurrentSnackBar();
-        ScaffoldMessenger.of(
+        showKarisFeedback(
           context,
-        ).showSnackBar(const SnackBar(content: Text('评分失败，请检查网络后重试')));
+          tone: KarisFeedbackTone.error,
+          title: '评分失败',
+          detail: '请检查网络后重试',
+          duration: const Duration(milliseconds: 2600),
+          margin: _feedbackMargin(context),
+        );
       }
       return;
     }
@@ -133,12 +138,20 @@ class _ReviewPageState extends ConsumerState<ReviewPage> {
     final interval = result.nextIntervalDays > 0
         ? KarisTheme.intervalLabel(result.nextIntervalDays)
         : (rating == 'FAMILIAR' && result.learningMode ? '继续' : '重学');
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
     final message = '已评分：$label · 下次 $interval';
     announceMessage(context, message);
-    ScaffoldMessenger.of(
+    showKarisFeedback(
       context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+      tone: KarisFeedbackTone.success,
+      title: '已评分 $label',
+      detail: '下次 $interval',
+      margin: _feedbackMargin(context),
+    );
+  }
+
+  EdgeInsets _feedbackMargin(BuildContext context) {
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
+    return EdgeInsets.fromLTRB(16, 8, 16, bottomInset + 108);
   }
 
   void _reload(ReviewSessionState state) {
