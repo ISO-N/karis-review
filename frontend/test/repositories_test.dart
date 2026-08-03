@@ -147,6 +147,26 @@ void main() {
       expect((data['content'] as List).length, 1);
     });
 
+    test('lists cards with search query parameter', () async {
+      final client = FakeApiClient();
+      client.onGet = (path, query) async {
+        expect(path, apiPath('/decks/deck-1/cards'));
+        expect(query, {'page': 0, 'size': 500, 'filter': 'all', 'q': '词'});
+        return okResponse({
+          'content': [cardJson(front: '命中词')],
+          'page': 0,
+          'size': 20,
+          'total_elements': 1,
+          'total_pages': 1,
+        });
+      };
+      final repository = CardRepository(client: client);
+
+      final data = await repository.getDeckCards('deck-1', query: '词');
+
+      expect((data['content'] as List).length, 1);
+    });
+
     test('creates and updates cards', () async {
       final client = FakeApiClient();
       client.onPost = (path, data) async {
@@ -190,7 +210,9 @@ void main() {
       final client = FakeApiClient();
       client.onPost = (path, data) async {
         expect(path, apiPath('/cards/batch-delete'));
-        expect(data, {'card_ids': ['card-1', 'card-2']});
+        expect(data, {
+          'card_ids': ['card-1', 'card-2'],
+        });
         return okResponse({'deleted_cards': 2});
       };
       final repository = CardRepository(client: client);
@@ -205,14 +227,16 @@ void main() {
       client.onGetProto = (path, query) async {
         expect(path, apiPath('/review/due'));
         expect(query, {'limit': 500, 'deck_id': 'deck-1'});
-        return proto.ReviewCardListResponse(cards: [
-          proto.ReviewCard(
-            id: 'card-1',
-            deckId: 'deck-1',
-            front: '正面',
-            back: '反面',
-          ),
-        ]).writeToBuffer();
+        return proto.ReviewCardListResponse(
+          cards: [
+            proto.ReviewCard(
+              id: 'card-1',
+              deckId: 'deck-1',
+              front: '正面',
+              back: '反面',
+            ),
+          ],
+        ).writeToBuffer();
       };
       final repository = ReviewRepository(client: client);
 
@@ -222,14 +246,16 @@ void main() {
       client.onGetProto = (path, query) async {
         expect(path, apiPath('/review/new'));
         expect(query, {'limit': 10, 'deck_id': 'deck-1'});
-        return proto.ReviewCardListResponse(cards: [
-          proto.ReviewCard(
-            id: 'card-2',
-            deckId: 'deck-1',
-            front: '正面',
-            back: '反面',
-          ),
-        ]).writeToBuffer();
+        return proto.ReviewCardListResponse(
+          cards: [
+            proto.ReviewCard(
+              id: 'card-2',
+              deckId: 'deck-1',
+              front: '正面',
+              back: '反面',
+            ),
+          ],
+        ).writeToBuffer();
       };
       final news = await repository.getNewCards(deckId: 'deck-1');
       expect(news.single.front, '正面');
