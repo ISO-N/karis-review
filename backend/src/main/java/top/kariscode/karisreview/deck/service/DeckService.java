@@ -54,7 +54,7 @@ public class DeckService {
     @Transactional
     public DeckResponse updateDeck(UUID userId, UUID deckId, DeckUpdateRequest request) {
         Deck deck = deckRepository.findByIdAndUserId(deckId, userId)
-                .orElseThrow(() -> new BusinessException(404, "牌组不存在"));
+                .orElseThrow(() -> new BusinessException(404, "deck.notfound"));
         deck.setName(request.getName());
         deck = deckRepository.save(deck);
         LocalTime refreshTime = getRefreshTime(userId);
@@ -64,13 +64,13 @@ public class DeckService {
     @Transactional
     public void deleteDeck(UUID userId, UUID deckId) {
         Deck deck = deckRepository.findByIdAndUserId(deckId, userId)
-                .orElseThrow(() -> new BusinessException(404, "牌组不存在"));
+                .orElseThrow(() -> new BusinessException(404, "deck.notfound"));
         deckRepository.delete(deck);
     }
 
     public Deck getDeckForUser(UUID userId, UUID deckId) {
         return deckRepository.findByIdAndUserId(deckId, userId)
-                .orElseThrow(() -> new BusinessException(404, "牌组不存在"));
+                .orElseThrow(() -> new BusinessException(404, "deck.notfound"));
     }
 
     private DeckResponse toDeckResponse(Deck deck, LocalTime refreshTime) {

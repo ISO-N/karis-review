@@ -108,7 +108,7 @@ public class BackupService {
         try {
             snapshot.setData(objectMapper.writeValueAsString(root));
         } catch (JsonProcessingException e) {
-            throw new RuntimeException("序列化备份数据失败", e);
+            throw new RuntimeException("Failed to serialize backup data", e);
         }
         snapshot = backupRepository.save(snapshot);
 
@@ -121,7 +121,7 @@ public class BackupService {
             response.put("data", objectMapper.treeToValue(dataNode, Map.class));
             return response;
         } catch (JsonProcessingException e) {
-            throw new RuntimeException("解析备份数据失败", e);
+            throw new RuntimeException("Failed to parse backup data", e);
         }
     }
 
@@ -132,7 +132,7 @@ public class BackupService {
             String json = objectMapper.writeValueAsString(data);
             root = objectMapper.readTree(json);
         } catch (JsonProcessingException e) {
-            throw new RuntimeException("无效的备份数据格式", e);
+            throw new RuntimeException("Invalid backup data format", e);
         }
 
         // Step 1: Delete all existing data for this user
@@ -152,7 +152,7 @@ public class BackupService {
             for (JsonNode deckNode : decksNode) {
                 Deck deck = new Deck();
                 deck.setUserId(userId);
-                deck.setName(deckNode.has("name") ? deckNode.get("name").asText() : "未命名牌组");
+                deck.setName(deckNode.has("name") ? deckNode.get("name").asText() : "Unnamed Deck");
                 deck = deckRepository.save(deck);
                 importedDecks++;
 

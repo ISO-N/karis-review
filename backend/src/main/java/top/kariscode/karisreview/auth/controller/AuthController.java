@@ -29,19 +29,19 @@ public class AuthController {
     @PostMapping("/register")
     public ResponseEntity<ApiResponse<LoginResponse>> register(@Valid @RequestBody RegisterRequest request) {
         LoginResponse response = authService.register(request);
-        return ResponseEntity.ok(ApiResponse.success("注册成功", response));
+        return ResponseEntity.ok(ApiResponse.success("auth.register.success", response));
     }
 
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<LoginResponse>> login(@Valid @RequestBody LoginRequest request) {
         LoginResponse response = authService.login(request);
-        return ResponseEntity.ok(ApiResponse.success("登录成功", response));
+        return ResponseEntity.ok(ApiResponse.success("auth.login.success", response));
     }
 
     @SecurityRequirement(name = "bearerAuth")
     @PostMapping("/logout")
     public ResponseEntity<ApiResponse<Void>> logout() {
         authService.logout();
-        return ResponseEntity.ok(ApiResponse.success("已登出", null));
-    }
+        return ResponseEntity.ok(ApiResponse.success("auth.logout.success", null));
+}
 }

@@ -40,20 +40,19 @@ public class CardImportService {
     public CardImportResult importCards(UUID userId, UUID deckId, CardImportRequest request) {
         Deck deck = requireDeck(userId, deckId);
         if (request == null || request.getCards() == null || request.getCards().isEmpty()) {
-            throw new BusinessException(400, "卡片列表不能为空");
+            throw new BusinessException(400, "card.import.list.empty");
         }
         if (request.getCards().size() > CardImportParser.MAX_CARDS) {
-            throw new BusinessException(400, "单次最多导入 " + CardImportParser.MAX_CARDS + " 张卡片");
+            throw new BusinessException(400, "card.import.too.many", CardImportParser.MAX_CARDS);
         }
 
         List<Card> cards = new ArrayList<>(request.getCards().size());
         for (CardImportItem item : request.getCards()) {
             if (item == null) {
-                throw new BusinessException(400, "卡片数据不能为空");
+                throw new BusinessException(400, "card.import.data.empty");
             }
-            String front = requireText(item.getFront(), "正面内容不能为空");
-            String back = requireText(item.getBack(), "反面内容不能为空");
-
+            String front = requireText(item.getFront(), "card.import.front.empty");
+            String back = requireText(item.getBack(), "card.import.back.empty");
             Card card = new Card();
             card.setDeckId(deck.getId());
             card.setUserId(userId);
@@ -71,7 +70,7 @@ public class CardImportService {
 
     private Deck requireDeck(UUID userId, UUID deckId) {
         return deckRepository.findByIdAndUserId(deckId, userId)
-                .orElseThrow(() -> new BusinessException(404, "牌组不存在"));
+                .orElseThrow(() -> new BusinessException(404, "deck.notfound"));
     }
 
     private String requireText(String value, String message) {

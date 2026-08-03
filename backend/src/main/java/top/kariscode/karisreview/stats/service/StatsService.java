@@ -65,7 +65,7 @@ public class StatsService {
 
     public DeckStatsResponse getDeckStats(UUID userId, UUID deckId) {
         Deck deck = deckRepository.findByIdAndUserId(deckId, userId)
-                .orElseThrow(() -> new BusinessException(404, "牌组不存在"));
+                .orElseThrow(() -> new BusinessException(404, "stats.deck.notfound"));
 
         LocalTime refreshTime = getRefreshTime(userId);
         LocalDate today = DateUtils.calculateToday(refreshTime);

@@ -41,7 +41,7 @@ public class CardService {
 
     public Page<CardResponse> getDeckCards(UUID userId, UUID deckId, int page, int size, String filter, String query) {
         if (!deckRepository.existsByIdAndUserId(deckId, userId)) {
-            throw new BusinessException(404, "牌组不存在");
+            throw new BusinessException(404, "deck.notfound");
         }
 
         String effectiveFilter = filter == null ? "all" : filter;
@@ -77,7 +77,7 @@ public class CardService {
     @Transactional
     public CardResponse createCard(UUID userId, UUID deckId, CardCreateRequest request) {
         Deck deck = deckRepository.findByIdAndUserId(deckId, userId)
-                .orElseThrow(() -> new BusinessException(404, "牌组不存在"));
+                .orElseThrow(() -> new BusinessException(404, "deck.notfound"));
 
         Card card = new Card();
         card.setDeckId(deck.getId());
@@ -91,7 +91,7 @@ public class CardService {
     @Transactional
     public CardResponse updateCard(UUID userId, UUID cardId, CardUpdateRequest request) {
         Card card = cardRepository.findByIdAndUserId(cardId, userId)
-                .orElseThrow(() -> new BusinessException(404, "卡片不存在"));
+                .orElseThrow(() -> new BusinessException(404, "card.notfound"));
         card.setFront(request.getFront());
         card.setBack(request.getBack());
         card = cardRepository.save(card);
@@ -105,14 +105,14 @@ public class CardService {
     @Transactional
     public void deleteCard(UUID userId, UUID cardId) {
         Card card = cardRepository.findByIdAndUserId(cardId, userId)
-                .orElseThrow(() -> new BusinessException(404, "卡片不存在"));
+                .orElseThrow(() -> new BusinessException(404, "card.notfound"));
         cardRepository.delete(card);
     }
 
     @Transactional
     public int deleteCards(UUID userId, List<UUID> cardIds) {
         if (cardIds == null || cardIds.isEmpty()) {
-            throw new BusinessException(400, "卡片 ID 列表不能为空");
+            throw new BusinessException(400, "card.id.list.empty");
         }
         List<Card> ownedCards = cardRepository.findByIdInAndUserId(cardIds, userId);
         cardRepository.deleteAll(ownedCards);
@@ -125,7 +125,7 @@ public class CardService {
         if (query == null) return "";
         String trimmed = query.trim();
         if (trimmed.length() > MAX_SEARCH_QUERY_LENGTH) {
-            throw new BusinessException(400, "搜索词不能超过 100 个字符");
+            throw new BusinessException(400, "card.search.too.long");
         }
         return trimmed;
     }
@@ -140,7 +140,7 @@ public class CardService {
 
     public Card getCardForUser(UUID userId, UUID cardId) {
         return cardRepository.findByIdAndUserId(cardId, userId)
-                .orElseThrow(() -> new BusinessException(404, "卡片不存在"));
+                .orElseThrow(() -> new BusinessException(404, "card.notfound"));
     }
 
     private CardResponse toCardResponse(Card card, LocalDate today) {

@@ -22,14 +22,14 @@ public class SettingsService {
 
     public UserSettingsResponse getSettings(UUID userId) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(404, "用户不存在"));
+                .orElseThrow(() -> new BusinessException(404, "settings.notfound"));
         return new UserSettingsResponse(user.getEmail(), user.getRefreshTime());
     }
 
     @Transactional
     public UserSettingsResponse updateSettings(UUID userId, UpdateSettingsRequest request) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(404, "用户不存在"));
+                .orElseThrow(() -> new BusinessException(404, "settings.notfound"));
         user.setRefreshTime(LocalTime.parse(request.getRefreshTime()));
         user = userRepository.save(user);
         return new UserSettingsResponse(user.getEmail(), user.getRefreshTime());

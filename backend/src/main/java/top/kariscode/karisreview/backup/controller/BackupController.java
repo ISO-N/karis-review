@@ -25,7 +25,7 @@ public class BackupController {
     public ResponseEntity<ApiResponse<Map<String, Object>>> exportData(
             @AuthenticationPrincipal UUID userId) {
         Map<String, Object> data = backupService.exportData(userId);
-        return ResponseEntity.ok(ApiResponse.success("备份已创建", data));
+        return ResponseEntity.ok(ApiResponse.success("backup.created", data));
     }
 
     @PostMapping("/import")
@@ -35,9 +35,9 @@ public class BackupController {
         @SuppressWarnings("unchecked")
         Map<String, Object> data = (Map<String, Object>) body.get("data");
         if (data == null) {
-            return ResponseEntity.badRequest().body(ApiResponse.error(400, "备份数据不能为空"));
+            return ResponseEntity.badRequest().body(ApiResponse.error(400, "backup.data.empty"));
         }
         Map<String, Object> result = backupService.importData(userId, data);
-        return ResponseEntity.ok(ApiResponse.success("数据已恢复", result));
+        return ResponseEntity.ok(ApiResponse.success("backup.imported", result));
     }
 }
