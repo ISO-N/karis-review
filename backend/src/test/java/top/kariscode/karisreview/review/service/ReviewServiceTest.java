@@ -21,7 +21,9 @@ import top.kariscode.karisreview.review.entity.ReviewLog;
 import top.kariscode.karisreview.review.repository.ReviewLogRepository;
 import top.kariscode.karisreview.review.repository.ReviewQueueItemRepository;
 import top.kariscode.karisreview.review.repository.ReviewSessionRepository;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -237,6 +239,9 @@ class ReviewServiceTest {
         ArgumentCaptor<ReviewLog> captor = ArgumentCaptor.forClass(ReviewLog.class);
         verify(reviewLogRepository).save(captor.capture());
         assertEquals("request-1", captor.getValue().getClientRequestId());
+        assertEquals(
+                LocalDateTime.of(2025, 8, 2, 12, 0),
+                captor.getValue().getReviewedAt());
     }
 
     @Test
@@ -265,8 +270,7 @@ class ReviewServiceTest {
         item.setClientRequestId("request-1");
         item.setCardId(cardId);
         item.setRating("FAMILIAR");
-        item.setRatedAt(DateUtils.calculateToday(LocalTime.of(4, 0)).atTime(12, 0));
-        item.setReviewVersion(reviewVersion);
+        item.setRatedAt(OffsetDateTime.parse("2025-08-02T04:00:00Z"));
         return item;
     }
 

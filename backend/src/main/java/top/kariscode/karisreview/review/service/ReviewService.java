@@ -103,7 +103,7 @@ public class ReviewService {
         session.setDeckId(deckId);
         session.setBatchSize(batchSize);
         session.setTotalCount(queue.size());
-        session.setExpiresAt(LocalDateTime.now().plusHours(SESSION_TTL_HOURS));
+        session.setExpiresAt(DateUtils.now().plusHours(SESSION_TTL_HOURS));
         session = reviewSessionRepository.save(session);
 
         List<ReviewQueueItem> items = new ArrayList<>(queue.size());
@@ -206,7 +206,7 @@ public class ReviewService {
 
             applyRating(
                     userId, item.getCardId(), card, item.getRating(),
-                    clientRequestId, item.getRatedAt());
+                    clientRequestId, DateUtils.toBusinessLocalDateTime(item.getRatedAt()));
             results.add(new ReviewSyncItemResult(
                     clientRequestId, "SYNCED", null));
             synced++;
@@ -243,13 +243,13 @@ public class ReviewService {
         }
 
         return applyRating(userId, cardId, card, request.getRating(),
-                clientRequestId, LocalDateTime.now());
+                clientRequestId, DateUtils.now());
     }
 
     @Scheduled(fixedDelay = 3600000)
     @Transactional
     public void cleanupExpiredSessions() {
-        reviewSessionRepository.deleteExpired(LocalDateTime.now());
+        reviewSessionRepository.deleteExpired(DateUtils.now());
     }
 
     private RateResponse applyRating(UUID userId, UUID cardId, Card card,
@@ -275,7 +275,7 @@ public class ReviewService {
         log.setStageAfter(result.getStageAfter());
         log.setNewCard(wasNewCard);
         log.setClientRequestId(clientRequestId);
-        log.setReviewedAt(reviewedAt == null ? LocalDateTime.now() : reviewedAt);
+        log.setReviewedAt(reviewedAt == null ? DateUtils.now() : reviewedAt);
         reviewLogRepository.save(log);
 
         LocalDate today = DateUtils.calculateToday(refreshTime);
@@ -335,7 +335,7 @@ public class ReviewService {
     private ReviewSession findSession(UUID userId, UUID sessionId) {
         ReviewSession session = reviewSessionRepository.findByIdAndUserId(sessionId, userId)
                 .orElseThrow(() -> new BusinessException(404, "复习会话不存在"));
-        if (session.getExpiresAt().isBefore(LocalDateTime.now())) {
+        if (session.getExpiresAt().isBefore(DateUtils.now())) {
             throw new BusinessException(410, "复习会话已过期");
         }
         return session;

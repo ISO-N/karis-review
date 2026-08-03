@@ -1,11 +1,13 @@
 package top.kariscode.karisreview.review.service;
 
 import org.junit.jupiter.api.Test;
+import top.kariscode.karisreview.config.AppTimeZone;
 import top.kariscode.karisreview.proto.KarisReviewProto;
 import top.kariscode.karisreview.review.dto.ReviewSyncItem;
 import top.kariscode.karisreview.review.dto.ReviewSyncRequest;
 
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -20,25 +22,29 @@ class ReviewProtoMapperTest {
                 "2025-08-02T12:00:00Z"));
 
         ReviewSyncItem item = request.getItems().get(0);
-        assertEquals(LocalDateTime.of(2025, 8, 2, 12, 0), item.getRatedAt());
+        assertEquals(OffsetDateTime.parse("2025-08-02T12:00:00Z"), item.getRatedAt());
     }
 
     @Test
-    void fromProtoConvertsNonUtcOffsetToUtc() {
+    void fromProtoKeepsNonUtcOffset() {
         ReviewSyncRequest request = mapper.fromProto(requestWithRatedAt(
                 "2025-08-02T12:00:00+08:00"));
 
         ReviewSyncItem item = request.getItems().get(0);
-        assertEquals(LocalDateTime.of(2025, 8, 2, 4, 0), item.getRatedAt());
+        assertEquals(OffsetDateTime.parse("2025-08-02T12:00:00+08:00"), item.getRatedAt());
     }
 
     @Test
-    void fromProtoStillAcceptsLegacyLocalDateTime() {
+    void fromProtoStillAcceptsLegacyLocalDateTimeAsBusinessTime() {
         ReviewSyncRequest request = mapper.fromProto(requestWithRatedAt(
                 "2025-08-02T12:00:00"));
 
         ReviewSyncItem item = request.getItems().get(0);
-        assertEquals(LocalDateTime.of(2025, 8, 2, 12, 0), item.getRatedAt());
+        assertEquals(
+                LocalDateTime.parse("2025-08-02T12:00:00")
+                        .atZone(AppTimeZone.get())
+                        .toOffsetDateTime(),
+                item.getRatedAt());
     }
 
     private KarisReviewProto.ReviewSyncRequest requestWithRatedAt(String ratedAt) {

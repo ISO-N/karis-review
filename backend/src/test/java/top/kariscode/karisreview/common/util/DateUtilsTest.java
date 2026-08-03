@@ -2,10 +2,12 @@ package top.kariscode.karisreview.common.util;
 
 import org.junit.jupiter.api.Test;
 
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-
+import java.time.ZoneId;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class DateUtilsTest {
@@ -40,6 +42,21 @@ class DateUtilsTest {
     }
 
     @Test
+    void asiaShanghaiBoundaryFromUtcClock() {
+        Clock beforeRefresh = Clock.fixed(
+                Instant.parse("2025-08-01T19:00:00Z"), ZoneId.of("Asia/Shanghai"));
+        Clock atRefresh = Clock.fixed(
+                Instant.parse("2025-08-01T20:00:00Z"), ZoneId.of("Asia/Shanghai"));
+
+        assertEquals(
+                LocalDate.of(2025, 8, 1),
+                DateUtils.calculateToday(refreshTime, beforeRefresh));
+        assertEquals(
+                LocalDate.of(2025, 8, 2),
+                DateUtils.calculateToday(refreshTime, atRefresh));
+    }
+
+    @Test
     void refreshBoundaryWorksAcrossMonthAndYear() {
         assertEquals(
                 LocalDate.of(2024, 12, 31),
@@ -53,7 +70,6 @@ class DateUtilsTest {
     void nextReviewDateUsesCalculatedToday() {
         LocalDateTime afterRefresh = LocalDateTime.of(2025, 1, 1, 23, 0);
         LocalDateTime beforeRefresh = LocalDateTime.of(2025, 1, 1, 3, 0);
-
         assertEquals(
                 LocalDate.of(2025, 1, 8),
                 DateUtils.calculateNextReviewDate(7, refreshTime, afterRefresh));
