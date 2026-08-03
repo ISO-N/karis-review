@@ -146,6 +146,9 @@ Map<String, dynamic> cardJson({
   String back = '反面',
   int stage = 0,
   bool learning = false,
+  String? nextReviewDate,
+  int consecutiveFamiliar = 0,
+  int? learningGoal,
 }) {
   return {
     'id': id,
@@ -153,11 +156,12 @@ Map<String, dynamic> cardJson({
     'front': front,
     'back': back,
     'stage': stage,
-    'next_review_date': null,
+    'next_review_date': nextReviewDate,
     'learning_mode': learning,
-    'consecutive_familiar': 0,
+    'consecutive_familiar': consecutiveFamiliar,
     'learning_step': 0,
     'reentry_stage': null,
+    'learning_goal': learningGoal,
     'due': false,
     'created_at': '2025-08-01T10:00:00Z',
   };
@@ -198,14 +202,18 @@ Map<String, dynamic> reviewResultJson({
   };
 }
 
-Map<String, dynamic> overviewStatsJson() {
+Map<String, dynamic> overviewStatsJson({
+  int dueToday = 3,
+  int newCards = 1,
+}) {
   return {
     'total_cards': 10,
     'total_decks': 2,
-    'due_today': 3,
+    'due_today': dueToday,
     'reviewed_today': 4,
     'learned_today': 1,
     'mastered_cards': 2,
+    'new_cards': newCards,
     'learning_cards': 8,
     'stage_distribution': [8, 0, 0, 0, 0, 2, 0, 0, 0],
     'due_stage_distribution': [3, 0, 0, 0, 0, 0, 0, 0, 0],

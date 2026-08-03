@@ -99,6 +99,7 @@ void main() {
       expect(stats.reviewedToday, 4);
       expect(stats.learnedToday, 1);
       expect(stats.masteredCards, 2);
+      expect(stats.newCards, 1);
       expect(stats.stageDistribution[0], 8);
       expect(stats.dueStageDistribution[0], 3);
     });
@@ -128,6 +129,7 @@ void main() {
         'reviewed_today': 0,
         'learned_today': 0,
         'mastered_cards': 0,
+        'new_cards': 0,
         'learning_cards': 0,
         'stage_distribution': {'9': 1, '-1': 1, '2': 4},
       });
