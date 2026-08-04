@@ -271,11 +271,15 @@ public class ReviewService {
                                      String rating, String clientRequestId,
                                      LocalDateTime reviewedAt) {
         LocalTime refreshTime = getRefreshTime(userId);
+        LocalDate today = DateUtils.calculateToday(refreshTime);
         boolean wasNewCard = card.getStage() == 0 && !card.isLearningMode();
+        int overdueDays = card.getNextReviewDate() == null
+                ? 0
+                : (int) Math.max(0, ChronoUnit.DAYS.between(card.getNextReviewDate(), today));
         SchedulingEngine.RatingResult result;
         switch (rating) {
             case "FORGET" -> result = schedulingEngine.rateForget(card, refreshTime);
-            case "VAGUE" -> result = schedulingEngine.rateVague(card, refreshTime);
+            case "VAGUE" -> result = schedulingEngine.rateVague(card, refreshTime, overdueDays);
             case "FAMILIAR" -> result = schedulingEngine.rateFamiliar(card, refreshTime);
             default -> throw new BusinessException(400, "review.rating.invalid");
         }
@@ -293,7 +297,6 @@ public class ReviewService {
         log.setReviewedAt(reviewedAt == null ? DateUtils.now() : reviewedAt);
         reviewLogRepository.save(log);
 
-        LocalDate today = DateUtils.calculateToday(refreshTime);
         int nextIntervalDays = result.getNextReviewDate() == null
                 ? 0
                 : (int) ChronoUnit.DAYS.between(today, result.getNextReviewDate());
