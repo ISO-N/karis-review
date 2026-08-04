@@ -33,6 +33,11 @@ class LocalSchedulingEngine {
     final before = card.stage;
     final wasNewCard = card.stage == 0 && !card.learningMode;
     final reviewVersionBefore = card.reviewVersion;
+    final overdueDays = card.nextReviewDate == null
+        ? 0
+        : (today.difference(DateTime.parse(card.nextReviewDate!)).inDays < 0
+            ? 0
+            : today.difference(DateTime.parse(card.nextReviewDate!)).inDays);
     var stage = card.stage;
     var learningMode = card.learningMode;
     var consecutiveFamiliar = card.consecutiveFamiliar;
@@ -80,7 +85,8 @@ class LocalSchedulingEngine {
         reentryStage = null;
         nextReviewDate = _formatDate(today);
       case 'VAGUE':
-        if (stage <= 1) {
+        final effectiveStage = calculateEffectiveStage(stage, overdueDays);
+        if (effectiveStage <= 1) {
           stage = 0;
           learningMode = true;
           consecutiveFamiliar = 0;
@@ -88,8 +94,8 @@ class LocalSchedulingEngine {
           reentryStage = null;
           nextReviewDate = _formatDate(today);
         } else {
-          reentryStage = stage;
-          stage -= 1;
+          reentryStage = effectiveStage;
+          stage = effectiveStage - 1;
           learningMode = true;
           consecutiveFamiliar = 0;
           learningStep = 0;
@@ -166,6 +172,28 @@ class LocalSchedulingEngine {
   static int vagueIntervalAfterRating(int stage) {
     if (stage <= 1) return 0;
     return stageIntervals[stage];
+  }
+
+  /// 计算逾期卡的等效 stage。
+  ///
+  /// 逾期率 ρ = (间隔 + 逾期天数) / 间隔，遗忘程度相当于低了 k = floor(log2(ρ))
+  /// 级的卡在同一相对位置的遗忘程度，等效 stage = max(1, stage − k)。
+  /// 宽限：逾期 ≤ 2 天或 ρ < 2（未超过一个完整间隔）不罚。
+  /// 例：stage 4（7 天）逾期 7 天 → ρ = 2 → 等效 stage 3。
+  static int calculateEffectiveStage(int stage, int overdueDays) {
+    if (stage <= 1 || overdueDays <= 0) return stage;
+    if (overdueDays <= 2) return stage;
+    final interval = stageIntervals[stage];
+    final elapsed = interval + overdueDays;
+    // k = floor(log2(ρ))：k 从 0 递增，直到 elapsed < 2^(k+1) * interval
+    var k = 0;
+    var threshold = interval * 2;
+    while (elapsed >= threshold) {
+      k++;
+      if (threshold > (1 << 62)) break;
+      threshold *= 2;
+    }
+    return stage - k < 1 ? 1 : stage - k;
   }
 
   static DateTime calculateToday(DateTime nowUtc, String refreshTime) {

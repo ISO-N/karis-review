@@ -12,6 +12,7 @@ void main() {
     int consecutive = 0,
     int step = 0,
     int? reentry,
+    String? nextReviewDate,
     int version = 0,
   }) {
     return FlashCard(
@@ -20,6 +21,7 @@ void main() {
       front: '正面',
       back: '反面',
       stage: stage,
+      nextReviewDate: nextReviewDate,
       learningMode: learning,
       consecutiveFamiliar: consecutive,
       learningStep: step,
@@ -194,5 +196,88 @@ void main() {
       ),
       DateTime(2025, 8, 2),
     );
+  });
+
+  test('effective stage maps overdue ratio to lower stage', () {
+    expect(LocalSchedulingEngine.calculateEffectiveStage(4, 0), 4);
+    expect(LocalSchedulingEngine.calculateEffectiveStage(4, 3), 4);
+    expect(LocalSchedulingEngine.calculateEffectiveStage(4, 7), 3);
+    expect(LocalSchedulingEngine.calculateEffectiveStage(4, 20), 3);
+    expect(LocalSchedulingEngine.calculateEffectiveStage(4, 82), 1);
+    expect(LocalSchedulingEngine.calculateEffectiveStage(8, 60), 8);
+    expect(LocalSchedulingEngine.calculateEffectiveStage(8, 200), 7);
+    expect(LocalSchedulingEngine.calculateEffectiveStage(8, 1825), greaterThanOrEqualTo(3));
+  });
+
+  test('effective stage applies grace rules', () {
+    expect(LocalSchedulingEngine.calculateEffectiveStage(4, 2), 4);
+    expect(LocalSchedulingEngine.calculateEffectiveStage(3, 2), 3);
+    expect(LocalSchedulingEngine.calculateEffectiveStage(1, 30), 1);
+    expect(LocalSchedulingEngine.calculateEffectiveStage(0, 30), 0);
+  });
+
+  test('vague on overdue card steps back from effective stage', () {
+    final outcome = engine.rate(
+      card(stage: 4, nextReviewDate: '2025-07-26'),
+      'VAGUE',
+      nowUtc: now,
+      refreshTime: '04:00:00',
+    );
+
+    expect(outcome.card.stage, 2);
+    expect(outcome.card.reentryStage, 3);
+    expect(outcome.card.learningMode, isTrue);
+  });
+
+  test('vague overdue relearning returns to effective stage', () {
+    var current = engine
+        .rate(
+          card(stage: 4, nextReviewDate: '2025-07-26'),
+          'VAGUE',
+          nowUtc: now,
+          refreshTime: '04:00:00',
+        )
+        .card;
+
+    for (var i = 0; i < 2; i++) {
+      current = engine
+          .rate(current, 'FAMILIAR', nowUtc: now, refreshTime: '04:00:00')
+          .card;
+    }
+    final completed = engine.rate(
+      current,
+      'FAMILIAR',
+      nowUtc: now,
+      refreshTime: '04:00:00',
+    );
+
+    expect(completed.card.learningMode, isFalse);
+    expect(completed.card.stage, 3);
+    expect(completed.card.nextReviewDate, '2025-08-04');
+  });
+
+  test('vague on heavily overdue card degrades to forget', () {
+    final outcome = engine.rate(
+      card(stage: 2, nextReviewDate: '2025-07-03'),
+      'VAGUE',
+      nowUtc: now,
+      refreshTime: '04:00:00',
+    );
+
+    expect(outcome.card.stage, 0);
+    expect(outcome.card.learningMode, isTrue);
+    expect(outcome.card.reentryStage, isNull);
+  });
+
+  test('vague within grace period does not downgrade extra', () {
+    final outcome = engine.rate(
+      card(stage: 4, nextReviewDate: '2025-07-31'),
+      'VAGUE',
+      nowUtc: now,
+      refreshTime: '04:00:00',
+    );
+
+    expect(outcome.card.stage, 3);
+    expect(outcome.card.reentryStage, 4);
   });
 }
