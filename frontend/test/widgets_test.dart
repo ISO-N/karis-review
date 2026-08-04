@@ -415,6 +415,50 @@ void main() {
       expect(find.text('开始学习'), findsWidgets);
     });
 
+    testWidgets('start flow lists only decks with cards in current mode', (
+      tester,
+    ) async {
+      final repo = MockDeckRepository();
+      when(
+        () => repo.getDecks(),
+      ).thenAnswer(
+        (_) async => [
+          Deck.fromJson(
+            deckJson(id: 'due-deck', name: '待复习卡组', dueCount: 3, newCount: 0),
+          ),
+          Deck.fromJson(
+            deckJson(id: 'new-deck', name: '新卡卡组', dueCount: 0, newCount: 2),
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: deckOverrides(repo),
+          child: MaterialApp(
+            localizationsDelegates: const [
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+              KarisReviewLocalizations.delegate,
+            ],
+            supportedLocales: KarisReviewLocalizations.supportedLocales,
+          locale: const Locale('zh'),
+            home: StartFlowPage()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // 复习模式：只有待复习卡组可选。
+      expect(find.text('待复习卡组'), findsOneWidget);
+      expect(find.text('新卡卡组'), findsNothing);
+
+      await tester.tap(find.text('学习新卡'));
+      await tester.pumpAndSettle();
+      expect(find.text('新卡卡组'), findsOneWidget);
+      expect(find.text('待复习卡组'), findsNothing);
+    });
+
     testWidgets('card list renders cards and filters', (tester) async {
       final cardRepo = MockCardRepository();
       when(
@@ -968,15 +1012,18 @@ void main() {
       expect(find.text('今日复习完成'), findsOneWidget);
     });
 
-    testWidgets('rating feedback follows the app feedback style', (
-      tester,
-    ) async {
+    testWidgets('rating feedback shows in the status chip', (tester) async {
       final repo = MockReviewRepository();
       when(
         () => repo.getDueCards(deckId: null),
-      ).thenAnswer((_) async => [ReviewCard.fromJson(reviewCardJson())]);
+      ).thenAnswer(
+        (_) async => [
+          ReviewCard.fromJson(reviewCardJson(id: 'card-1')),
+          ReviewCard.fromJson(reviewCardJson(id: 'card-2')),
+        ],
+      );
       when(
-        () => repo.rateCard('card-1', 'FAMILIAR'),
+        () => repo.rateCard(any(), 'FAMILIAR'),
       ).thenAnswer((_) async => ReviewResult.fromJson(reviewResultJson()));
       final router = GoRouter(
         initialLocation: '/review',
@@ -1007,14 +1054,9 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('熟悉'));
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 500));
 
-      expect(find.byType(KarisFeedbackBar), findsOneWidget);
-      expect(find.text('已评分 熟悉'), findsOneWidget);
-      expect(find.text('下次 1 天'), findsOneWidget);
-
-      await tester.pump(const Duration(seconds: 2));
-      await tester.pumpAndSettle();
+      expect(find.text('已评分 熟悉 · 下次 1 天'), findsOneWidget);
+      expect(find.byType(KarisFeedbackBar), findsNothing);
     });
 
     testWidgets('mobile review fills card and returns to front from answer', (
@@ -1548,7 +1590,7 @@ void main() {
     });
 
     testWidgets(
-      'adaptive scaffold respects system insets and keeps nav glass blur',
+      'adaptive scaffold respects system insets and keeps nav pill blur',
       (tester) async {
         await tester.binding.setSurfaceSize(const Size(390, 844));
         addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -1580,7 +1622,8 @@ void main() {
         );
         await tester.pump();
 
-        expect(find.byType(BackdropFilter), findsNWidgets(2));
+        // 全宽条带改为渐变遮罩（无模糊），仅药丸导航保留 BackdropFilter。
+        expect(find.byType(BackdropFilter), findsOneWidget);
         expect(
           tester.getTopLeft(find.byKey(const Key('scaffold-body'))).dy,
           greaterThanOrEqualTo(24),
