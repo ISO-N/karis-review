@@ -101,8 +101,17 @@ class OfflineRepository {
             )
             .toList()
           ..sort(
-            (a, b) =>
-                (a.nextReviewDate ?? '').compareTo(b.nextReviewDate ?? ''),
+            (a, b) {
+              // 逾期优先：逾期天数多的排前面；同逾期天数内按日期升序（先到期的先）
+              final aOverdue = today
+                  .difference(DateTime.parse(a.nextReviewDate!))
+                  .inDays;
+              final bOverdue = today
+                  .difference(DateTime.parse(b.nextReviewDate!))
+                  .inDays;
+              if (aOverdue != bOverdue) return bOverdue.compareTo(aOverdue);
+              return (a.nextReviewDate ?? '').compareTo(b.nextReviewDate ?? '');
+            },
           );
     final learning =
         cards

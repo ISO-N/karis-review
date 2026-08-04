@@ -143,6 +143,182 @@ void main() {
     expect(cards.map((card) => card.id), ['latest-new', 'old-new']);
   });
 
+  test('due queue orders by overdue days first, then next review date', () async {
+    // 固定"今天"为 2025-08-02（业务日）
+    await offline.saveBootstrap(
+      userId: 'user-1',
+      email: 'a@b.c',
+      refreshTime: '04:00:00',
+      serverTime: DateTime.utc(2025, 8, 2, 12),
+      decks: [
+        {
+          'id': 'deck-1',
+          'name': '日语',
+          'created_at': '2025-08-01T00:00:00Z',
+          'updated_at': '2025-08-01T00:00:00Z',
+          'cards': [
+            {
+              'id': 'overdue-1',
+              'deck_id': 'deck-1',
+              'front': '逾期1天',
+              'back': '反面',
+              'stage': 2,
+              'consecutive_familiar': 0,
+              'next_review_date': '2025-08-01',
+              'learning_mode': false,
+              'reentry_stage': null,
+              'learning_step': 0,
+              'review_version': 0,
+              'created_at': '2025-08-01T00:00:00Z',
+              'updated_at': '2025-08-01T00:00:00Z',
+            },
+            {
+              'id': 'overdue-3',
+              'deck_id': 'deck-1',
+              'front': '逾期3天',
+              'back': '反面',
+              'stage': 3,
+              'consecutive_familiar': 0,
+              'next_review_date': '2025-07-30',
+              'learning_mode': false,
+              'reentry_stage': null,
+              'learning_step': 0,
+              'review_version': 0,
+              'created_at': '2025-07-30T00:00:00Z',
+              'updated_at': '2025-07-30T00:00:00Z',
+            },
+            {
+              'id': 'due-today',
+              'deck_id': 'deck-1',
+              'front': '今天到期',
+              'back': '反面',
+              'stage': 1,
+              'consecutive_familiar': 0,
+              'next_review_date': '2025-08-02',
+              'learning_mode': false,
+              'reentry_stage': null,
+              'learning_step': 0,
+              'review_version': 0,
+              'created_at': '2025-08-02T00:00:00Z',
+              'updated_at': '2025-08-02T00:00:00Z',
+            },
+            {
+              'id': 'future',
+              'deck_id': 'deck-1',
+              'front': '未来到期',
+              'back': '反面',
+              'stage': 2,
+              'consecutive_familiar': 0,
+              'next_review_date': '2025-08-05',
+              'learning_mode': false,
+              'reentry_stage': null,
+              'learning_step': 0,
+              'review_version': 0,
+              'created_at': '2025-08-02T00:00:00Z',
+              'updated_at': '2025-08-02T00:00:00Z',
+            },
+            {
+              'id': 'overdue-3-early',
+              'deck_id': 'deck-1',
+              'front': '逾期3天早',
+              'back': '反面',
+              'stage': 2,
+              'consecutive_familiar': 0,
+              'next_review_date': '2025-07-29',
+              'learning_mode': false,
+              'reentry_stage': null,
+              'learning_step': 0,
+              'review_version': 0,
+              'created_at': '2025-07-29T00:00:00Z',
+              'updated_at': '2025-07-29T00:00:00Z',
+            },
+          ],
+        },
+      ],
+      reviewLogs: [],
+    );
+
+    final queue = await offline.getDueQueue('user-1');
+
+    // 逾期优先：逾期3天(07-29) → 逾期3天(07-30) → 逾期1天(08-01) → 今天(08-02)；未来(08-05)不出队
+    expect(queue.map((card) => card.id), [
+      'overdue-3-early',
+      'overdue-3',
+      'overdue-1',
+      'due-today',
+    ]);
+  });
+
+  test('due queue keeps learning cards interleaved by step', () async {
+    await offline.saveBootstrap(
+      userId: 'user-1',
+      email: 'a@b.c',
+      refreshTime: '04:00:00',
+      serverTime: DateTime.utc(2025, 8, 2, 12),
+      decks: [
+        {
+          'id': 'deck-1',
+          'name': '日语',
+          'created_at': '2025-08-01T00:00:00Z',
+          'updated_at': '2025-08-01T00:00:00Z',
+          'cards': [
+            {
+              'id': 'overdue-2',
+              'deck_id': 'deck-1',
+              'front': '逾期2天',
+              'back': '反面',
+              'stage': 2,
+              'consecutive_familiar': 0,
+              'next_review_date': '2025-07-31',
+              'learning_mode': false,
+              'reentry_stage': null,
+              'learning_step': 0,
+              'review_version': 0,
+              'created_at': '2025-07-31T00:00:00Z',
+              'updated_at': '2025-07-31T00:00:00Z',
+            },
+            {
+              'id': 'learning-0',
+              'deck_id': 'deck-1',
+              'front': '重学第1次',
+              'back': '反面',
+              'stage': 0,
+              'consecutive_familiar': 0,
+              'next_review_date': '2025-08-02',
+              'learning_mode': true,
+              'reentry_stage': null,
+              'learning_step': 0,
+              'review_version': 0,
+              'created_at': '2025-08-01T00:00:00Z',
+              'updated_at': '2025-08-01T00:00:00Z',
+            },
+            {
+              'id': 'learning-1',
+              'deck_id': 'deck-1',
+              'front': '重学第2次',
+              'back': '反面',
+              'stage': 0,
+              'consecutive_familiar': 0,
+              'next_review_date': '2025-08-02',
+              'learning_mode': true,
+              'reentry_stage': null,
+              'learning_step': 1,
+              'review_version': 0,
+              'created_at': '2025-08-01T00:00:00Z',
+              'updated_at': '2025-08-01T00:00:00Z',
+            },
+          ],
+        },
+      ],
+      reviewLogs: [],
+    );
+
+    final queue = await offline.getDueQueue('user-1');
+
+    // 逾期卡排最前；重学卡按 learning_step 的 2^n 间距插入：step0 在位置1、step1 在位置2
+    expect(queue.map((card) => card.id), ['overdue-2', 'learning-0', 'learning-1']);
+  });
+
   test('query filters local cards by front and back', () async {
     await offline.saveBootstrap(
       userId: 'user-1',
