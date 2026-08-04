@@ -74,7 +74,9 @@ Android release 包名为 `top.kariscode.karisreview`，debug 包名为 `top.kar
 - **FAMILIAR**：非重学模式升级 1 级；Stage 0 → 1（1 天后）。
 - **FORGET**：重置 Stage 0 并进入重学模式（`learning_mode=true`），需连续 5 次 Familiar 才脱离（回 Stage 1）。
 - **VAGUE**：降 1 级并进入重学模式，`reentry_stage` 记录目标级别，只需连续 3 次 Familiar 脱离并回到该级别（复习间隔 = 该级间隔 − 上一级间隔）；Stage 1 的 VAGUE 视同 FORGET。
+- **逾期惩罚**：VAGUE 评分时按遗忘曲线估计等效 stage——逾期率 ρ = (间隔+逾期天数)/间隔，降级数 k = floor(log₂(ρ))，等效 stage = max(1, stage−k)，从等效 stage 回退 1 级并以其为 reentry 目标；逾期 ≤ 2 天或 ρ < 2 免罚；FAMILIAR/FORGET 不受逾期影响。前后端公式一致（`SchedulingEngine.calculateEffectiveStage` 与 `LocalSchedulingEngine.calculateEffectiveStage`）。
 - **重学插入**：重学中的卡片按 `learning_step`（2^n 间距）插入到期队列，`ReviewService.interleaveLearningCards` 实现（第 1 次隔 1 张、第 2 次隔 2 张、第 3 次隔 4 张……）。
+- **到期队列排序**：逾期优先——按逾期天数（`calculateToday` − `next_review_date`）降序，同逾期天数内按 `next_review_date` 升序；服务端 `CardRepository.findDueCards` 与前端离线 `OfflineRepository.getDueQueue` 保持一致。重学卡不参与逾期排序。
 
 `Card` 实体新增了 `learning_step` 字段（V6 迁移），数据库文档中的表结构没有它，改卡字段时注意同步。
 
