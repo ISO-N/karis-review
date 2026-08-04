@@ -2,11 +2,13 @@ package top.kariscode.karisreview.system;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import org.junit.jupiter.api.Test;
+import org.springframework.http.ResponseEntity;
 
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SecuritySystemTest extends SystemTestSupport {
 
@@ -49,5 +51,20 @@ class SecuritySystemTest extends SystemTestSupport {
                 userB.token(), null, 404).get("code").asInt());
         assertEquals(404, call("PUT", "/decks/" + deckId, userB.token(),
                 Map.of("name", "越权"), 404).get("code").asInt());
+    }
+
+    @Test
+    void swaggerUiAndDocsArePublic() {
+        ResponseEntity<String> index = restTemplate.getForEntity("/swagger-ui/index.html", String.class);
+        assertEquals(200, index.getStatusCode().value());
+        assertTrue(index.getBody() != null && index.getBody().contains("Swagger UI"));
+
+        ResponseEntity<String> initializer = restTemplate.getForEntity("/swagger-ui/swagger-initializer.js", String.class);
+        assertEquals(200, initializer.getStatusCode().value());
+        assertTrue(initializer.getBody() != null && initializer.getBody().contains("../v3/api-docs"));
+
+        ResponseEntity<String> docs = restTemplate.getForEntity("/v3/api-docs", String.class);
+        assertEquals(200, docs.getStatusCode().value());
+        assertNotNull(docs.getBody());
     }
 }
