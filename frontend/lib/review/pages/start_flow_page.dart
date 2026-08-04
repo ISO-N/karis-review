@@ -48,7 +48,12 @@ class _StartFlowPageState extends ConsumerState<StartFlowPage> {
   }
 
   void _setMode(String value) {
-    setState(() => _mode = value);
+    final decks = ref.read(deckListProvider).value ?? const <Deck>[];
+    setState(() {
+      _mode = value;
+      // 切换学习方式后，若原选中卡组在当前模式下无卡，回退到全部。
+      _scope = _effectiveScope(_eligibleDecks(decks));
+    });
     GoRouter.maybeOf(context)?.replace('/start?mode=$value&deck_id=$_scope');
   }
 
@@ -56,7 +61,6 @@ class _StartFlowPageState extends ConsumerState<StartFlowPage> {
     setState(() => _scope = value);
     GoRouter.maybeOf(context)?.replace('/start?mode=$_mode&deck_id=$value');
   }
-
   @override
   Widget build(BuildContext context) {
     final l10n = KarisReviewLocalizations.of(context)!;
@@ -84,7 +88,10 @@ class _StartFlowPageState extends ConsumerState<StartFlowPage> {
                   message: l10n.errorLoadFailed,
                 ),
                 data: (decks) {
-                  final totalCount = _totalCount(decks);
+                  final eligible = _eligibleDecks(decks);
+                  final totalCount = _totalCount(eligible);
+                  final scope = _effectiveScope(eligible);
+                  final scopeName = scope == 'all' ? '全部卡组' : _scopeName(eligible);
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
@@ -127,30 +134,20 @@ class _StartFlowPageState extends ConsumerState<StartFlowPage> {
                       SizedBox(height: 24),
                       SectionHeader(
                         title: '范围',
-                        trailing: _scope == 'all'
-                            ? '全部卡组'
-                            : decks.fold<String>(
-                                '全部卡组',
-                                (_, deck) => deck.name,
-                              ),
+                        trailing: scopeName,
                       ),
                       SizedBox(height: 14),
-                      if (decks.isEmpty)
+                      if (eligible.isEmpty)
                         EmptyState(
                           icon: Icons.layers_outlined,
-                          title: l10n.startNoDecksTitle,
-                          message: l10n.startNoDecksMessage,
-                          action: FilledButton.icon(
-                            onPressed: () => context.go('/decks'),
-                            icon: const Icon(Icons.add, size: 17),
-                            label: Text(l10n.startCreateDeck),
-                          ),
+                          title: _mode == 'new' ? '当前没有待学习的新卡' : '当前没有待复习的卡片',
+                          message: '换个学习方式，或先去卡片列表添加新卡',
                         )
                       else
                         ListView.separated(
                           shrinkWrap: true,
                           physics: const NeverScrollableScrollPhysics(),
-                          itemCount: decks.length + 1,
+                          itemCount: eligible.length + 1,
                           separatorBuilder: (_, _) =>
                               SizedBox(height: 10),
                           itemBuilder: (context, index) {
@@ -162,13 +159,13 @@ class _StartFlowPageState extends ConsumerState<StartFlowPage> {
                                 onTap: () => _setScope('all'),
                               );
                             }
-                            final deck = decks[index - 1];
+                            final deck = eligible[index - 1];
                             return _ScopeOption(
                               name: deck.name,
                               meta: _countLabel(
                                 _mode == 'new' ? deck.newCount : deck.dueCount,
                               ),
-                              active: _scope == deck.id,
+                              active: scope == deck.id,
                               onTap: () => _setScope(deck.id),
                             );
                           },
@@ -179,10 +176,10 @@ class _StartFlowPageState extends ConsumerState<StartFlowPage> {
                         icon: _mode == 'new'
                             ? Icons.auto_stories_outlined
                             : Icons.play_arrow_rounded,
-                        onPressed: decks.isEmpty
+                        onPressed: eligible.isEmpty || totalCount == 0
                             ? null
                             : () => context.go(
-                                '/review?mode=$_mode&deck_id=$_scope',
+                                '/review?mode=$_mode&deck_id=$scope',
                               ),
                       ),
                     ],
@@ -194,6 +191,29 @@ class _StartFlowPageState extends ConsumerState<StartFlowPage> {
         ),
       ),
     );
+  }
+
+  List<Deck> _eligibleDecks(List<Deck> decks) {
+    return decks.where((deck) {
+      final count = _mode == 'new' ? deck.newCount : deck.dueCount;
+      return count > 0;
+    }).toList();
+  }
+
+  /// 当前模式下有卡可学的卡组才可选；选中卡组不在范围内时回退到全部。
+  String _effectiveScope(List<Deck> eligible) {
+    if (_scope == 'all') return 'all';
+    for (final deck in eligible) {
+      if (deck.id == _scope) return _scope;
+    }
+    return 'all';
+  }
+
+  String _scopeName(List<Deck> eligible) {
+    for (final deck in eligible) {
+      if (deck.id == _scope) return deck.name;
+    }
+    return '全部卡组';
   }
 
   int _totalCount(List<Deck> decks) {
