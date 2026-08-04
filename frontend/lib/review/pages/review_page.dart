@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import '../../app/theme.dart';
 import '../../shared/widgets/adaptive_scaffold.dart';
 import '../../shared/utils/motion.dart';
-import '../../shared/widgets/app_feedback.dart';
 import '../../shared/widgets/app_semantics.dart';
 import '../../shared/widgets/rich_card_content.dart';
 import '../../shared/widgets/section_widgets.dart';
@@ -115,17 +114,7 @@ class _ReviewPageState extends ConsumerState<ReviewPage> {
   Future<void> _rate(String rating) async {
     final result = await ref.read(reviewProvider.notifier).rate(rating);
     if (result == null) {
-      if (mounted) {
-        announceMessage(context, '评分失败，请检查网络后重试');
-        showKarisFeedback(
-          context,
-          tone: KarisFeedbackTone.error,
-          title: '评分失败',
-          detail: '请检查网络后重试',
-          duration: const Duration(milliseconds: 2600),
-          margin: _feedbackMargin(context),
-        );
-      }
+      if (mounted) announceMessage(context, '评分失败，请检查网络后重试');
       return;
     }
     if (!mounted) return;
@@ -138,20 +127,7 @@ class _ReviewPageState extends ConsumerState<ReviewPage> {
     final interval = result.nextIntervalDays > 0
         ? KarisTheme.intervalLabel(result.nextIntervalDays)
         : (rating == 'FAMILIAR' && result.learningMode ? '继续' : '重学');
-    final message = '已评分：$label · 下次 $interval';
-    announceMessage(context, message);
-    showKarisFeedback(
-      context,
-      tone: KarisFeedbackTone.success,
-      title: '已评分 $label',
-      detail: '下次 $interval',
-      margin: _feedbackMargin(context),
-    );
-  }
-
-  EdgeInsets _feedbackMargin(BuildContext context) {
-    final bottomInset = MediaQuery.paddingOf(context).bottom;
-    return EdgeInsets.fromLTRB(16, 8, 16, bottomInset + 108);
+    announceMessage(context, '已评分：$label · 下次 $interval');
   }
 
   void _reload(ReviewSessionState state) {
@@ -217,13 +193,7 @@ class _ReviewStage extends ConsumerWidget {
                               ],
                             ),
                           ),
-                          Text(
-                            '$current / $total',
-                            style: karisMono(
-                              fontSize: 12,
-                              color: KarisColors.stone,
-                            ),
-                          ),
+                          _StatusChip(state: state),
                         ],
                       ),
                       const SizedBox(height: 16),
@@ -252,30 +222,6 @@ class _ReviewStage extends ConsumerWidget {
                           ),
                         ],
                       ),
-                      if (state.pendingSyncCount > 0 || state.loadingMore) ...[
-                        const SizedBox(height: 10),
-                        Row(
-                          children: [
-                            Icon(
-                              state.loadingMore
-                                  ? Icons.sync
-                                  : Icons.cloud_off_outlined,
-                              size: 14,
-                              color: KarisColors.amber,
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              state.loadingMore
-                                  ? '正在加载更多队列'
-                                  : '离线 · ${state.pendingSyncCount} 条评分待同步',
-                              style: karisMono(
-                                fontSize: 10,
-                                color: KarisColors.amber,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
                       const SizedBox(height: 18),
                       Expanded(
                         child: Center(
@@ -343,18 +289,121 @@ class _ReviewStage extends ConsumerWidget {
             card: card,
             onRate: onRate,
             maxWidth: 620,
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
           )
         else
           _RatingArea(
             state: state,
             card: card,
             onRate: onRate,
-            padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 18),
           ),
       ],
     );
   }
+}
+
+class _StatusChip extends ConsumerWidget {
+  final ReviewSessionState state;
+
+  const _StatusChip({required this.state});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final spec = _specFor(state);
+    if (spec == null) {
+      // 固定占位，防止信息出现时布局跳动。
+      return const SizedBox(width: 20, height: 24);
+    }
+    return SizedBox(
+      height: 24,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: spec.color.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: spec.color.withValues(alpha: 0.25)),
+        ),
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 220),
+          switchInCurve: Curves.easeOut,
+          switchOutCurve: Curves.easeIn,
+          child: Row(
+            key: ValueKey('${spec.icon.codePoint}-${spec.text}'),
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(spec.icon, size: 12, color: spec.color),
+              const SizedBox(width: 4),
+              Text(
+                spec.text,
+                style: TextStyle(
+                  fontFamily: KarisTheme.monoFamily,
+                  fontSize: 10,
+                  color: spec.color,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  _StatusSpec? _specFor(ReviewSessionState state) {
+    if (state.ratingFailed) {
+      return const _StatusSpec(
+        icon: Icons.error_outline,
+        text: '评分失败',
+        color: KarisColors.cinnabar,
+      );
+    }
+    final result = state.lastResult;
+    if (result != null) {
+      final label = switch (result.rating) {
+        'FORGET' => '忘记',
+        'VAGUE' => '模糊',
+        'FAMILIAR' => '熟悉',
+        _ => result.rating,
+      };
+      final interval = result.nextIntervalDays > 0
+          ? KarisTheme.intervalLabel(result.nextIntervalDays)
+          : (result.rating == 'FAMILIAR' && result.learningMode ? '继续' : '重学');
+      return _StatusSpec(
+        icon: Icons.check,
+        text: '已评分 $label · 下次 $interval',
+        color: KarisColors.jade,
+      );
+    }
+    if (state.loadingMore) {
+      return const _StatusSpec(
+        icon: Icons.sync,
+        text: '加载更多队列',
+        color: KarisColors.amber,
+      );
+    }
+    if (state.pendingSyncCount > 0) {
+      return _StatusSpec(
+        icon: Icons.cloud_off_outlined,
+        text: '离线 · ${state.pendingSyncCount} 条待同步',
+        color: KarisColors.amber,
+      );
+    }
+    return null;
+  }
+}
+
+class _StatusSpec {
+  final IconData icon;
+  final String text;
+  final Color color;
+
+  const _StatusSpec({
+    required this.icon,
+    required this.text,
+    required this.color,
+  });
 }
 
 class _RatingArea extends StatelessWidget {
@@ -375,26 +424,47 @@ class _RatingArea extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final enabled = state.isFlipped && !state.isRating && !state.loadingMore;
-    return Container(
-      width: double.infinity,
+    return Padding(
       padding: padding,
-      decoration: BoxDecoration(
-        color: KarisColors.surface.withValues(alpha: 0.96),
-        border: const Border(top: BorderSide(color: KarisColors.hairline)),
-      ),
       child: Center(
         child: ConstrainedBox(
-          constraints: BoxConstraints(maxWidth: maxWidth ?? double.infinity),
-          child: _RatingRow(
-            card: card,
-            onRate: onRate,
-            enabled: enabled,
+          constraints: BoxConstraints(maxWidth: maxWidth ?? 520),
+          child: Container(
+            height: 76,
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: KarisColors.surface.withValues(alpha: 0.88),
+              borderRadius: BorderRadius.circular(32),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.78)),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF161F1B).withValues(alpha: 0.10),
+                  blurRadius: 24,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            foregroundDecoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(32),
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: const Alignment(0, 0.2),
+                colors: [
+                  Colors.white.withValues(alpha: 0.28),
+                  Colors.white.withValues(alpha: 0),
+                ],
+              ),
+            ),
+            child: _RatingRow(
+              card: card,
+              onRate: onRate,
+              enabled: enabled,
+            ),
           ),
         ),
       ),
     );
   }
-
 }
 
 class _RatingRow extends StatelessWidget {
@@ -422,7 +492,7 @@ class _RatingRow extends StatelessWidget {
             onTap: () => onRate('FORGET'),
           ),
         ),
-        const SizedBox(width: 9),
+        _divider(),
         Expanded(
           child: _RatingButton(
             label: '模糊',
@@ -435,7 +505,7 @@ class _RatingRow extends StatelessWidget {
             onTap: () => onRate('VAGUE'),
           ),
         ),
-        const SizedBox(width: 9),
+        _divider(),
         Expanded(
           child: _RatingButton(
             label: '熟悉',
@@ -449,6 +519,14 @@ class _RatingRow extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _divider() {
+    return Container(
+      width: 1,
+      height: 40,
+      color: KarisColors.hairline,
     );
   }
 }
@@ -772,12 +850,6 @@ class _RatingButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final foreground = enabled ? color : KarisColors.stone.withValues(alpha: 0.55);
-    final borderColor = enabled
-        ? color.withValues(alpha: 0.38)
-        : KarisColors.hairline;
-    final background = enabled
-        ? KarisColors.surface
-        : KarisColors.surface.withValues(alpha: 0.72);
     return Semantics(
       button: true,
       enabled: enabled,
@@ -785,25 +857,19 @@ class _RatingButton extends StatelessWidget {
       child: KarisInteractive(
         child: InkWell(
           onTap: enabled ? onTap : null,
-          borderRadius: BorderRadius.circular(8),
-          child: Container(
-            constraints: const BoxConstraints(minHeight: 74),
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-            decoration: BoxDecoration(
-              color: background,
-              border: Border.all(color: borderColor),
-              borderRadius: BorderRadius.circular(8),
-            ),
+          borderRadius: BorderRadius.circular(26),
+          child: SizedBox(
+            height: 62,
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(icon, color: foreground, size: 18),
+                Icon(icon, color: foreground, size: 17),
                 const SizedBox(height: 3),
                 Text(
                   label,
                   style: TextStyle(
                     color: foreground,
-                    fontSize: 13,
+                    fontSize: 12,
                     fontWeight: FontWeight.w600,
                     letterSpacing: 0,
                   ),
@@ -811,7 +877,7 @@ class _RatingButton extends StatelessWidget {
                 Text(
                   sub,
                   style: karisMono(
-                    fontSize: 10,
+                    fontSize: 9,
                     color: enabled
                         ? color.withValues(alpha: 0.75)
                         : KarisColors.stone.withValues(alpha: 0.55),

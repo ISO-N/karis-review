@@ -125,13 +125,14 @@ Map<String, dynamic> deckJson({
   String name = '日语 N5',
   int cardCount = 2,
   int dueCount = 1,
+  int newCount = 1,
 }) {
   return {
     'id': id,
     'name': name,
     'card_count': cardCount,
     'due_count': dueCount,
-    'new_count': 1,
+    'new_count': newCount,
     'mastered_count': 0,
     'stage_distribution': [1, 1, 0, 0, 0, 0, 0, 0, 0],
     'due_stage_distribution': [1, 0, 0, 0, 0, 0, 0, 0, 0],
