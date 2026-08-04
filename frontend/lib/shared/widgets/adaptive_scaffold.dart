@@ -67,6 +67,8 @@ class _AdaptiveAppScaffoldState extends State<AdaptiveAppScaffold> {
   }
 
   Widget _buildNavigationGlass(BuildContext context, bool isTablet) {
+    // 全宽条带只做渐变遮罩（无模糊），避免整页出现磨砂分层感；
+    // 模糊仅保留在悬浮药丸内部（_buildNavigation）。
     return Positioned(
       left: 0,
       right: 0,
@@ -75,40 +77,19 @@ class _AdaptiveAppScaffoldState extends State<AdaptiveAppScaffold> {
       height: isTablet ? 106 : 78,
       child: IgnorePointer(
         child: RepaintBoundary(
-          child: ClipRect(
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-              child: ShaderMask(
-                shaderCallback: (bounds) => LinearGradient(
-                  begin: isTablet
-                      ? Alignment.topCenter
-                      : Alignment.bottomCenter,
-                  end: isTablet ? Alignment.bottomCenter : Alignment.topCenter,
-                  colors: const [
-                    Colors.black,
-                    Colors.black,
-                    Colors.transparent,
-                  ],
-                  stops: const [0, 0.6, 1],
-                ).createShader(bounds),
-                blendMode: BlendMode.dstIn,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: isTablet
-                          ? Alignment.topCenter
-                          : Alignment.bottomCenter,
-                      end: isTablet
-                          ? Alignment.bottomCenter
-                          : Alignment.topCenter,
-                      colors: [
-                        KarisColors.surface.withValues(alpha: 0.55),
-                        KarisColors.surface.withValues(alpha: 0.24),
-                        KarisColors.surface.withValues(alpha: 0),
-                      ],
-                    ),
-                  ),
-                ),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: isTablet
+                    ? Alignment.topCenter
+                    : Alignment.bottomCenter,
+                end: isTablet ? Alignment.bottomCenter : Alignment.topCenter,
+                colors: [
+                  KarisColors.paper.withValues(alpha: 0.92),
+                  KarisColors.paper.withValues(alpha: 0.72),
+                  KarisColors.paper.withValues(alpha: 0),
+                ],
+                stops: const [0, 0.6, 1],
               ),
             ),
           ),
