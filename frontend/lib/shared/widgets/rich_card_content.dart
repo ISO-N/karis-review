@@ -560,13 +560,35 @@ class _InlineRichText extends StatelessWidget {
   Widget build(BuildContext context) {
     final spans = <InlineSpan>[];
     _parseInline(text, style, spans);
-    return Text.rich(
+    final richText = Text.rich(
       TextSpan(children: spans),
       style: style,
       textAlign: textAlign,
       maxLines: maxLines,
       overflow: maxLines != null ? TextOverflow.ellipsis : null,
     );
+    if (!_hasMath(text)) return richText;
+
+    // 公式行按固有宽度排版并横向滚动，避免长公式被卡片容器裁切。
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (!constraints.hasBoundedWidth) return richText;
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          clipBehavior: Clip.hardEdge,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minWidth: constraints.maxWidth),
+            child: richText,
+          ),
+        );
+      },
+    );
+  }
+
+  bool _hasMath(String text) {
+    final displayMath = RegExp(r'\$\$(.+?)\$\$', dotAll: true);
+    if (displayMath.hasMatch(text)) return true;
+    return RegExp(r'\$([^$\n]+?)\$').hasMatch(text);
   }
 
   void _parseInline(String text, TextStyle baseStyle, List<InlineSpan> out) {
