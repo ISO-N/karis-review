@@ -97,7 +97,7 @@ public interface CardRepository extends JpaRepository<Card, UUID> {
            "AND c.nextReviewDate IS NOT NULL AND c.nextReviewDate <= :today " +
            "AND c.learningMode = false " +
            "AND (:deckId IS NULL OR c.deckId = :deckId) " +
-           "ORDER BY c.nextReviewDate ASC")
+           "ORDER BY (c.nextReviewDate - :today) DESC, c.nextReviewDate ASC")
     List<Card> findDueCards(@Param("userId") UUID userId,
                             @Param("today") LocalDate today,
                             @Param("deckId") UUID deckId);

@@ -220,4 +220,113 @@ class SchedulingEngineTest {
         assertEquals(180, SchedulingEngine.getStageInterval(-1));
         assertEquals(180, SchedulingEngine.getStageInterval(99));
     }
+
+    @Test
+    void effectiveStageMapsOverdueRatioToLowerStage() {
+        // ρ = 1：无逾期，stage 不变
+        assertEquals(4, SchedulingEngine.calculateEffectiveStage(4, 0));
+        // ρ < 2：宽限内（逾期 3 天 < 间隔 7），stage 不变
+        assertEquals(4, SchedulingEngine.calculateEffectiveStage(4, 3));
+        // ρ = 2：stage 4 (7d) 逾期 7 天 → 等效 stage 3
+        assertEquals(3, SchedulingEngine.calculateEffectiveStage(4, 7));
+        // ρ ≈ 3.86：stage 4 逾期 20 天 → k=1 → 等效 stage 3
+        assertEquals(3, SchedulingEngine.calculateEffectiveStage(4, 20));
+        // ρ ≈ 12.7：stage 4 逾期 82 天 → k=3 → 等效 stage 1
+        assertEquals(1, SchedulingEngine.calculateEffectiveStage(4, 82));
+        // 高 stage：stage 8 (180d) 逾期 60 天 → ρ ≈ 1.33 → 等效 stage 8
+        assertEquals(8, SchedulingEngine.calculateEffectiveStage(8, 60));
+        // 高 stage：stage 8 逾期 200 天 → ρ ≈ 2.1 → 等效 stage 7
+        assertEquals(7, SchedulingEngine.calculateEffectiveStage(8, 200));
+        // 极重逾期：stage 8 逾期 5 年 → 最低降到 stage 1，且降级数不超过 log2(ρ)
+        assertTrue(SchedulingEngine.calculateEffectiveStage(8, 1825) >= 3);
+    }
+
+    @Test
+    void effectiveStageAppliesGraceRules() {
+        // 绝对宽限：逾期 ≤ 2 天不罚
+        assertEquals(4, SchedulingEngine.calculateEffectiveStage(4, 2));
+        assertEquals(3, SchedulingEngine.calculateEffectiveStage(3, 2));
+        // stage 1/0 不参与惩罚（无更低可退）
+        assertEquals(1, SchedulingEngine.calculateEffectiveStage(1, 30));
+        assertEquals(0, SchedulingEngine.calculateEffectiveStage(0, 30));
+    }
+
+    @Test
+    void vagueOnOverdueCardStepsBackFromEffectiveStage() {
+        // stage 4（7 天）逾期 7 天 → 等效 stage 3 → 降到 stage 2、reentry 3
+        Card card = new Card();
+        card.setStage(4);
+        card.setNextReviewDate(DateUtils.calculateToday(refreshTime).minusDays(7));
+
+        SchedulingEngine.RatingResult result = engine.rateVague(card, refreshTime, 7);
+
+        assertEquals(2, result.getStageAfter());
+        assertEquals(3, card.getReentryStage());
+        assertTrue(result.isLearningMode());
+    }
+
+    @Test
+    void vagueOverdueRelearningReturnsToEffectiveStage() {
+        // stage 4 逾期 7 天 → 等效 3 → 重学完成后回到 stage 3
+        Card card = new Card();
+        card.setStage(4);
+        engine.rateVague(card, refreshTime, 7);
+        assertEquals(3, card.getReentryStage());
+
+        engine.rateFamiliar(card, refreshTime);
+        engine.rateFamiliar(card, refreshTime);
+        SchedulingEngine.RatingResult finalResult = engine.rateFamiliar(card, refreshTime);
+
+        assertFalse(finalResult.isLearningMode());
+        assertEquals(3, finalResult.getStageAfter());
+        // stage 3 间隔 (4) − stage 2 间隔 (2) = 2 天
+        assertEquals(DateUtils.calculateToday(refreshTime).plusDays(2), finalResult.getNextReviewDate());
+    }
+
+    @Test
+    void vagueOnOverdueStageOneBehavesLikeForget() {
+        // stage 1 逾期再久也按 FORGET 处理
+        Card card = new Card();
+        card.setStage(1);
+
+        SchedulingEngine.RatingResult result = engine.rateVague(card, refreshTime, 10);
+
+        assertEquals(0, result.getStageAfter());
+        assertTrue(result.isLearningMode());
+        assertNull(card.getReentryStage());
+    }
+
+    @Test
+    void vagueOnHeavilyOverdueCardDegradesToForget() {
+        // stage 2（2 天）逾期 30 天 → 等效 stage 1 → 视同 FORGET
+        Card card = new Card();
+        card.setStage(2);
+
+        SchedulingEngine.RatingResult result = engine.rateVague(card, refreshTime, 30);
+
+        assertEquals(0, result.getStageAfter());
+        assertTrue(result.isLearningMode());
+        assertNull(card.getReentryStage());
+    }
+
+    @Test
+    void vagueWithinGracePeriodDoesNotDowngradeExtra() {
+        // stage 4 逾期 2 天：绝对宽限内，行为与未逾期一致
+        Card card = new Card();
+        card.setStage(4);
+
+        SchedulingEngine.RatingResult result = engine.rateVague(card, refreshTime, 2);
+
+        assertEquals(3, result.getStageAfter());
+        assertEquals(4, card.getReentryStage());
+    }
+
+    @Test
+    void vagueIntervalPreviewAccountsForOverdue() {
+        Card card = new Card();
+        card.setStage(4);
+        assertEquals(7, SchedulingEngine.getVagueIntervalAfterRating(card));
+        assertEquals(4, SchedulingEngine.getVagueIntervalAfterRating(card, 7));
+        assertEquals(0, SchedulingEngine.getVagueIntervalAfterRating(card, 82));
+    }
 }

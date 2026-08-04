@@ -29,6 +29,8 @@ public class SchedulingEngine {
     private static final int MAX_STAGE = 8;
     private static final int FORGET_CONSECUTIVE_FAMILIAR_THRESHOLD = 5;
     private static final int VAGUE_CONSECUTIVE_FAMILIAR_THRESHOLD = 3;
+    /** 绝对宽限天数：逾期不超过该天数不触发惩罚。 */
+    private static final int OVERDUE_GRACE_DAYS = 2;
 
     /**
      * Process a FAMILIAR rating.
@@ -129,28 +131,76 @@ public class SchedulingEngine {
     }
 
     /**
+     * Calculate the effective stage for an overdue card, based on the Ebbinghaus
+     * forgetting curve. Each stage's interval defines its own retention curve;
+     * an overdue card's forgetting degree is estimated as equivalent to a lower
+     * stage at the same relative position.
+     *
+     * For stage n with interval I and overdue days d, the overdue ratio is
+     * ρ = (I + d) / I. The card forgets as if it were k = floor(log2(ρ)) stages
+     * lower, so the effective stage is max(1, n − k). ρ < 2 means less than one
+     * full interval overdue and incurs no penalty.
+     *
+     * Grace rules: no penalty when d ≤ OVERDUE_GRACE_DAYS (absolute grace for
+     * short intervals) or when ρ < 2.
+     * Example: stage 4 (7d) overdue 7 days → ρ = 2 → effective stage 3.
+     */
+    public static int calculateEffectiveStage(int stage, int overdueDays) {
+        if (stage <= 1 || overdueDays <= 0) {
+            return stage;
+        }
+        if (overdueDays <= OVERDUE_GRACE_DAYS) {
+            return stage;
+        }
+        int interval = getStageInterval(stage);
+        int elapsed = interval + overdueDays;
+        // k = floor(log2(ρ))：k 从 0 递增，直到 elapsed < 2^(k+1) * interval
+        int k = 0;
+        long threshold = interval * 2L;
+        while (elapsed >= threshold) {
+            k++;
+            if (threshold > Long.MAX_VALUE / 2) {
+                break;
+            }
+            threshold *= 2;
+        }
+        return Math.max(1, stage - k);
+    }
+
+    /**
      * Process a VAGUE rating.
-     * Card goes back one stage, enters relearning mode with 2^n spacing.
-     * Special case: Stage 1 VAGUE is treated as FORGET.
+     * Card goes back one stage (from the effective stage when overdue),
+     * enters relearning mode with 2^n spacing.
+     * Special case: effective stage 1 VAGUE is treated as FORGET.
      */
     public RatingResult rateVague(Card card, LocalTime refreshTime) {
-        int currentStage = card.getStage();
+        return rateVague(card, refreshTime, 0);
+    }
 
-        // Stage 1 VAGUE = FORGET (no lower stage to go back to)
-        if (currentStage <= 1) {
+    /**
+     * Process a VAGUE rating on a card that may be overdue.
+     * The stage to step back from is the effective stage
+     * (see {@link #calculateEffectiveStage}).
+     */
+    public RatingResult rateVague(Card card, LocalTime refreshTime, int overdueDays) {
+        int currentStage = card.getStage();
+        int effectiveStage = calculateEffectiveStage(currentStage, overdueDays);
+
+        // Effective stage 1 VAGUE = FORGET (no lower stage to go back to)
+        if (effectiveStage <= 1) {
             return rateForget(card, refreshTime);
         }
 
         RatingResult result = new RatingResult();
         result.stageBefore = currentStage;
 
-        int previousStage = currentStage - 1;
+        int previousStage = effectiveStage - 1;
         card.setStage(previousStage);
         card.setLearningMode(true);
         card.setConsecutiveFamiliar(0);
         card.setLearningStep(0);
-        // Set reentry stage to current stage (the one we'll return to after relearning)
-        card.setReentryStage(currentStage);
+        // Set reentry stage to the effective stage (the one we'll return to after relearning)
+        card.setReentryStage(effectiveStage);
         card.setNextReviewDate(DateUtils.calculateToday(refreshTime));
         result.stageAfter = previousStage;
         result.learningMode = true;
@@ -205,8 +255,18 @@ public class SchedulingEngine {
     }
 
     public static int getVagueIntervalAfterRating(Card card) {
-        if (card.getStage() <= 1) return 0;
-        return STAGE_INTERVALS[card.getStage()];
+        return getVagueIntervalAfterRating(card, 0);
+    }
+
+    /**
+     * Interval preview for a VAGUE rating, taking overdue days into account:
+     * the step-back happens from the effective stage, so the preview shows the
+     * reentry interval the card would receive after relearning.
+     */
+    public static int getVagueIntervalAfterRating(Card card, int overdueDays) {
+        int effectiveStage = calculateEffectiveStage(card.getStage(), overdueDays);
+        if (effectiveStage <= 1) return 0;
+        return STAGE_INTERVALS[effectiveStage];
     }
 
     /**
