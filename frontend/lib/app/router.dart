@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../auth/pages/login_page.dart';
+import '../auth/pages/forgot_password_page.dart';
 import '../auth/providers/auth_provider.dart';
 import '../shared/navigation/auto_refresh_observer.dart';
 import '../shared/providers/data_refresh_provider.dart';
@@ -55,8 +56,17 @@ CustomTransitionPage<Object?> _fadeSlidePage(
   );
 }
 
+/// 未登录即可访问的公开路由（登录/注册/找回密码）。
+bool _isAuthRoute(String matchedLocation) {
+  return matchedLocation == '/login' ||
+      matchedLocation == '/register' ||
+      matchedLocation == '/forgot-password';
+}
+
 final routerProvider = Provider<GoRouter>((ref) {
-  final authState = ref.watch(authProvider);
+  // 认证状态变化（含登录失败）时递增，仅触发 redirect 重评估，不重建 router 实例，
+  // 避免登录页因 router 重建而丢失输入内容。
+  final authRevision = ValueNotifier<int>(0);
   final autoRefreshObserver = AutoRefreshNavigatorObserver(
     onDataRouteChanged: () async {
       if (!ref.read(authProvider).isAuthenticated) return;
@@ -64,14 +74,13 @@ final routerProvider = Provider<GoRouter>((ref) {
     },
   );
 
-  return GoRouter(
+  final router = GoRouter(
     initialLocation: '/home',
+    refreshListenable: authRevision,
     observers: [autoRefreshObserver],
     redirect: (context, state) {
-      final isLoggedIn = authState.isAuthenticated;
-      final isAuthRoute =
-          state.matchedLocation == '/login' ||
-          state.matchedLocation == '/register';
+      final isLoggedIn = ref.read(authProvider).isAuthenticated;
+      final isAuthRoute = _isAuthRoute(state.matchedLocation);
 
       if (!isLoggedIn && !isAuthRoute) return '/login';
       if (isLoggedIn && isAuthRoute) return '/home';
@@ -87,6 +96,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/register',
         pageBuilder: (context, state) =>
             _fadeSlidePage(context, state, const RegisterPage()),
+      ),
+      GoRoute(
+        path: '/forgot-password',
+        pageBuilder: (context, state) =>
+            _fadeSlidePage(context, state, const ForgotPasswordPage()),
       ),
       GoRoute(
         path: '/home',
@@ -177,4 +191,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
     ],
   );
+
+  ref.onDispose(authRevision.dispose);
+  ref.listen(authProvider, (prev, next) {
+    if (!identical(prev, next)) authRevision.value++;
+  });
+  return router;
 });
