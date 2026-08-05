@@ -1,5 +1,8 @@
 package top.kariscode.karisreview.auth.service;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import top.kariscode.karisreview.auth.entity.PasswordResetCode;
@@ -18,6 +21,8 @@ import java.time.LocalDateTime;
 @Service
 public class PasswordResetCodeService {
 
+    private static final Logger log = LoggerFactory.getLogger(PasswordResetCodeService.class);
+
     public static final String PURPOSE_REGISTER = "REGISTER";
     public static final String PURPOSE_RESET = "RESET";
 
@@ -25,6 +30,8 @@ public class PasswordResetCodeService {
     private static final Duration CODE_TTL = Duration.ofMinutes(15);
     private static final Duration RESEND_COOLDOWN = Duration.ofSeconds(60);
     private static final int MAX_ATTEMPTS = 10;
+    /** 验证码过期后的保留宽限期：超过该时间才允许被清理，便于审计排查。 */
+    private static final Duration EXPIRED_RETENTION = Duration.ofDays(7);
 
     private final PasswordResetCodeRepository repository;
     private final SecureRandom random = new SecureRandom();
@@ -87,6 +94,19 @@ public class PasswordResetCodeService {
     public void consume(PasswordResetCode record) {
         record.setUsed(true);
         repository.save(record);
+    }
+
+    /**
+     * 定期清理：删除已过期超过 7 天的验证码（每天 03:40，与 user_logs 的 03:00 错开）。
+     */
+    @Scheduled(cron = "0 40 3 * * *")
+    @Transactional
+    public void cleanupExpiredCodes() {
+        LocalDateTime cutoff = LocalDateTime.now().minus(EXPIRED_RETENTION);
+        int deleted = repository.deleteExpiredBefore(cutoff);
+        if (deleted > 0) {
+            log.info("Cleaned up {} expired email verification codes older than {}", deleted, cutoff);
+        }
     }
 
     private String generateCode() {
