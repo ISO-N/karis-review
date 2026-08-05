@@ -153,4 +153,13 @@ class PasswordResetCodeServiceTest {
         assertTrue(record.isUsed());
         verify(repository).save(record);
     }
+
+    @Test
+    void cleanupExpiredCodesDeletesCodesExpiredBeyondRetention() {
+        when(repository.deleteExpiredBefore(any())).thenReturn(3);
+
+        service.cleanupExpiredCodes();
+
+        verify(repository).deleteExpiredBefore(any());
+    }
 }

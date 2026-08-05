@@ -58,36 +58,33 @@ class StatsServiceTest {
         LocalTime refreshTime = LocalTime.of(4, 0);
         LocalDate today = DateUtils.calculateToday(refreshTime);
         when(userRepository.findById(userId)).thenReturn(Optional.of(user()));
-        when(cardRepository.countByUserId(userId)).thenReturn(10L);
         when(deckRepository.countByUserId(userId)).thenReturn(2L);
-        when(cardRepository.countDueToday(userId, today)).thenReturn(3L);
         when(reviewLogRepository.countReviewedToday(
                 userId, today.atTime(refreshTime), today.plusDays(1).atTime(refreshTime)))
                 .thenReturn(4L);
         when(reviewLogRepository.countLearnedToday(
                 userId, today.atTime(refreshTime), today.plusDays(1).atTime(refreshTime)))
                 .thenReturn(1L);
-        when(cardRepository.countByUserIdAndStageGreaterThanEqual(userId, 5)).thenReturn(2L);
-        when(cardRepository.countNewByUserId(userId)).thenReturn(1L);
-        when(cardRepository.countByUserIdAndStageLessThan(userId, 5)).thenReturn(8L);
-        when(cardRepository.countByUserIdAndStageLessThan(userId, 0)).thenReturn(0L);
-        when(cardRepository.countByStageGrouped(userId)).thenReturn(
-                List.<Object[]>of(new Object[]{3, 5L}, new Object[]{5, 2L}));
-        when(cardRepository.countDueByStageGrouped(userId, today)).thenReturn(
-                List.<Object[]>of(new Object[]{1, 3L}));
+        // 聚合列: stage, total, learning_cards(stage<5), mastered(stage>=5 非学习),
+        //         new_cards(stage=0 非学习), due(next_review_date<=today)
+        when(cardRepository.aggregateOverviewStats(userId, today)).thenReturn(
+                List.<Object[]>of(
+                        new Object[]{3, 5L, 5L, 0L, 0L, 1L},
+                        new Object[]{5, 2L, 0L, 2L, 0L, 2L}));
 
         OverviewStatsResponse stats = service.getOverview(userId);
 
-        assertEquals(10, stats.getTotalCards());
+        assertEquals(7, stats.getTotalCards());
         assertEquals(2, stats.getTotalDecks());
         assertEquals(3, stats.getDueToday());
         assertEquals(4, stats.getReviewedToday());
         assertEquals(1, stats.getLearnedToday());
         assertEquals(2, stats.getMasteredCards());
-        assertEquals(1, stats.getNewCards());
-        assertEquals(8, stats.getLearningCards());
+        assertEquals(0, stats.getNewCards());
+        assertEquals(5, stats.getLearningCards());
         assertEquals(5L, stats.getStageDistribution().get(3));
-        assertEquals(3L, stats.getDueStageDistribution().get(1));
+        assertEquals(2L, stats.getStageDistribution().get(5));
+        assertEquals(1L, stats.getDueStageDistribution().get(3));
     }
 
     @Test
@@ -183,21 +180,14 @@ class StatsServiceTest {
         LocalTime refreshTime = LocalTime.of(4, 0);
         LocalDate today = DateUtils.calculateToday(refreshTime);
         when(userRepository.findById(userId)).thenReturn(Optional.empty());
-        when(cardRepository.countByUserId(userId)).thenReturn(0L);
         when(deckRepository.countByUserId(userId)).thenReturn(0L);
-        when(cardRepository.countDueToday(userId, today)).thenReturn(0L);
         when(reviewLogRepository.countReviewedToday(
                 userId, today.atTime(refreshTime), today.plusDays(1).atTime(refreshTime)))
                 .thenReturn(0L);
         when(reviewLogRepository.countLearnedToday(
                 userId, today.atTime(refreshTime), today.plusDays(1).atTime(refreshTime)))
                 .thenReturn(0L);
-        when(cardRepository.countByUserIdAndStageGreaterThanEqual(userId, 5)).thenReturn(0L);
-        when(cardRepository.countNewByUserId(userId)).thenReturn(0L);
-        when(cardRepository.countByUserIdAndStageLessThan(userId, 5)).thenReturn(0L);
-        when(cardRepository.countByUserIdAndStageLessThan(userId, 0)).thenReturn(0L);
-        when(cardRepository.countByStageGrouped(userId)).thenReturn(List.of());
-        when(cardRepository.countDueByStageGrouped(userId, today)).thenReturn(List.of());
+        when(cardRepository.aggregateOverviewStats(userId, today)).thenReturn(List.of());
 
         OverviewStatsResponse stats = service.getOverview(userId);
 
