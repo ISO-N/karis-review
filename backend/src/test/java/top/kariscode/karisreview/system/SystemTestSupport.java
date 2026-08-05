@@ -44,6 +44,7 @@ public abstract class SystemTestSupport {
     void cleanSystemTestUsers() {
         jdbcTemplate.update("DELETE FROM user_logs WHERE user_id IN (SELECT id FROM users WHERE email LIKE ?)", TEST_USER_PATTERN);
         jdbcTemplate.update("DELETE FROM users WHERE email LIKE ?", TEST_USER_PATTERN);
+        jdbcTemplate.update("DELETE FROM email_verification_codes WHERE email LIKE ?", TEST_USER_PATTERN);
     }
     protected TestAccount register(String prefix) {
         return register(prefix, "");
@@ -51,11 +52,23 @@ public abstract class SystemTestSupport {
 
     protected TestAccount register(String prefix, String inviteCode) {
         String email = "system-test-" + prefix + "-" + UUID.randomUUID() + "@example.com";
+        String verificationCode = requestVerificationCode(email);
         JsonNode data = data("POST", "/auth/register", null, Map.of(
                 "email", email,
                 "password", PASSWORD,
-                "invite_code", inviteCode));
+                "invite_code", inviteCode,
+                "verification_code", verificationCode));
         return new TestAccount(email, data.get("token").asText());
+    }
+
+    /** 通过 /auth/register-code 发码，再从库中读取验证码（NoopMailSender 只打日志）。 */
+    protected String requestVerificationCode(String email) {
+        data("POST", "/auth/register-code", null, Map.of("email", email));
+        String code = jdbcTemplate.queryForObject(
+                "SELECT code FROM email_verification_codes WHERE email = ? AND used = FALSE ORDER BY created_at DESC LIMIT 1",
+                String.class, email);
+        assertNotNull(code);
+        return code;
     }
 
     protected TestAccount login(String email) {
