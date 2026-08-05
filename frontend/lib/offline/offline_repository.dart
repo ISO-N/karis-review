@@ -49,7 +49,9 @@ class OfflineRepository {
 
   Future<List<FlashCard>> getFlashCards(String userId, {String? deckId}) async {
     final cards = await getCards(userId, deckId: deckId);
-    return cards.map(_toFlashCard).toList();
+    final meta = await getSyncMeta(userId);
+    final today = _formatDate(_today(meta));
+    return cards.map((c) => _toFlashCard(c, today: today)).toList();
   }
 
   Future<List<FlashCard>> getFilteredFlashCards(
@@ -84,7 +86,7 @@ class OfflineRepository {
               card.front.toLowerCase().contains(normalizedQuery) ||
               card.back.toLowerCase().contains(normalizedQuery),
         );
-    return filtered.map(_toFlashCard).toList();
+    return filtered.map((c) => _toFlashCard(c, today: today)).toList();
   }
 
   Future<List<ReviewCard>> getDueQueue(String userId, {String? deckId}) async {
@@ -904,7 +906,7 @@ class OfflineRepository {
     );
   }
 
-  FlashCard _toFlashCard(LocalCard card) {
+  FlashCard _toFlashCard(LocalCard card, {required String today}) {
     return FlashCard(
       id: card.id,
       deckId: card.deckId,
@@ -916,7 +918,9 @@ class OfflineRepository {
       consecutiveFamiliar: card.consecutiveFamiliar,
       learningStep: card.learningStep,
       reentryStage: card.reentryStage,
-      due: card.nextReviewDate != null,
+      due:
+          card.nextReviewDate != null &&
+          card.nextReviewDate!.compareTo(today) <= 0,
       createdAt: card.createdAt?.toIso8601String() ?? '',
       reviewVersion: card.reviewVersion.toInt(),
     );

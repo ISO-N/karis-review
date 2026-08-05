@@ -150,6 +150,7 @@ Map<String, dynamic> cardJson({
   String? nextReviewDate,
   int consecutiveFamiliar = 0,
   int? learningGoal,
+  bool due = false,
 }) {
   return {
     'id': id,
@@ -163,7 +164,7 @@ Map<String, dynamic> cardJson({
     'learning_step': 0,
     'reentry_stage': null,
     'learning_goal': learningGoal,
-    'due': false,
+    'due': due,
     'created_at': '2025-08-01T10:00:00Z',
   };
 }

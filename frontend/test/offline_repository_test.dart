@@ -143,6 +143,82 @@ void main() {
     expect(cards.map((card) => card.id), ['latest-new', 'old-new']);
   });
 
+  test('due flag is true only when next review date is today or earlier', () async {
+    // 固定"今天"为 2025-08-02（业务日）
+    await offline.saveBootstrap(
+      userId: 'user-1',
+      email: 'a@b.c',
+      refreshTime: '04:00:00',
+      serverTime: DateTime.utc(2025, 8, 2, 12),
+      decks: [
+        {
+          'id': 'deck-1',
+          'name': '日语',
+          'created_at': '2025-08-01T00:00:00Z',
+          'updated_at': '2025-08-01T00:00:00Z',
+          'cards': [
+            {
+              'id': 'new-card',
+              'deck_id': 'deck-1',
+              'front': '新卡',
+              'back': '反面',
+              'stage': 0,
+              'consecutive_familiar': 0,
+              'next_review_date': null,
+              'learning_mode': false,
+              'reentry_stage': null,
+              'learning_step': 0,
+              'review_version': 0,
+              'created_at': '2025-08-01T00:00:00Z',
+              'updated_at': '2025-08-01T00:00:00Z',
+            },
+            {
+              'id': 'reviewed-today',
+              'deck_id': 'deck-1',
+              'front': '复习到今天到期',
+              'back': '反面',
+              'stage': 1,
+              'consecutive_familiar': 0,
+              'next_review_date': '2025-08-02',
+              'learning_mode': false,
+              'reentry_stage': null,
+              'learning_step': 0,
+              'review_version': 0,
+              'created_at': '2025-08-01T00:00:00Z',
+              'updated_at': '2025-08-01T00:00:00Z',
+            },
+            {
+              'id': 'reviewed-future',
+              'deck_id': 'deck-1',
+              'front': '复习到未来',
+              'back': '反面',
+              'stage': 2,
+              'consecutive_familiar': 0,
+              'next_review_date': '2025-08-05',
+              'learning_mode': false,
+              'reentry_stage': null,
+              'learning_step': 0,
+              'review_version': 0,
+              'created_at': '2025-08-01T00:00:00Z',
+              'updated_at': '2025-08-01T00:00:00Z',
+            },
+          ],
+        },
+      ],
+      reviewLogs: [],
+    );
+
+    final cards = await offline.getFilteredFlashCards(
+      'user-1',
+      deckId: 'deck-1',
+    );
+    final byId = {for (final card in cards) card.id: card};
+
+    expect(byId['new-card']!.due, isFalse);
+    expect(byId['reviewed-today']!.due, isTrue);
+    expect(byId['reviewed-future']!.due, isFalse);
+  });
+
   test('due queue orders by overdue days first, then next review date', () async {
     // 固定"今天"为 2025-08-02（业务日）
     await offline.saveBootstrap(
@@ -472,6 +548,78 @@ void main() {
       expect(localCard?.stage, 1);
     },
   );
+
+  test('reviewing a due card flips list due flag to false after rating', () async {
+    // 固定"今天"为 2025-08-02（业务日），card-1 今日到期。
+    await offline.saveBootstrap(
+      userId: 'user-1',
+      email: 'a@b.c',
+      refreshTime: '04:00:00',
+      serverTime: DateTime.utc(2025, 8, 2, 12),
+      decks: [
+        {
+          'id': 'deck-1',
+          'name': '日语',
+          'created_at': '2025-08-01T00:00:00Z',
+          'updated_at': '2025-08-01T00:00:00Z',
+          'cards': [
+            {
+              'id': 'card-1',
+              'deck_id': 'deck-1',
+              'front': '单词',
+              'back': '释义',
+              'stage': 1,
+              'consecutive_familiar': 0,
+              'next_review_date': '2025-08-02',
+              'learning_mode': false,
+              'reentry_stage': null,
+              'learning_step': 0,
+              'review_version': 0,
+              'created_at': '2025-08-01T00:00:00Z',
+              'updated_at': '2025-08-01T00:00:00Z',
+            },
+          ],
+        },
+      ],
+      reviewLogs: [],
+    );
+
+    // 复习前：今日到期的卡在列表里 due = true。
+    var listed = await offline.getFilteredFlashCards('user-1', deckId: 'deck-1');
+    expect(listed.single.due, isTrue);
+
+    final card = FlashCard(
+      id: 'card-1',
+      deckId: 'deck-1',
+      front: '单词',
+      back: '释义',
+      stage: 1,
+      nextReviewDate: '2025-08-02',
+      learningMode: false,
+      reviewVersion: 0,
+    );
+    final outcome = LocalSchedulingEngine().rate(
+      card,
+      'FAMILIAR',
+      nowUtc: DateTime.utc(2025, 8, 2, 12),
+      refreshTime: '04:00:00',
+    );
+    expect(outcome.card.nextReviewDate, '2025-08-04');
+    await offline.applyLocalRating(
+      userId: 'user-1',
+      card: outcome.card,
+      result: outcome.result,
+      clientRequestId: 'request-1',
+      ratedAt: DateTime.utc(2025, 8, 2, 12),
+      reviewVersionBefore: outcome.reviewVersionBefore,
+      isNewCard: outcome.wasNewCard,
+    );
+
+    // 复习后：下次复习日期排到未来，列表里 due 应为 false（显示日期而非"今天"）。
+    listed = await offline.getFilteredFlashCards('user-1', deckId: 'deck-1');
+    expect(listed.single.due, isFalse);
+    expect(listed.single.nextReviewDate, '2025-08-04');
+  });
 
   test('server card does not overwrite a pending local rating', () async {
     await offline.saveBootstrap(
