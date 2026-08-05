@@ -845,6 +845,102 @@ abstract class KarisReviewLocalizations {
   /// **'Logout'**
   String get settingsLogout;
 
+  /// No description provided for @settingsChangePassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Change Password'**
+  String get settingsChangePassword;
+
+  /// No description provided for @settingsChangePasswordSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Update your login password'**
+  String get settingsChangePasswordSubtitle;
+
+  /// No description provided for @settingsChangePasswordTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Change Password'**
+  String get settingsChangePasswordTitle;
+
+  /// No description provided for @settingsCurrentPasswordLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Current Password'**
+  String get settingsCurrentPasswordLabel;
+
+  /// No description provided for @settingsNewPasswordLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'New Password'**
+  String get settingsNewPasswordLabel;
+
+  /// No description provided for @settingsConfirmPasswordLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm New Password'**
+  String get settingsConfirmPasswordLabel;
+
+  /// No description provided for @settingsNewPasswordShort.
+  ///
+  /// In en, this message translates to:
+  /// **'Password must be at least 6 characters'**
+  String get settingsNewPasswordShort;
+
+  /// No description provided for @settingsPasswordMismatch.
+  ///
+  /// In en, this message translates to:
+  /// **'Passwords do not match'**
+  String get settingsPasswordMismatch;
+
+  /// No description provided for @settingsChangePasswordConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Change'**
+  String get settingsChangePasswordConfirm;
+
+  /// No description provided for @settingsChangePasswordSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Password changed, please log in again'**
+  String get settingsChangePasswordSuccess;
+
+  /// No description provided for @authForgotPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Forgot password?'**
+  String get authForgotPassword;
+
+  /// No description provided for @authForgotPasswordSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset your password with an email code'**
+  String get authForgotPasswordSubtitle;
+
+  /// No description provided for @authSendCode.
+  ///
+  /// In en, this message translates to:
+  /// **'Send Code'**
+  String get authSendCode;
+
+  /// No description provided for @authResetPasswordButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset Password'**
+  String get authResetPasswordButton;
+
+  /// No description provided for @authResetPasswordSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Password reset, please log in with your new password'**
+  String get authResetPasswordSuccess;
+
+  /// No description provided for @authCodeLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Verification Code'**
+  String get authCodeLabel;
+
   /// No description provided for @settingsLanguage.
   ///
   /// In en, this message translates to:

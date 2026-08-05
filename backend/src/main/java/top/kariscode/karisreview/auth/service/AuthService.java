@@ -4,9 +4,11 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import top.kariscode.karisreview.auth.dto.AuthConfigResponse;
+import top.kariscode.karisreview.auth.dto.ChangePasswordRequest;
 import top.kariscode.karisreview.auth.dto.LoginRequest;
 import top.kariscode.karisreview.auth.dto.LoginResponse;
 import top.kariscode.karisreview.auth.dto.RegisterRequest;
+import top.kariscode.karisreview.auth.entity.PasswordResetCode;
 import top.kariscode.karisreview.auth.entity.User;
 import top.kariscode.karisreview.auth.repository.UserRepository;
 import top.kariscode.karisreview.common.exception.BusinessException;
@@ -15,6 +17,7 @@ import top.kariscode.karisreview.config.JwtProvider;
 import top.kariscode.karisreview.log.service.UserLogService;
 
 import java.util.Map;
+import java.util.UUID;
 
 @Service
 public class AuthService {
@@ -24,17 +27,20 @@ public class AuthService {
     private final JwtProvider jwtProvider;
     private final InviteCodeConfig inviteCodeConfig;
     private final UserLogService userLogService;
+    private final PasswordResetCodeService codeService;
 
     public AuthService(UserRepository userRepository,
                        PasswordEncoder passwordEncoder,
                        JwtProvider jwtProvider,
                        InviteCodeConfig inviteCodeConfig,
-                       UserLogService userLogService) {
+                       UserLogService userLogService,
+                       PasswordResetCodeService codeService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtProvider = jwtProvider;
         this.inviteCodeConfig = inviteCodeConfig;
         this.userLogService = userLogService;
+        this.codeService = codeService;
     }
 
     public AuthConfigResponse getAuthConfig() {
@@ -54,6 +60,10 @@ public class AuthService {
             }
         }
 
+        // 邮箱验证码校验（注册必须先发码并校验）
+        if (request.getVerificationCode() == null || request.getVerificationCode().isBlank()) {
+            throw new BusinessException(400, "auth.register.code.required");
+        }
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new BusinessException(400, "auth.email.registered");
         }
@@ -63,6 +73,10 @@ public class AuthService {
         user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
 
         user = userRepository.save(user);
+
+        PasswordResetCode record = codeService.verifyCode(
+                request.getEmail(), PasswordResetCodeService.PURPOSE_REGISTER, request.getVerificationCode());
+        codeService.consume(record);
 
         String token = jwtProvider.generateToken(user.getId(), user.getEmail());
         userLogService.log(user.getId(), "INFO", "AUTH", "Registration successful");
@@ -84,5 +98,29 @@ public class AuthService {
 
     public void logout() {
         // Client-side token discard; server-side blacklist is optional
+    }
+
+    @Transactional
+    public void changePassword(UUID userId, ChangePasswordRequest request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(404, "settings.notfound"));
+
+        if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPasswordHash())) {
+            throw new BusinessException(400, "auth.password.current.wrong");
+        }
+
+        user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(user);
+        userLogService.log(user.getId(), "INFO", "AUTH", "Password changed");
+    }
+
+    @Transactional
+    public void resetPassword(UUID userId, String newPassword) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(404, "settings.notfound"));
+
+        user.setPasswordHash(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+        userLogService.log(user.getId(), "INFO", "AUTH", "Password reset");
     }
 }

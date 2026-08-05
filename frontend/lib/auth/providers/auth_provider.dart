@@ -66,6 +66,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     String email,
     String password, {
     String? inviteCode,
+    required String verificationCode,
   }) async {
     state = state.copyWith(isLoading: true, error: null);
     try {
@@ -74,6 +75,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
           email: email,
           password: password,
           inviteCode: inviteCode,
+          verificationCode: verificationCode,
         ),
       );
       state = state.copyWith(
@@ -112,6 +114,50 @@ class AuthNotifier extends StateNotifier<AuthState> {
     await _repository.logout();
     await onLoggedOut?.call();
     state = const AuthState();
+  }
+
+  /// 修改密码：成功后主动登出（服务端不强制吊销已有 Token）。
+  Future<void> changePassword(String currentPassword, String newPassword) async {
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      await _repository.changePassword(currentPassword, newPassword);
+      await logout();
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: _extractError(e));
+    }
+  }
+
+  /// 发送找回密码验证码（邮箱不存在也按成功返回，防枚举）。
+  Future<void> sendResetCode(String email) async {
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      await _repository.sendResetCode(email);
+      state = state.copyWith(isLoading: false, error: null);
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: _extractError(e));
+    }
+  }
+
+  /// 发送注册邮箱验证码（邮箱已注册时后端返回错误）。
+  Future<void> sendRegisterCode(String email) async {
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      await _repository.sendRegisterCode(email);
+      state = state.copyWith(isLoading: false, error: null);
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: _extractError(e));
+    }
+  }
+
+  /// 用验证码重置密码（未登录场景，成功后由页面跳转登录页）。
+  Future<void> resetPassword(String email, String code, String newPassword) async {
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      await _repository.resetPassword(email, code, newPassword);
+      state = state.copyWith(isLoading: false, error: null);
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: _extractError(e));
+    }
   }
 
   Future<void> handleUnauthorized() {

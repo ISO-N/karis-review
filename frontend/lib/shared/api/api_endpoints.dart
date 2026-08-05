@@ -9,6 +9,10 @@ class ApiEndpoints {
   static const String register = '$baseUrl/auth/register';
   static const String login = '$baseUrl/auth/login';
   static const String logout = '$baseUrl/auth/logout';
+  static const String changePassword = '$baseUrl/auth/password';
+  static const String authPasswordResetCode = '$baseUrl/auth/password/reset-code';
+  static const String authPasswordReset = '$baseUrl/auth/password/reset';
+  static const String authRegisterCode = '$baseUrl/auth/register-code';
 
   // Settings
   static const String settings = '$baseUrl/settings';

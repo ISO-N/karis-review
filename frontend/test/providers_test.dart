@@ -32,7 +32,11 @@ void main() {
       LoginRequest(email: 'fallback@example.com', password: 'fallback'),
     );
     registerFallbackValue(
-      RegisterRequest(email: 'fallback@example.com', password: 'fallback'),
+      RegisterRequest(
+        email: 'fallback@example.com',
+        password: 'fallback',
+        verificationCode: '123456',
+      ),
     );
   });
 
@@ -66,13 +70,19 @@ void main() {
       );
       final notifier = AuthNotifier(repo);
 
-      await notifier.register('a@b.c', 'secret', inviteCode: 'code');
+      await notifier.register(
+        'a@b.c',
+        'secret',
+        inviteCode: 'code',
+        verificationCode: '123456',
+      );
 
       expect(notifier.state.isAuthenticated, isTrue);
       final captured = verify(() => repo.register(captureAny())).captured;
       final request = captured.single as RegisterRequest;
       expect(request.email, 'a@b.c');
       expect(request.inviteCode, 'code');
+      expect(request.verificationCode, '123456');
     });
 
     test('login exposes backend error message', () async {
@@ -119,6 +129,69 @@ void main() {
 
       expect(notifier.state.isAuthenticated, isFalse);
       expect(notifier.state.user, isNull);
+    });
+
+    test('changePassword succeeds and logs out', () async {
+      final repo = MockAuthRepository();
+      when(() => repo.isLoggedIn()).thenAnswer((_) async => false);
+      when(() => repo.login(any())).thenAnswer(
+        (_) async => LoginResponse.fromJson({
+          'token': 't',
+          'user': {'id': 'u1', 'email': 'a@b.c'},
+        }),
+      );
+      when(() => repo.changePassword(any(), any())).thenAnswer((_) async {});
+      when(() => repo.logout()).thenAnswer((_) async {});
+      final notifier = AuthNotifier(repo);
+      await notifier.login('a@b.c', 'secret');
+
+      await notifier.changePassword('old', 'new-password');
+
+      // 修改成功后主动登出
+      expect(notifier.state.isAuthenticated, isFalse);
+      verify(() => repo.changePassword('old', 'new-password')).called(1);
+      verify(() => repo.logout()).called(1);
+    });
+
+    test('changePassword exposes backend error without logout', () async {
+      final repo = MockAuthRepository();
+      when(() => repo.isLoggedIn()).thenAnswer((_) async => false);
+      when(
+        () => repo.changePassword(any(), any()),
+      ).thenThrow(apiError('当前密码错误', statusCode: 400));
+      final notifier = AuthNotifier(repo);
+
+      await notifier.changePassword('wrong', 'new-password');
+
+      expect(notifier.state.isAuthenticated, isFalse);
+      expect(notifier.state.error, '当前密码错误');
+      verifyNever(() => repo.logout());
+    });
+
+    test('sendResetCode reports success', () async {
+      final repo = MockAuthRepository();
+      when(() => repo.isLoggedIn()).thenAnswer((_) async => false);
+      when(() => repo.sendResetCode(any())).thenAnswer((_) async {});
+      final notifier = AuthNotifier(repo);
+
+      await notifier.sendResetCode('a@b.c');
+
+      expect(notifier.state.isLoading, isFalse);
+      expect(notifier.state.error, isNull);
+      verify(() => repo.sendResetCode('a@b.c')).called(1);
+    });
+
+    test('resetPassword reports success', () async {
+      final repo = MockAuthRepository();
+      when(() => repo.isLoggedIn()).thenAnswer((_) async => false);
+      when(() => repo.resetPassword(any(), any(), any())).thenAnswer((_) async {});
+      final notifier = AuthNotifier(repo);
+
+      await notifier.resetPassword('a@b.c', '123456', 'new-password');
+
+      expect(notifier.state.isLoading, isFalse);
+      expect(notifier.state.error, isNull);
+      verify(() => repo.resetPassword('a@b.c', '123456', 'new-password')).called(1);
     });
   });
 
