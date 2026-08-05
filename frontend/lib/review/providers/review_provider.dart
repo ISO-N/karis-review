@@ -372,7 +372,7 @@ class ReviewNotifier extends StateNotifier<ReviewSessionState> {
         throw StateError('no active local user');
       }
       final meta = await _offline.getSyncMeta(userId);
-      final flash = _toFlashCard(card);
+      final flash = _toFlashCard(card, refreshTime: meta?.refreshTime);
       final outcome = LocalSchedulingEngine().rate(
         flash,
         rating,
@@ -495,7 +495,13 @@ class ReviewNotifier extends StateNotifier<ReviewSessionState> {
         .toList();
   }
 
-  FlashCard _toFlashCard(ReviewCard card) {
+  FlashCard _toFlashCard(ReviewCard card, {String? refreshTime}) {
+    final today = _formatDate(
+      LocalSchedulingEngine.calculateToday(
+        DateTime.now().toUtc(),
+        refreshTime ?? '04:00:00',
+      ),
+    );
     return FlashCard(
       id: card.id,
       deckId: card.deckId,
@@ -507,9 +513,17 @@ class ReviewNotifier extends StateNotifier<ReviewSessionState> {
       consecutiveFamiliar: card.consecutiveFamiliar,
       learningStep: card.learningStep,
       reentryStage: card.reentryStage,
-      due: card.nextReviewDate != null,
+      due:
+          card.nextReviewDate != null &&
+          card.nextReviewDate!.compareTo(today) <= 0,
       reviewVersion: card.reviewVersion,
     );
+  }
+
+  String _formatDate(DateTime date) {
+    final month = date.month.toString().padLeft(2, '0');
+    final day = date.day.toString().padLeft(2, '0');
+    return '${date.year}-$month-$day';
   }
 }
 
