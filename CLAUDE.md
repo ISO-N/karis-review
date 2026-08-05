@@ -46,7 +46,22 @@ Android release 包名为 `top.kariscode.karisreview`，debug 包名为 `top.kar
 
 ## 架构总览
 
-前后端分离：Flutter 客户端只做 UI 渲染，无本地业务数据存储；服务端无状态，认证靠 JWT（`Authorization: Bearer <token>`，7 天有效）。Android release 包名 `top.kariscode.karisreview`，debug 包名 `top.kariscode.karisreview.debug`，生产环境 `https://review.kariscode.top/api`。详细设计文档见 `docs/`（architecture.md、api.md、database.md）。
+前后端分离：Flutter 客户端只做 UI 渲染，无本地业务数据存储；服务端无状态，认证靠 JWT（`Authorization: Bearer <token>`，7 天有效，支持多密钥 kid 轮换）。Android release 包名 `top.kariscode.karisreview`，debug 包名 `top.kariscode.karisreview.debug`，生产环境 `https://review.kariscode.top/api`。详细设计文档见 `docs/`（architecture.md、api.md、database.md）与演进规划（architecture-roadmap.md、docs/adr/）。
+
+### 可靠性基建（阶段一，V13+ 迁移）
+
+- **Outbox 事件总线**（`common/outbox/`）：领域事件与业务同事务写入 `outbox_events` 表，`OutboxRelay` 轮询投递（SKIP LOCKED 防并发、指数退避重试、超限 DEAD 保留 30 天）。处理器实现 `DomainEventHandler`，事件类型见 `OutboxEventTypes`。可选 `HttpExternalEventPublisher` 转发事件到外部端点（阶段二事件流）。
+- **邮件异步化**：`PasswordResetService` 不再直接调 `MailSender`，发布 `MAIL_RESET_CODE` 事件由 `MailOutboxHandler` 异步投递。
+- **统计预聚合**：`daily_review_stats` 表（user × 业务日 × deck，含全量行）。`REVIEW_LOGGED` 事件增量 upsert + 每日 04:30 全量重算兜底；`StatsService` 查询预聚合优先、缺失回退实时。
+- **备份外置**：`backup/storage/BackupStorage` 抽象（S3/MinIO 与本地磁盘），快照外置对象存储、库内只存元数据；`importData` 事务化 + 导入前自动快照，失败回滚。
+- **可观测性**：actuator + Prometheus（`/actuator/prometheus`），prod 用 Spring Boot 3.4 原生 JSON 日志（`logging.structured.format.console=logstash`）。
+- **限流**：`RateLimitFilter`（Bucket4j）认证接口按 IP、业务接口按用户，超限 429。
+- **JWT 多密钥**：`jwt.keys=kid=secret,...` + `jwt.active-kid`；未配置回退 `jwt.secret`（kid=legacy）。
+
+### 模块门面（WP-9）
+
+- 业务模块**禁止**直接依赖 `auth.entity` / `auth.repository`（ArchUnit 强制），统一经 `auth.api.IdentityPort`（`findById`/`refreshTimeOf`/`findAllUserIds`）读取用户信息。
+- 架构规则在 `backend/src/test/.../architecture/ArchitectureTest.java`：分层依赖、身份门面、依赖方向（card 底层、stats 纯消费方、backup 终点、common 基础设施）。
 
 ### 后端（backend/src/main/java/top/kariscode/karisreview/）
 

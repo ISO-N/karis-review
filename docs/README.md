@@ -8,6 +8,8 @@
 ## 软件设计
 
 - [体系结构设计](design/architecture.md) — 分层架构、包结构、技术选型、模块依赖
+- [整体架构规划与演进路线](design/architecture-roadmap.md) — 战略建模、三阶段目标架构、质量属性、路线图
+- [架构决策记录](adr/) — ADR-001 ~ ADR-008（模块化单体、拆分策略、备份外置、邮件异步化、统计预聚合、JWT 轮换等）
 - [数据库设计](design/database.md) — ERD、表结构、索引、Flyway 迁移、关键查询
 - [接口设计](design/api.md) — REST API 完整定义，含请求/响应示例
 - [测试说明](design/testing.md) — 部件测试、系统测试、运行命令与数据隔离
