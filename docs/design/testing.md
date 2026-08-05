@@ -5,7 +5,7 @@
 ### 后端部件测试
 
 - 纯算法与工具：`SchedulingEngineTest`、`CardImportParserTest`、`DateUtilsTest`、`JwtProviderTest`、`InviteCodeConfigTest`、`LogDesensitizerTest`。
-- Service 部件测试：`AuthServiceTest`、`DeckServiceTest`、`CardServiceTest`、`CardImportServiceTest`、`ReviewServiceTest`、`ReviewSessionServiceTest`、`SyncServiceTest`、`StatsServiceTest`、`SettingsServiceTest`、`BackupServiceTest`、`BackupSchedulerTest`、`UserLogServiceTest`、`UserEtagServiceTest`。
+- Service 部件测试：`AuthServiceTest`、`PasswordResetServiceTest`、`PasswordResetCodeServiceTest`、`DeckServiceTest`、`CardServiceTest`、`CardImportServiceTest`、`ReviewServiceTest`、`ReviewSessionServiceTest`、`SyncServiceTest`、`StatsServiceTest`、`SettingsServiceTest`、`BackupServiceTest`、`BackupSchedulerTest`、`UserLogServiceTest`、`UserEtagServiceTest`。
 - Mapper 与异常：`SyncProtoMapperTest`、`ReviewProtoMapperTest`、`GlobalExceptionHandlerTest`。
 - Controller 切片测试：`@WebMvcTest` + MockMvc 覆盖 HTTP 映射、参数校验、统一响应、Protobuf 响应和业务异常。
 - 安全配置测试：`SecurityConfigTest` 覆盖放行路径、未认证访问、无效 Token 和 `/api/auth/config` 公开访问。
@@ -13,7 +13,7 @@
 
 系统测试位于 `src/test/java/.../system/`，启动完整 Spring Boot 随机端口和真实 PostgreSQL，通过 `TestRestTemplate` 走真实 HTTP 全流程：
 
-- `AuthSettingsSystemTest`：注册、登录、设置刷新时间、登出与错误密码。
+- `AuthSettingsSystemTest`：注册（含邮箱验证码）、登录、设置刷新时间、修改密码、找回密码、登出与错误密码。
 - `AuthInviteSystemTest`：启用邀请码时公开配置返回 true，缺失/错误邀请码被拒绝，正确邀请码可注册。
 - `DeckCardSystemTest`：卡组/卡片 CRUD、级联删除、用户隔离和 due 筛选。
 - `ReviewStatsSystemTest`：新卡队列、FAMILIAR/FORGET/VAGUE 排期、概览/卡组/趋势统计。
