@@ -10,6 +10,10 @@ import top.kariscode.karisreview.auth.entity.PasswordResetCode;
 import top.kariscode.karisreview.auth.entity.User;
 import top.kariscode.karisreview.auth.repository.UserRepository;
 import top.kariscode.karisreview.common.exception.BusinessException;
+import top.kariscode.karisreview.common.outbox.DomainEvent;
+import top.kariscode.karisreview.common.outbox.OutboxEventTypes;
+import top.kariscode.karisreview.common.outbox.OutboxPublisher;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.util.Optional;
 import java.util.UUID;
@@ -29,15 +33,18 @@ class PasswordResetServiceTest {
     @Mock
     private PasswordResetCodeService codeService;
     @Mock
-    private MailSender mailSender;
+    private OutboxPublisher outboxPublisher;
     @Mock
     private AuthService authService;
+
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     private PasswordResetService service;
 
     @BeforeEach
     void setUp() {
-        service = new PasswordResetService(userRepository, codeService, mailSender, authService);
+        service = new PasswordResetService(
+                userRepository, codeService, authService, outboxPublisher, objectMapper);
     }
 
     @Test
@@ -50,7 +57,7 @@ class PasswordResetServiceTest {
 
         service.sendResetCode("a@b.c");
 
-        verify(mailSender).sendResetCode("a@b.c", "123456");
+        verify(outboxPublisher).publish(any(DomainEvent.class));
     }
 
     @Test
@@ -60,7 +67,7 @@ class PasswordResetServiceTest {
         service.sendResetCode("missing@b.c");
 
         verify(codeService, never()).issueCode(any(), any());
-        verify(mailSender, never()).sendResetCode(any(), any());
+        verify(outboxPublisher, never()).publish(any());
     }
 
     @Test
@@ -72,7 +79,7 @@ class PasswordResetServiceTest {
 
         assertEquals(400, exception.getCode());
         assertEquals("auth.email.registered", exception.getMessage());
-        verify(mailSender, never()).sendResetCode(any(), any());
+        verify(outboxPublisher, never()).publish(any());
     }
 
     @Test
@@ -83,7 +90,7 @@ class PasswordResetServiceTest {
 
         service.sendRegisterCode("a@b.c");
 
-        verify(mailSender).sendResetCode("a@b.c", "654321");
+        verify(outboxPublisher).publish(any(DomainEvent.class));
     }
 
     @Test

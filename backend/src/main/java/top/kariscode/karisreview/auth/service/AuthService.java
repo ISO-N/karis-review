@@ -1,5 +1,6 @@
 package top.kariscode.karisreview.auth.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -12,6 +13,9 @@ import top.kariscode.karisreview.auth.entity.PasswordResetCode;
 import top.kariscode.karisreview.auth.entity.User;
 import top.kariscode.karisreview.auth.repository.UserRepository;
 import top.kariscode.karisreview.common.exception.BusinessException;
+import top.kariscode.karisreview.common.outbox.DomainEvent;
+import top.kariscode.karisreview.common.outbox.OutboxEventTypes;
+import top.kariscode.karisreview.common.outbox.OutboxPublisher;
 import top.kariscode.karisreview.config.InviteCodeConfig;
 import top.kariscode.karisreview.config.JwtProvider;
 import top.kariscode.karisreview.log.service.UserLogService;
@@ -28,19 +32,25 @@ public class AuthService {
     private final InviteCodeConfig inviteCodeConfig;
     private final UserLogService userLogService;
     private final PasswordResetCodeService codeService;
+    private final OutboxPublisher outboxPublisher;
+    private final ObjectMapper objectMapper;
 
     public AuthService(UserRepository userRepository,
                        PasswordEncoder passwordEncoder,
                        JwtProvider jwtProvider,
                        InviteCodeConfig inviteCodeConfig,
                        UserLogService userLogService,
-                       PasswordResetCodeService codeService) {
+                       PasswordResetCodeService codeService,
+                       OutboxPublisher outboxPublisher,
+                       ObjectMapper objectMapper) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtProvider = jwtProvider;
         this.inviteCodeConfig = inviteCodeConfig;
         this.userLogService = userLogService;
         this.codeService = codeService;
+        this.outboxPublisher = outboxPublisher;
+        this.objectMapper = objectMapper;
     }
 
     public AuthConfigResponse getAuthConfig() {
@@ -80,7 +90,20 @@ public class AuthService {
 
         String token = jwtProvider.generateToken(user.getId(), user.getEmail());
         userLogService.log(user.getId(), "INFO", "AUTH", "Registration successful");
+        // 发布用户注册事件（阶段二 Identity 拆分：下游上下文/外部服务订阅）
+        publishUserRegistered(user.getId(), user.getEmail());
         return new LoginResponse(token, user.getId(), user.getEmail());
+    }
+
+    private void publishUserRegistered(UUID userId, String email) {
+        try {
+            String payload = objectMapper.writeValueAsString(Map.of("userId", userId.toString(), "email", email));
+            outboxPublisher.publish(new DomainEvent(
+                    OutboxEventTypes.AGG_USER, userId.toString(), OutboxEventTypes.USER_REGISTERED, payload));
+        } catch (Exception e) {
+            userLogService.log(userId, "WARN", "AUTH",
+                    "Failed to publish user registered event: " + e.getMessage());
+        }
     }
 
     public LoginResponse login(LoginRequest request) {

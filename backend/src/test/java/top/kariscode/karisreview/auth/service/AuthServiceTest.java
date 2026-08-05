@@ -49,10 +49,17 @@ class AuthServiceTest {
     @Mock
     private PasswordResetCodeService codeService;
 
+    @Mock
+    private top.kariscode.karisreview.common.outbox.OutboxPublisher outboxPublisher;
+
+    private final com.fasterxml.jackson.databind.ObjectMapper objectMapper =
+            new com.fasterxml.jackson.databind.ObjectMapper();
+
     @BeforeEach
     void setUp() {
         service = new AuthService(userRepository, passwordEncoder, jwtProvider,
-                new InviteCodeConfig(false, ""), userLogService, codeService);
+                new InviteCodeConfig(false, ""), userLogService, codeService,
+                outboxPublisher, objectMapper);
     }
 
     @Test
@@ -303,6 +310,7 @@ class AuthServiceTest {
 
     private AuthService service(boolean enabled, String code) {
         return new AuthService(userRepository, passwordEncoder, jwtProvider,
-                new InviteCodeConfig(enabled, code), userLogService, codeService);
+                new InviteCodeConfig(enabled, code), userLogService, codeService,
+                outboxPublisher, objectMapper);
     }
 }
