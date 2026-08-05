@@ -7,8 +7,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import top.kariscode.karisreview.auth.entity.User;
-import top.kariscode.karisreview.auth.repository.UserRepository;
+import top.kariscode.karisreview.auth.api.IdentityPort;
 import top.kariscode.karisreview.card.entity.Card;
 import top.kariscode.karisreview.card.repository.CardRepository;
 import top.kariscode.karisreview.common.exception.BusinessException;
@@ -44,18 +43,18 @@ public class SyncService {
     /** sync_events 保留天数：超过该时限的事件允许被清理（与 V13 迁移一致）。 */
     private static final int SYNC_EVENT_RETENTION_DAYS = 60;
 
-    private final UserRepository userRepository;
+    private final IdentityPort identityPort;
     private final DeckRepository deckRepository;
     private final CardRepository cardRepository;
     private final ReviewLogRepository reviewLogRepository;
     private final SyncEventRepository syncEventRepository;
 
-    public SyncService(UserRepository userRepository,
+    public SyncService(IdentityPort identityPort,
                        DeckRepository deckRepository,
                        CardRepository cardRepository,
                        ReviewLogRepository reviewLogRepository,
                        SyncEventRepository syncEventRepository) {
-        this.userRepository = userRepository;
+        this.identityPort = identityPort;
         this.deckRepository = deckRepository;
         this.cardRepository = cardRepository;
         this.reviewLogRepository = reviewLogRepository;
@@ -69,7 +68,7 @@ public class SyncService {
 
     @Transactional(readOnly = true)
     public BootstrapResponse getBootstrap(UUID userId, long eventCursor) {
-        User user = userRepository.findById(userId)
+        IdentityPort.UserView user = identityPort.findById(userId)
                 .orElseThrow(() -> new BusinessException(404, "sync.user.notfound"));
         OffsetDateTime serverTime = OffsetDateTime.now(ZoneOffset.UTC);
 
@@ -94,11 +93,11 @@ public class SyncService {
         }
     }
 
-    private BootstrapResponse fullBootstrap(User user, OffsetDateTime serverTime) {
-        List<Deck> decks = deckRepository.findByUserIdOrderByCreatedAtAsc(user.getId());
+    private BootstrapResponse fullBootstrap(IdentityPort.UserView user, OffsetDateTime serverTime) {
+        List<Deck> decks = deckRepository.findByUserIdOrderByCreatedAtAsc(user.id());
 
         // 一次取出该用户全部卡片并按卡组分组，替代逐卡组查询（N+1）
-        Map<UUID, List<Card>> cardsByDeck = cardRepository.findByUserId(user.getId()).stream()
+        Map<UUID, List<Card>> cardsByDeck = cardRepository.findByUserId(user.id()).stream()
                 .collect(Collectors.groupingBy(Card::getDeckId));
         List<BootstrapDeck> deckResponses = decks.stream()
                 .map(deck -> new BootstrapDeck(
@@ -111,7 +110,7 @@ public class SyncService {
         int page = 0;
         while (true) {
             Page<ReviewLog> logPage = reviewLogRepository.findByUserIdOrderByReviewedAtDesc(
-                    user.getId(), PageRequest.of(page, DELTA_PAGE_SIZE));
+                    user.id(), PageRequest.of(page, DELTA_PAGE_SIZE));
             if (!logPage.hasContent()) {
                 break;
             }
@@ -131,12 +130,12 @@ public class SyncService {
                 List.of(),
                 List.of(),
                 List.of(),
-                syncEventRepository.latestSeq(user.getId()),
+                syncEventRepository.latestSeq(user.id()),
                 false, false);
     }
 
-    private BootstrapResponse deltaBootstrap(User user, OffsetDateTime serverTime, long cursor) {
-        long latestSeq = syncEventRepository.latestSeq(user.getId());
+    private BootstrapResponse deltaBootstrap(IdentityPort.UserView user, OffsetDateTime serverTime, long cursor) {
+        long latestSeq = syncEventRepository.latestSeq(user.id());
         if (cursor > latestSeq) {
             return new BootstrapResponse(
                     serverTime, toBootstrapUser(user), List.of(), List.of(),
@@ -146,13 +145,12 @@ public class SyncService {
 
         // 游标已过期：要么事件被清理（cursor < 最早保留事件），要么事件被整体清空
         // （latestSeq == 0 但客户端已有游标），此时增量无法继续，降级为全量同步。
-        long minSeq = syncEventRepository.minSeq(user.getId());
+        long minSeq = syncEventRepository.minSeq(user.id());
         if (cursor < minSeq || latestSeq == 0) {
             return fullBootstrap(user, serverTime);
         }
-
         List<SyncEventRepository.SyncEventRow> events =
-                syncEventRepository.findAfter(user.getId(), cursor, DELTA_PAGE_SIZE);
+                syncEventRepository.findAfter(user.id(), cursor, DELTA_PAGE_SIZE);
 
         if (events.isEmpty()) {
             return new BootstrapResponse(
@@ -198,7 +196,7 @@ public class SyncService {
         }
 
         List<BootstrapDeck> changedDecks = deckIds.stream()
-                .map(id -> deckRepository.findByIdAndUserId(id, user.getId()))
+                .map(id -> deckRepository.findByIdAndUserId(id, user.id()))
                 .filter(java.util.Optional::isPresent)
                 .map(java.util.Optional::get)
                 .map(deck -> new BootstrapDeck(
@@ -207,12 +205,12 @@ public class SyncService {
                 .toList();
 
         List<BootstrapCard> changedCards = cardRepository.findAllById(cardIds).stream()
-                .filter(card -> user.getId().equals(card.getUserId()))
+                .filter(card -> user.id().equals(card.getUserId()))
                 .map(this::toBootstrapCard)
                 .toList();
 
         List<BootstrapReviewLog> newLogs = reviewLogRepository.findAllById(reviewLogIds).stream()
-                .filter(log -> user.getId().equals(log.getUserId()))
+                .filter(log -> user.id().equals(log.getUserId()))
                 .map(this::toBootstrapLog)
                 .toList();
 
@@ -231,11 +229,11 @@ public class SyncService {
                 .toList();
     }
 
-    private BootstrapUser toBootstrapUser(User user) {
+    private BootstrapUser toBootstrapUser(IdentityPort.UserView user) {
         return new BootstrapUser(
-                user.getId(),
-                user.getEmail(),
-                user.getRefreshTime().format(DateTimeFormatter.ofPattern("HH:mm:ss")));
+                user.id(),
+                user.email(),
+                user.refreshTime().format(DateTimeFormatter.ofPattern("HH:mm:ss")));
     }
 
     private BootstrapCard toBootstrapCard(Card card) {

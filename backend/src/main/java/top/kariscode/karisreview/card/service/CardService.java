@@ -13,8 +13,7 @@ import top.kariscode.karisreview.common.exception.BusinessException;
 import top.kariscode.karisreview.common.util.DateUtils;
 import top.kariscode.karisreview.deck.entity.Deck;
 import top.kariscode.karisreview.deck.repository.DeckRepository;
-import top.kariscode.karisreview.auth.entity.User;
-import top.kariscode.karisreview.auth.repository.UserRepository;
+import top.kariscode.karisreview.auth.api.IdentityPort;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -26,14 +25,14 @@ public class CardService {
 
     private final CardRepository cardRepository;
     private final DeckRepository deckRepository;
-    private final UserRepository userRepository;
+    private final IdentityPort identityPort;
 
     public CardService(CardRepository cardRepository,
                        DeckRepository deckRepository,
-                       UserRepository userRepository) {
+                       IdentityPort identityPort) {
         this.cardRepository = cardRepository;
         this.deckRepository = deckRepository;
-        this.userRepository = userRepository;
+        this.identityPort = identityPort;
     }
     public Page<CardResponse> getDeckCards(UUID userId, UUID deckId, int page, int size, String filter) {
         return getDeckCards(userId, deckId, page, size, filter, "");
@@ -154,9 +153,6 @@ public class CardService {
     }
 
     private LocalDate todayFor(UUID userId) {
-        LocalTime refreshTime = userRepository.findById(userId)
-                .map(User::getRefreshTime)
-                .orElse(LocalTime.of(4, 0));
-        return DateUtils.calculateToday(refreshTime);
+        return DateUtils.calculateToday(identityPort.refreshTimeOf(userId));
     }
 }

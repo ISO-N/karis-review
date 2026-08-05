@@ -1,14 +1,17 @@
 package top.kariscode.karisreview.review.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import top.kariscode.karisreview.auth.entity.User;
-import top.kariscode.karisreview.auth.repository.UserRepository;
+import top.kariscode.karisreview.auth.api.IdentityPort;
 import top.kariscode.karisreview.card.entity.Card;
 import top.kariscode.karisreview.card.repository.CardRepository;
 import top.kariscode.karisreview.common.exception.BusinessException;
+import top.kariscode.karisreview.common.outbox.DomainEvent;
+import top.kariscode.karisreview.common.outbox.OutboxEventTypes;
+import top.kariscode.karisreview.common.outbox.OutboxPublisher;
 import top.kariscode.karisreview.common.util.DateUtils;
 import top.kariscode.karisreview.log.service.UserLogService;
 import top.kariscode.karisreview.review.dto.RateRequest;
@@ -50,26 +53,32 @@ public class ReviewService {
 
     private final CardRepository cardRepository;
     private final ReviewLogRepository reviewLogRepository;
-    private final UserRepository userRepository;
+    private final IdentityPort identityPort;
     private final SchedulingEngine schedulingEngine;
     private final ReviewSessionRepository reviewSessionRepository;
     private final ReviewQueueItemRepository reviewQueueItemRepository;
     private final UserLogService userLogService;
+    private final OutboxPublisher outboxPublisher;
+    private final ObjectMapper objectMapper;
 
     public ReviewService(CardRepository cardRepository,
                          ReviewLogRepository reviewLogRepository,
-                         UserRepository userRepository,
+                         IdentityPort identityPort,
                          SchedulingEngine schedulingEngine,
                          ReviewSessionRepository reviewSessionRepository,
                          ReviewQueueItemRepository reviewQueueItemRepository,
-                         UserLogService userLogService) {
+                         UserLogService userLogService,
+                         OutboxPublisher outboxPublisher,
+                         ObjectMapper objectMapper) {
         this.cardRepository = cardRepository;
         this.reviewLogRepository = reviewLogRepository;
-        this.userRepository = userRepository;
+        this.identityPort = identityPort;
         this.schedulingEngine = schedulingEngine;
         this.reviewSessionRepository = reviewSessionRepository;
         this.reviewQueueItemRepository = reviewQueueItemRepository;
         this.userLogService = userLogService;
+        this.outboxPublisher = outboxPublisher;
+        this.objectMapper = objectMapper;
     }
 
     public List<ReviewCardResponse> getDueCards(UUID userId, UUID deckId) {
@@ -252,6 +261,11 @@ public class ReviewService {
         if (!logsToSave.isEmpty()) {
             reviewLogRepository.saveAll(logsToSave);
         }
+        // 发布评分事件（与业务同事务入 Outbox），驱动统计预聚合等异步消费者
+        for (ReviewLog log : logsToSave) {
+            Card c = cardMap.get(log.getCardId());
+            publishReviewLogged(log, c != null ? c.getDeckId() : null);
+        }
 
         // 4) 结果按请求顺序输出
         for (int i = 0; i < items.size(); i++) {
@@ -318,8 +332,31 @@ public class ReviewService {
         RatingOutcome outcome = computeRating(
                 userId, cardId, card, rating, clientRequestId, reviewedAt, refreshTime, today);
         cardRepository.save(card);
-        reviewLogRepository.save(outcome.log());
+        ReviewLog log = outcome.log();
+        reviewLogRepository.save(log);
+        publishReviewLogged(log, card.getDeckId());
         return toRateResponse(cardId, rating, card, outcome.result(), today);
+    }
+
+    /** 发布评分事件（与业务同事务入 Outbox）。 */
+    private void publishReviewLogged(ReviewLog log, UUID deckId) {
+        try {
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("userId", log.getUserId().toString());
+            payload.put("deckId", deckId != null ? deckId.toString() : null);
+            payload.put("rating", log.getRating());
+            payload.put("isNewCard", log.isNewCard());
+            payload.put("reviewedAt", log.getReviewedAt().toString());
+            outboxPublisher.publish(new DomainEvent(
+                    OutboxEventTypes.AGG_REVIEW_LOG,
+                    log.getId() != null ? log.getId().toString() : null,
+                    OutboxEventTypes.REVIEW_LOGGED,
+                    objectMapper.writeValueAsString(payload)));
+        } catch (Exception e) {
+            // 事件发布失败不应阻断评分主流程：记日志，由每日全量重算兜底
+            userLogService.log(log.getUserId(), "WARN", "SYNC",
+                    "Failed to publish review event: " + e.getMessage());
+        }
     }
 
     /**
@@ -445,8 +482,6 @@ public class ReviewService {
     }
 
     private LocalTime getRefreshTime(UUID userId) {
-        return userRepository.findById(userId)
-                .map(User::getRefreshTime)
-                .orElse(LocalTime.of(4, 0));
+        return identityPort.refreshTimeOf(userId);
     }
 }

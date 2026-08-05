@@ -7,8 +7,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
-import top.kariscode.karisreview.auth.entity.User;
-import top.kariscode.karisreview.auth.repository.UserRepository;
+import top.kariscode.karisreview.auth.api.IdentityPort;
 import top.kariscode.karisreview.card.entity.Card;
 import top.kariscode.karisreview.card.repository.CardRepository;
 import top.kariscode.karisreview.deck.entity.Deck;
@@ -40,7 +39,7 @@ import static org.mockito.Mockito.when;
 class SyncServiceTest {
 
     @Mock
-    private UserRepository userRepository;
+    private IdentityPort identityPort;
 
     @Mock
     private DeckRepository deckRepository;
@@ -59,7 +58,7 @@ class SyncServiceTest {
     @BeforeEach
     void setUp() {
         service = new SyncService(
-                userRepository, deckRepository, cardRepository,
+                identityPort, deckRepository, cardRepository,
                 reviewLogRepository, syncEventRepository);
     }
 
@@ -70,7 +69,7 @@ class SyncServiceTest {
         Card card = card(deckId, userId, "正面");
         Deck deck = deck(deckId, userId, "日语");
         ReviewLog log = reviewLog(userId, card.getId());
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user(userId)));
+        when(identityPort.findById(userId)).thenReturn(Optional.of(view(userId)));
         when(deckRepository.findByUserIdOrderByCreatedAtAsc(userId)).thenReturn(List.of(deck));
         when(cardRepository.findByUserId(userId)).thenReturn(List.of(card));
         when(reviewLogRepository.findByUserIdOrderByReviewedAtDesc(userId, PageRequest.of(0, 500)))
@@ -98,7 +97,7 @@ class SyncServiceTest {
         Card changedCard = card(deckId, userId, "新正面");
         Card otherCard = card(deckId, otherUserId, "他人");
         ReviewLog newLog = reviewLog(userId, cardId);
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user(userId)));
+        when(identityPort.findById(userId)).thenReturn(Optional.of(view(userId)));
         when(syncEventRepository.latestSeq(userId)).thenReturn(30L);
         when(syncEventRepository.minSeq(userId)).thenReturn(5L);
         when(syncEventRepository.findAfter(userId, 10L, 500)).thenReturn(List.of(
@@ -125,7 +124,7 @@ class SyncServiceTest {
     @Test
     void deltaBootstrapReturnsLatestCursorWhenNoEvents() {
         UUID userId = UUID.randomUUID();
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user(userId)));
+        when(identityPort.findById(userId)).thenReturn(Optional.of(view(userId)));
         when(syncEventRepository.latestSeq(userId)).thenReturn(30L);
         when(syncEventRepository.minSeq(userId)).thenReturn(0L);
         when(syncEventRepository.findAfter(userId, 30L, 500)).thenReturn(List.of());
@@ -145,7 +144,7 @@ class SyncServiceTest {
             rows.add(new SyncEventRepository.SyncEventRow(
                     "users", userId, "UPDATED", 100L + i));
         }
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user(userId)));
+        when(identityPort.findById(userId)).thenReturn(Optional.of(view(userId)));
         when(syncEventRepository.latestSeq(userId)).thenReturn(700L);
         when(syncEventRepository.minSeq(userId)).thenReturn(1L);
         when(syncEventRepository.findAfter(userId, 100L, 500)).thenReturn(rows);
@@ -162,7 +161,7 @@ class SyncServiceTest {
         UUID deckId = UUID.randomUUID();
         Card card = card(deckId, userId, "正面");
         Deck deck = deck(deckId, userId, "日语");
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user(userId)));
+        when(identityPort.findById(userId)).thenReturn(Optional.of(view(userId)));
         when(syncEventRepository.latestSeq(userId)).thenReturn(30L);
         // 事件被清理：客户端游标早于最早保留事件
         when(syncEventRepository.minSeq(userId)).thenReturn(20L);
@@ -181,7 +180,7 @@ class SyncServiceTest {
     @Test
     void staleCursorRequiresFullReset() {
         UUID userId = UUID.randomUUID();
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user(userId)));
+        when(identityPort.findById(userId)).thenReturn(Optional.of(view(userId)));
         when(syncEventRepository.latestSeq(userId)).thenReturn(30L);
 
         BootstrapResponse response = service.getBootstrap(userId, 50L);
@@ -201,12 +200,8 @@ class SyncServiceTest {
         verify(syncEventRepository).deleteOlderThan(any());
     }
 
-    private User user(UUID id) {
-        User user = new User();
-        user.setId(id);
-        user.setEmail("user@example.com");
-        user.setRefreshTime(LocalTime.of(4, 0));
-        return user;
+    private IdentityPort.UserView view(UUID id) {
+        return new IdentityPort.UserView(id, "user@example.com", LocalTime.of(4, 0));
     }
 
     private Deck deck(UUID id, UUID userId, String name) {

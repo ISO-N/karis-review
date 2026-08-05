@@ -5,8 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import top.kariscode.karisreview.auth.entity.User;
-import top.kariscode.karisreview.auth.repository.UserRepository;
+import top.kariscode.karisreview.auth.api.IdentityPort;
 import top.kariscode.karisreview.card.repository.CardRepository;
 import top.kariscode.karisreview.common.exception.BusinessException;
 import top.kariscode.karisreview.common.util.DateUtils;
@@ -42,14 +41,14 @@ class StatsServiceTest {
     private ReviewLogRepository reviewLogRepository;
 
     @Mock
-    private UserRepository userRepository;
+    private IdentityPort identityPort;
 
     private StatsService service;
 
     @BeforeEach
     void setUp() {
         service = new StatsService(
-                cardRepository, deckRepository, reviewLogRepository, userRepository);
+                cardRepository, deckRepository, reviewLogRepository, identityPort);
     }
 
     @Test
@@ -57,7 +56,7 @@ class StatsServiceTest {
         UUID userId = UUID.randomUUID();
         LocalTime refreshTime = LocalTime.of(4, 0);
         LocalDate today = DateUtils.calculateToday(refreshTime);
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user()));
+        when(identityPort.refreshTimeOf(userId)).thenReturn(LocalTime.of(4, 0));
         when(deckRepository.countByUserId(userId)).thenReturn(2L);
         when(reviewLogRepository.countReviewedToday(
                 userId, today.atTime(refreshTime), today.plusDays(1).atTime(refreshTime)))
@@ -98,7 +97,7 @@ class StatsServiceTest {
         LocalTime refreshTime = LocalTime.of(4, 0);
         LocalDate today = DateUtils.calculateToday(refreshTime);
         when(deckRepository.findByIdAndUserId(deckId, userId)).thenReturn(Optional.of(deck));
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user()));
+        when(identityPort.refreshTimeOf(userId)).thenReturn(LocalTime.of(4, 0));
         when(cardRepository.countByDeckId(deckId)).thenReturn(5L);
         when(cardRepository.countDueByDeckId(deckId, today)).thenReturn(2);
         when(reviewLogRepository.countReviewedTodayForDeck(
@@ -146,7 +145,7 @@ class StatsServiceTest {
         LocalDate today = DateUtils.calculateToday(refreshTime);
         LocalDateTime start = today.minusDays(5).atTime(refreshTime);
         LocalDateTime logTime = today.minusDays(2).atTime(6, 0);
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user()));
+        when(identityPort.refreshTimeOf(userId)).thenReturn(LocalTime.of(4, 0));
         when(reviewLogRepository.findByUserIdAndReviewedAtAfter(userId, start))
                 .thenReturn(List.of(
                         log(userId, "FAMILIAR", 0, logTime, true),
@@ -179,7 +178,7 @@ class StatsServiceTest {
         UUID userId = UUID.randomUUID();
         LocalTime refreshTime = LocalTime.of(4, 0);
         LocalDate today = DateUtils.calculateToday(refreshTime);
-        when(userRepository.findById(userId)).thenReturn(Optional.empty());
+        when(identityPort.refreshTimeOf(userId)).thenReturn(LocalTime.of(4, 0));
         when(deckRepository.countByUserId(userId)).thenReturn(0L);
         when(reviewLogRepository.countReviewedToday(
                 userId, today.atTime(refreshTime), today.plusDays(1).atTime(refreshTime)))
@@ -194,7 +193,4 @@ class StatsServiceTest {
         assertEquals(0, stats.getTotalCards());
     }
 
-    private User user() {
-        return new User();
-    }
 }

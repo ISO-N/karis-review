@@ -5,8 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import top.kariscode.karisreview.auth.entity.User;
-import top.kariscode.karisreview.auth.repository.UserRepository;
+import top.kariscode.karisreview.auth.api.IdentityPort;
 
 import java.util.List;
 import java.util.UUID;
@@ -19,7 +18,7 @@ import static org.mockito.Mockito.when;
 class BackupSchedulerTest {
 
     @Mock
-    private UserRepository userRepository;
+    private IdentityPort identityPort;
 
     @Mock
     private BackupService backupService;
@@ -28,37 +27,31 @@ class BackupSchedulerTest {
 
     @BeforeEach
     void setUp() {
-        scheduler = new BackupScheduler(userRepository, backupService);
+        scheduler = new BackupScheduler(identityPort, backupService);
     }
 
     @Test
     void createsSnapshotForEveryUser() {
-        User first = user();
-        User second = user();
-        when(userRepository.findAll()).thenReturn(List.of(first, second));
+        UUID first = UUID.randomUUID();
+        UUID second = UUID.randomUUID();
+        when(identityPort.findAllUserIds()).thenReturn(List.of(first, second));
 
         scheduler.createDailySnapshots();
 
-        verify(backupService).exportData(first.getId());
-        verify(backupService).exportData(second.getId());
+        verify(backupService).exportData(first);
+        verify(backupService).exportData(second);
     }
 
     @Test
     void oneUserFailureDoesNotStopRemainingUsers() {
-        User first = user();
-        User second = user();
-        when(userRepository.findAll()).thenReturn(List.of(first, second));
-        doThrow(new RuntimeException("backup failed")).when(backupService).exportData(second.getId());
+        UUID first = UUID.randomUUID();
+        UUID second = UUID.randomUUID();
+        when(identityPort.findAllUserIds()).thenReturn(List.of(first, second));
+        doThrow(new RuntimeException("backup failed")).when(backupService).exportData(second);
 
         scheduler.createDailySnapshots();
 
-        verify(backupService).exportData(first.getId());
-        verify(backupService).exportData(second.getId());
-    }
-
-    private User user() {
-        User user = new User();
-        user.setId(UUID.randomUUID());
-        return user;
+        verify(backupService).exportData(first);
+        verify(backupService).exportData(second);
     }
 }

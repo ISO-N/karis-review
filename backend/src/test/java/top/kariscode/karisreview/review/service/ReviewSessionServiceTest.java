@@ -6,8 +6,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Pageable;
-import top.kariscode.karisreview.auth.entity.User;
-import top.kariscode.karisreview.auth.repository.UserRepository;
+import top.kariscode.karisreview.auth.api.IdentityPort;
 import top.kariscode.karisreview.card.entity.Card;
 import top.kariscode.karisreview.card.repository.CardRepository;
 import top.kariscode.karisreview.common.exception.BusinessException;
@@ -45,7 +44,7 @@ class ReviewSessionServiceTest {
     private ReviewLogRepository reviewLogRepository;
 
     @Mock
-    private UserRepository userRepository;
+    private IdentityPort identityPort;
 
     @Mock
     private SchedulingEngine schedulingEngine;
@@ -59,13 +58,23 @@ class ReviewSessionServiceTest {
     @Mock
     private UserLogService userLogService;
 
+    @Mock
+    private top.kariscode.karisreview.common.outbox.OutboxPublisher outboxPublisher;
+
+    private final com.fasterxml.jackson.databind.ObjectMapper objectMapper =
+            new com.fasterxml.jackson.databind.ObjectMapper();
+
     private ReviewService service;
 
     @BeforeEach
     void setUp() {
         service = new ReviewService(
-                cardRepository, reviewLogRepository, userRepository, schedulingEngine,
-                reviewSessionRepository, reviewQueueItemRepository, userLogService);
+                cardRepository, reviewLogRepository, identityPort, schedulingEngine,
+                reviewSessionRepository, reviewQueueItemRepository, userLogService,
+                outboxPublisher, objectMapper);
+        org.mockito.Mockito.lenient()
+                .when(identityPort.refreshTimeOf(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(java.time.LocalTime.of(4, 0));
     }
 
     @Test
@@ -73,7 +82,7 @@ class ReviewSessionServiceTest {
         UUID userId = UUID.randomUUID();
         UUID deckId = UUID.randomUUID();
         UUID sessionId = UUID.randomUUID();
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user()));
+        when(identityPort.refreshTimeOf(userId)).thenReturn(LocalTime.of(4, 0));
         when(cardRepository.findDueCards(eq(userId), any(LocalDate.class), eq(deckId)))
                 .thenReturn(List.of());
         when(cardRepository.findLearningModeCards(eq(userId), any(LocalDate.class), eq(deckId)))
@@ -209,12 +218,5 @@ class ReviewSessionServiceTest {
         card.setBack("反面");
         card.setStage(stage);
         return card;
-    }
-
-    private User user() {
-        User user = new User();
-        user.setId(UUID.randomUUID());
-        user.setRefreshTime(LocalTime.of(4, 0));
-        return user;
     }
 }

@@ -10,8 +10,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 import top.kariscode.karisreview.backup.entity.BackupSnapshot;
 import top.kariscode.karisreview.backup.repository.BackupRepository;
-import top.kariscode.karisreview.auth.entity.User;
-import top.kariscode.karisreview.auth.repository.UserRepository;
+import top.kariscode.karisreview.auth.api.IdentityPort;
 import top.kariscode.karisreview.card.entity.Card;
 import top.kariscode.karisreview.card.repository.CardRepository;
 import top.kariscode.karisreview.deck.entity.Deck;
@@ -41,7 +40,7 @@ import static org.mockito.Mockito.when;
 class BackupServiceTest {
 
     @Mock
-    private UserRepository userRepository;
+    private IdentityPort identityPort;
 
     @Mock
     private DeckRepository deckRepository;
@@ -65,7 +64,7 @@ class BackupServiceTest {
     @BeforeEach
     void setUp() {
         service = new BackupService(
-                userRepository, deckRepository, cardRepository,
+                identityPort, deckRepository, cardRepository,
                 reviewLogRepository, backupRepository, objectMapper, userLogService);
     }
 
@@ -74,10 +73,8 @@ class BackupServiceTest {
         UUID userId = UUID.randomUUID();
         UUID deckId = UUID.randomUUID();
         UUID cardId = UUID.randomUUID();
-        User user = new User();
-        user.setId(userId);
-        user.setEmail("user@example.com");
-        user.setRefreshTime(LocalTime.of(4, 0));
+        IdentityPort.UserView user = new IdentityPort.UserView(
+                userId, "user@example.com", LocalTime.of(4, 0));
         Deck deck = new Deck();
         deck.setId(deckId);
         deck.setUserId(userId);
@@ -97,7 +94,7 @@ class BackupServiceTest {
         log.setNewCard(true);
         log.setReviewedAt(LocalDateTime.of(2025, 1, 1, 10, 0));
 
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(identityPort.findById(userId)).thenReturn(Optional.of(user));
         when(deckRepository.findByUserIdOrderByCreatedAtAsc(userId)).thenReturn(List.of(deck));
         when(cardRepository.findByDeckIdOrderByCreatedAtAsc(deckId)).thenReturn(List.of(card));
         when(reviewLogRepository.findByUserIdOrderByReviewedAtDesc(userId)).thenReturn(List.of(log));
@@ -112,7 +109,7 @@ class BackupServiceTest {
         Map<String, Object> result = service.exportData(userId);
 
         assertNotNull(result.get("backup_id"));
-        assertTrue(result.toString().contains(user.getEmail()));
+        assertTrue(result.toString().contains(user.email()));
         assertTrue(result.toString().contains("is_new_card"));
         verify(backupRepository).save(any(BackupSnapshot.class));
     }
@@ -120,7 +117,7 @@ class BackupServiceTest {
     @Test
     void exportDataRejectsMissingUser() {
         UUID userId = UUID.randomUUID();
-        when(userRepository.findById(userId)).thenReturn(Optional.empty());
+        when(identityPort.findById(userId)).thenReturn(Optional.empty());
 
         assertThrows(RuntimeException.class, () -> service.exportData(userId));
     }
@@ -240,10 +237,10 @@ class BackupServiceTest {
 
     @Test
     void cleanupOldSnapshotsKeepsLatestPerUser() {
-        when(backupRepository.deleteExcessSnapshots(7)).thenReturn(4);
+        when(backupRepository.findExcessSnapshots(7)).thenReturn(List.of());
 
         service.cleanupOldSnapshots();
 
-        verify(backupRepository).deleteExcessSnapshots(7);
+        verify(backupRepository).findExcessSnapshots(7);
     }
 }

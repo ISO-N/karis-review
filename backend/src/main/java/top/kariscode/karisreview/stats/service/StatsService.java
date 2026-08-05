@@ -1,6 +1,8 @@
 package top.kariscode.karisreview.stats.service;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import top.kariscode.karisreview.auth.api.IdentityPort;
 import top.kariscode.karisreview.card.repository.CardRepository;
 import top.kariscode.karisreview.common.exception.BusinessException;
 import top.kariscode.karisreview.common.util.DateUtils;
@@ -11,8 +13,6 @@ import top.kariscode.karisreview.review.repository.ReviewLogRepository;
 import top.kariscode.karisreview.stats.dto.DeckStatsResponse;
 import top.kariscode.karisreview.stats.dto.OverviewStatsResponse;
 import top.kariscode.karisreview.stats.dto.TrendStatsResponse;
-import top.kariscode.karisreview.auth.entity.User;
-import top.kariscode.karisreview.auth.repository.UserRepository;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -29,16 +30,27 @@ public class StatsService {
     private final CardRepository cardRepository;
     private final DeckRepository deckRepository;
     private final ReviewLogRepository reviewLogRepository;
-    private final UserRepository userRepository;
+    private final IdentityPort identityPort;
+    private final Optional<DailyReviewStatsService> dailyStatsService;
 
     public StatsService(CardRepository cardRepository,
                         DeckRepository deckRepository,
                         ReviewLogRepository reviewLogRepository,
-                        UserRepository userRepository) {
+                        IdentityPort identityPort) {
+        this(cardRepository, deckRepository, reviewLogRepository, identityPort, Optional.empty());
+    }
+
+    @Autowired
+    public StatsService(CardRepository cardRepository,
+                        DeckRepository deckRepository,
+                        ReviewLogRepository reviewLogRepository,
+                        IdentityPort identityPort,
+                        Optional<DailyReviewStatsService> dailyStatsService) {
         this.cardRepository = cardRepository;
         this.deckRepository = deckRepository;
         this.reviewLogRepository = reviewLogRepository;
-        this.userRepository = userRepository;
+        this.identityPort = identityPort;
+        this.dailyStatsService = dailyStatsService;
     }
 
     public OverviewStatsResponse getOverview(UUID userId) {
@@ -80,8 +92,17 @@ public class StatsService {
         stats.setTotalCards(totalCards);
         stats.setTotalDecks(deckRepository.countByUserId(userId));
         stats.setDueToday(dueToday);
-        stats.setReviewedToday(reviewLogRepository.countReviewedToday(userId, refreshStart, refreshEnd));
-        stats.setLearnedToday(reviewLogRepository.countLearnedToday(userId, refreshStart, refreshEnd));
+
+        // 预聚合优先：今日 reviewed/learned 读 daily_review_stats（避免实时扫描 review_logs）；
+        // 预聚合数据缺失（如刚部署未触发重算）时回退实时查询，保证口径一致。
+        Optional<int[]> todayCounts = dailyStatsService.flatMap(s -> s.getTodayCounts(userId, refreshTime));
+        if (todayCounts.isPresent()) {
+            stats.setReviewedToday(todayCounts.get()[0]);
+            stats.setLearnedToday(todayCounts.get()[1]);
+        } else {
+            stats.setReviewedToday(reviewLogRepository.countReviewedToday(userId, refreshStart, refreshEnd));
+            stats.setLearnedToday(reviewLogRepository.countLearnedToday(userId, refreshStart, refreshEnd));
+        }
         stats.setMasteredCards(masteredCards);
         stats.setNewCards(newCards);
         stats.setLearningCards(learningCards);
@@ -117,6 +138,16 @@ public class StatsService {
 
     public List<TrendStatsResponse> getTrend(UUID userId, int days) {
         LocalTime refreshTime = getRefreshTime(userId);
+
+        // 预聚合优先：趋势读 daily_review_stats（与 review_logs 数据量解耦，ADR-007）。
+        // 预聚合数据缺失时回退实时查询，保证首次部署/测试环境行为一致。
+        if (dailyStatsService.isPresent()) {
+            List<TrendStatsResponse> preAgg = dailyStatsService.get().getTrend(userId, refreshTime, days);
+            if (!preAgg.isEmpty()) {
+                return preAgg;
+            }
+        }
+
         LocalDate today = DateUtils.calculateToday(refreshTime);
         LocalDateTime start = today.minusDays(days).atTime(refreshTime);
 
@@ -157,8 +188,6 @@ public class StatsService {
     }
 
     private LocalTime getRefreshTime(UUID userId) {
-        return userRepository.findById(userId)
-                .map(User::getRefreshTime)
-                .orElse(LocalTime.of(4, 0));
+        return identityPort.refreshTimeOf(userId);
     }
 }

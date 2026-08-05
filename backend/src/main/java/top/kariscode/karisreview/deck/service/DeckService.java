@@ -10,8 +10,7 @@ import top.kariscode.karisreview.deck.dto.DeckResponse;
 import top.kariscode.karisreview.deck.dto.DeckUpdateRequest;
 import top.kariscode.karisreview.deck.entity.Deck;
 import top.kariscode.karisreview.deck.repository.DeckRepository;
-import top.kariscode.karisreview.auth.entity.User;
-import top.kariscode.karisreview.auth.repository.UserRepository;
+import top.kariscode.karisreview.auth.api.IdentityPort;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -24,14 +23,14 @@ public class DeckService {
 
     private final DeckRepository deckRepository;
     private final CardRepository cardRepository;
-    private final UserRepository userRepository;
+    private final IdentityPort identityPort;
 
     public DeckService(DeckRepository deckRepository,
                        CardRepository cardRepository,
-                       UserRepository userRepository) {
+                       IdentityPort identityPort) {
         this.deckRepository = deckRepository;
         this.cardRepository = cardRepository;
-        this.userRepository = userRepository;
+        this.identityPort = identityPort;
     }
 
     public List<DeckResponse> getUserDecks(UUID userId) {
@@ -101,8 +100,6 @@ public class DeckService {
     }
 
     private LocalTime getRefreshTime(UUID userId) {
-        return userRepository.findById(userId)
-                .map(User::getRefreshTime)
-                .orElse(LocalTime.of(4, 0));
+        return identityPort.refreshTimeOf(userId);
     }
 }

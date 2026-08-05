@@ -8,8 +8,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
-import top.kariscode.karisreview.auth.entity.User;
-import top.kariscode.karisreview.auth.repository.UserRepository;
+import top.kariscode.karisreview.auth.api.IdentityPort;
 import top.kariscode.karisreview.card.dto.CardCreateRequest;
 import top.kariscode.karisreview.card.dto.CardResponse;
 import top.kariscode.karisreview.card.dto.CardUpdateRequest;
@@ -47,13 +46,13 @@ class CardServiceTest {
     private DeckRepository deckRepository;
 
     @Mock
-    private UserRepository userRepository;
+    private IdentityPort identityPort;
 
     private CardService service;
 
     @BeforeEach
     void setUp() {
-        service = new CardService(cardRepository, deckRepository, userRepository);
+        service = new CardService(cardRepository, deckRepository, identityPort);
     }
 
     @Test
@@ -62,7 +61,7 @@ class CardServiceTest {
         UUID deckId = UUID.randomUUID();
         Card card = card(deckId, userId);
         when(deckRepository.existsByIdAndUserId(deckId, userId)).thenReturn(true);
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user(userId)));
+        when(identityPort.refreshTimeOf(userId)).thenReturn(LocalTime.of(4, 0));
         when(cardRepository.findByDeckIdOrderByCreatedAtAsc(deckId, PageRequest.of(0, 20)))
                 .thenReturn(new PageImpl<>(List.of(card)));
 
@@ -80,7 +79,7 @@ class CardServiceTest {
         Card card = card(deckId, userId);
         card.setNextReviewDate(today);
         when(deckRepository.existsByIdAndUserId(deckId, userId)).thenReturn(true);
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user(userId)));
+        when(identityPort.refreshTimeOf(userId)).thenReturn(LocalTime.of(4, 0));
         when(cardRepository.findByDeckIdAndNextReviewDateNotNullAndNextReviewDateLessThanEqualOrderByNextReviewDateAsc(
                 deckId, today, PageRequest.of(0, 20))).thenReturn(new PageImpl<>(List.of(card)));
 
@@ -97,7 +96,7 @@ class CardServiceTest {
         card.setLearningMode(true);
         card.setReentryStage(4);
         when(deckRepository.existsByIdAndUserId(deckId, userId)).thenReturn(true);
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user(userId)));
+        when(identityPort.refreshTimeOf(userId)).thenReturn(LocalTime.of(4, 0));
         when(cardRepository.findByDeckIdAndLearningModeTrueOrderByCreatedAtAsc(deckId, PageRequest.of(0, 20)))
                 .thenReturn(new PageImpl<>(List.of(card)));
 
@@ -112,7 +111,7 @@ class CardServiceTest {
         UUID deckId = UUID.randomUUID();
         Card card = card(deckId, userId);
         when(deckRepository.existsByIdAndUserId(deckId, userId)).thenReturn(true);
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user(userId)));
+        when(identityPort.refreshTimeOf(userId)).thenReturn(LocalTime.of(4, 0));
         when(cardRepository.findNewByDeckIdOrderByCreatedAtDesc(deckId, PageRequest.of(0, 20)))
                 .thenReturn(new PageImpl<>(List.of(card)));
 
@@ -142,7 +141,7 @@ class CardServiceTest {
         UUID deckId = UUID.randomUUID();
         Card card = card(deckId, userId);
         when(deckRepository.existsByIdAndUserId(deckId, userId)).thenReturn(true);
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user(userId)));
+        when(identityPort.refreshTimeOf(userId)).thenReturn(LocalTime.of(4, 0));
         when(cardRepository.findByDeckIdOrderByCreatedAtAsc(deckId, PageRequest.of(0, 20)))
                 .thenReturn(new PageImpl<>(List.of(card)));
 
@@ -158,7 +157,7 @@ class CardServiceTest {
         UUID deckId = UUID.randomUUID();
         Card card = card(deckId, userId);
         when(deckRepository.existsByIdAndUserId(deckId, userId)).thenReturn(true);
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user(userId)));
+        when(identityPort.refreshTimeOf(userId)).thenReturn(LocalTime.of(4, 0));
         when(cardRepository.searchByDeckIdOrderByCreatedAtAsc(deckId, "%词%", PageRequest.of(0, 20)))
                 .thenReturn(new PageImpl<>(List.of(card)));
 
@@ -177,7 +176,7 @@ class CardServiceTest {
         Card card = card(deckId, userId);
         card.setNextReviewDate(today);
         when(deckRepository.existsByIdAndUserId(deckId, userId)).thenReturn(true);
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user(userId)));
+        when(identityPort.refreshTimeOf(userId)).thenReturn(LocalTime.of(4, 0));
         when(cardRepository.searchByDeckIdAndNextReviewDateNotNullAndNextReviewDateLessThanEqualOrderByNextReviewDateAsc(
                 deckId, today, "%到期%", PageRequest.of(0, 20)))
                 .thenReturn(new PageImpl<>(List.of(card)));
@@ -197,7 +196,7 @@ class CardServiceTest {
         Card card = card(deckId, userId);
         card.setLearningMode(true);
         when(deckRepository.existsByIdAndUserId(deckId, userId)).thenReturn(true);
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user(userId)));
+        when(identityPort.refreshTimeOf(userId)).thenReturn(LocalTime.of(4, 0));
         when(cardRepository.searchByDeckIdAndLearningModeTrueOrderByCreatedAtAsc(
                 deckId, "%重学%", PageRequest.of(0, 20)))
                 .thenReturn(new PageImpl<>(List.of(card)));
@@ -214,7 +213,7 @@ class CardServiceTest {
         UUID deckId = UUID.randomUUID();
         Card card = card(deckId, userId);
         when(deckRepository.existsByIdAndUserId(deckId, userId)).thenReturn(true);
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user(userId)));
+        when(identityPort.refreshTimeOf(userId)).thenReturn(LocalTime.of(4, 0));
         when(cardRepository.searchNewByDeckIdOrderByCreatedAtDesc(
                 deckId, "%新卡%", PageRequest.of(0, 20)))
                 .thenReturn(new PageImpl<>(List.of(card)));
@@ -232,7 +231,7 @@ class CardServiceTest {
         UUID deckId = UUID.randomUUID();
         Card card = card(deckId, userId);
         when(deckRepository.existsByIdAndUserId(deckId, userId)).thenReturn(true);
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user(userId)));
+        when(identityPort.refreshTimeOf(userId)).thenReturn(LocalTime.of(4, 0));
         when(cardRepository.searchByDeckIdOrderByCreatedAtAsc(
                 eq(deckId), any(String.class), any(PageRequest.class)))
                 .thenReturn(new PageImpl<>(List.of(card)));
@@ -270,7 +269,7 @@ class CardServiceTest {
         request.setFront("正面");
         request.setBack("反面");
         when(deckRepository.findByIdAndUserId(deckId, userId)).thenReturn(Optional.of(deck));
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user(userId)));
+        when(identityPort.refreshTimeOf(userId)).thenReturn(LocalTime.of(4, 0));
         when(cardRepository.save(any(Card.class))).thenAnswer(invocation -> {
             Card card = invocation.getArgument(0);
             card.setId(cardId);
@@ -312,7 +311,7 @@ class CardServiceTest {
         card.setId(cardId);
         card.setStage(3);
         when(cardRepository.findByIdAndUserId(cardId, userId)).thenReturn(Optional.of(card));
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user(userId)));
+        when(identityPort.refreshTimeOf(userId)).thenReturn(LocalTime.of(4, 0));
         when(cardRepository.save(card)).thenReturn(card);
         CardUpdateRequest request = new CardUpdateRequest();
         request.setFront("新正面");
@@ -351,7 +350,7 @@ class CardServiceTest {
         card.setId(cardId);
         card.setNextReviewDate(today);
         when(cardRepository.findByIdAndUserId(cardId, userId)).thenReturn(Optional.of(card));
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user(userId)));
+        when(identityPort.refreshTimeOf(userId)).thenReturn(LocalTime.of(4, 0));
 
         CardResponse response = service.getCard(userId, cardId);
 
@@ -411,11 +410,6 @@ class CardServiceTest {
         assertEquals(404, exception.getCode());
     }
 
-    private User user(UUID userId) {
-        User user = new User();
-        user.setId(userId);
-        return user;
-    }
 
     private Card card(UUID deckId, UUID userId) {
         Card card = new Card();

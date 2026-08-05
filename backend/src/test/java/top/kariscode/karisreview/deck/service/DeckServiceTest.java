@@ -5,8 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import top.kariscode.karisreview.auth.entity.User;
-import top.kariscode.karisreview.auth.repository.UserRepository;
+import top.kariscode.karisreview.auth.api.IdentityPort;
 import top.kariscode.karisreview.card.repository.CardRepository;
 import top.kariscode.karisreview.common.exception.BusinessException;
 import top.kariscode.karisreview.common.util.DateUtils;
@@ -39,13 +38,13 @@ class DeckServiceTest {
     private CardRepository cardRepository;
 
     @Mock
-    private UserRepository userRepository;
+    private IdentityPort identityPort;
 
     private DeckService service;
 
     @BeforeEach
     void setUp() {
-        service = new DeckService(deckRepository, cardRepository, userRepository);
+        service = new DeckService(deckRepository, cardRepository, identityPort);
     }
 
     @Test
@@ -53,7 +52,7 @@ class DeckServiceTest {
         UUID userId = UUID.randomUUID();
         UUID deckId = UUID.randomUUID();
         Deck deck = deck(deckId, "日语 N5", userId);
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user(userId)));
+        when(identityPort.refreshTimeOf(userId)).thenReturn(LocalTime.of(4, 0));
         when(deckRepository.findByUserIdOrderByCreatedAtAsc(userId)).thenReturn(List.of(deck));
         when(cardRepository.countByDeckId(deckId)).thenReturn(3L);
         when(cardRepository.countDueByDeckId(deckId, DateUtils.calculateToday(LocalTime.of(4, 0))))
@@ -85,7 +84,7 @@ class DeckServiceTest {
         UUID deckId = UUID.randomUUID();
         DeckCreateRequest request = new DeckCreateRequest();
         request.setName("新牌组");
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user(userId)));
+        when(identityPort.refreshTimeOf(userId)).thenReturn(LocalTime.of(4, 0));
         when(deckRepository.save(any(Deck.class))).thenAnswer(invocation -> {
             Deck deck = invocation.getArgument(0);
             deck.setId(deckId);
@@ -105,7 +104,7 @@ class DeckServiceTest {
         UUID userId = UUID.randomUUID();
         UUID deckId = UUID.randomUUID();
         Deck deck = deck(deckId, "旧名", userId);
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user(userId)));
+        when(identityPort.refreshTimeOf(userId)).thenReturn(LocalTime.of(4, 0));
         when(deckRepository.findByIdAndUserId(deckId, userId)).thenReturn(Optional.of(deck));
         when(deckRepository.save(deck)).thenReturn(deck);
         DeckUpdateRequest request = new DeckUpdateRequest();
@@ -159,11 +158,6 @@ class DeckServiceTest {
         assertNotNull(exception.getMessage());
     }
 
-    private User user(UUID userId) {
-        User user = new User();
-        user.setId(userId);
-        return user;
-    }
 
     private Deck deck(UUID id, String name, UUID userId) {
         Deck deck = new Deck();

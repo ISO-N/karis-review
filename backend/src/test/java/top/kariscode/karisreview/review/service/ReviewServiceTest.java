@@ -5,8 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import top.kariscode.karisreview.auth.entity.User;
-import top.kariscode.karisreview.auth.repository.UserRepository;
+import top.kariscode.karisreview.auth.api.IdentityPort;
 import top.kariscode.karisreview.card.entity.Card;
 import top.kariscode.karisreview.card.repository.CardRepository;
 import top.kariscode.karisreview.common.exception.BusinessException;
@@ -49,7 +48,7 @@ class ReviewServiceTest {
     private ReviewLogRepository reviewLogRepository;
 
     @Mock
-    private UserRepository userRepository;
+    private IdentityPort identityPort;
 
     @Mock
     private SchedulingEngine schedulingEngine;
@@ -63,13 +62,25 @@ class ReviewServiceTest {
     @Mock
     private UserLogService userLogService;
 
+    @Mock
+    private top.kariscode.karisreview.common.outbox.OutboxPublisher outboxPublisher;
+
+    private final com.fasterxml.jackson.databind.ObjectMapper objectMapper =
+            new com.fasterxml.jackson.databind.ObjectMapper();
+
     private ReviewService service;
 
     @BeforeEach
     void setUp() {
         service = new ReviewService(
-                cardRepository, reviewLogRepository, userRepository, schedulingEngine,
-                reviewSessionRepository, reviewQueueItemRepository, userLogService);
+                cardRepository, reviewLogRepository, identityPort, schedulingEngine,
+                reviewSessionRepository, reviewQueueItemRepository, userLogService,
+                outboxPublisher, objectMapper);
+        // 未显式 stub 的测试用例回退默认刷新时间（原 UserRepository.findById 由 Mockito 返回 empty，
+        // 而 LocalTime 返回类型默认是 null，这里统一兜底）
+        org.mockito.Mockito.lenient()
+                .when(identityPort.refreshTimeOf(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(java.time.LocalTime.of(4, 0));
     }
 
     @Test
@@ -81,7 +92,7 @@ class ReviewServiceTest {
         Card dueC = card("C", deckId, userId, 2, false, 0);
         Card learning1 = card("L1", deckId, userId, 0, true, 0);
         Card learning2 = card("L2", deckId, userId, 0, true, 1);
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user()));
+        when(identityPort.refreshTimeOf(userId)).thenReturn(LocalTime.of(4, 0));
         when(cardRepository.findDueCards(userId, DateUtils.calculateToday(LocalTime.of(4, 0)), deckId))
                 .thenReturn(List.of(dueA, dueB, dueC));
         when(cardRepository.findLearningModeCards(
@@ -115,7 +126,7 @@ class ReviewServiceTest {
         card.setId(cardId);
         card.setStage(0);
         when(cardRepository.findByIdAndUserIdForUpdate(cardId, userId)).thenReturn(Optional.of(card));
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user()));
+        when(identityPort.refreshTimeOf(userId)).thenReturn(LocalTime.of(4, 0));
         SchedulingEngine.RatingResult result = result(0, 1, false, 0);
         when(schedulingEngine.rateFamiliar(card, LocalTime.of(4, 0))).thenReturn(result);
         when(cardRepository.save(card)).thenReturn(card);
@@ -138,7 +149,7 @@ class ReviewServiceTest {
         card.setId(cardId);
         card.setStage(4);
         when(cardRepository.findByIdAndUserIdForUpdate(cardId, userId)).thenReturn(Optional.of(card));
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user()));
+        when(identityPort.refreshTimeOf(userId)).thenReturn(LocalTime.of(4, 0));
         SchedulingEngine.RatingResult result = result(4, 0, true, 0);
         when(schedulingEngine.rateForget(card, LocalTime.of(4, 0))).thenReturn(result);
         when(cardRepository.save(card)).thenReturn(card);
@@ -193,7 +204,7 @@ class ReviewServiceTest {
         card.setUserId(userId);
         card.setStage(3);
         card.setReviewVersion(3);
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user()));
+        when(identityPort.refreshTimeOf(userId)).thenReturn(LocalTime.of(4, 0));
         when(reviewLogRepository.findByUserIdAndClientRequestIdIn(userId, List.of("request-1")))
                 .thenReturn(List.of());
         when(cardRepository.findByIdInAndUserIdForUpdate(List.of(cardId), userId))
@@ -216,7 +227,7 @@ class ReviewServiceTest {
         existing.setClientRequestId("request-1");
         existing.setCardId(cardId);
         existing.setRating("FAMILIAR");
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user()));
+        when(identityPort.refreshTimeOf(userId)).thenReturn(LocalTime.of(4, 0));
         when(reviewLogRepository.findByUserIdAndClientRequestIdIn(userId, List.of("request-1")))
                 .thenReturn(List.of(existing));
 
@@ -237,7 +248,7 @@ class ReviewServiceTest {
         card.setUserId(userId);
         card.setStage(0);
         card.setReviewVersion(0);
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user()));
+        when(identityPort.refreshTimeOf(userId)).thenReturn(LocalTime.of(4, 0));
         when(reviewLogRepository.findByUserIdAndClientRequestIdIn(userId, List.of("request-1")))
                 .thenReturn(List.of());
         when(cardRepository.findByIdInAndUserIdForUpdate(List.of(cardId), userId))
@@ -330,7 +341,7 @@ class ReviewServiceTest {
     void syncRatingsReturnsCardNotFound() {
         UUID userId = UUID.randomUUID();
         UUID cardId = UUID.randomUUID();
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user()));
+        when(identityPort.refreshTimeOf(userId)).thenReturn(LocalTime.of(4, 0));
         when(reviewLogRepository.findByUserIdAndClientRequestIdIn(userId, List.of("request-1")))
                 .thenReturn(List.of());
         when(cardRepository.findByIdInAndUserIdForUpdate(List.of(cardId), userId))
@@ -352,7 +363,7 @@ class ReviewServiceTest {
         existing.setClientRequestId("request-1");
         existing.setCardId(cardId);
         existing.setRating("FAMILIAR");
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user()));
+        when(identityPort.refreshTimeOf(userId)).thenReturn(LocalTime.of(4, 0));
         when(reviewLogRepository.findByUserIdAndClientRequestIdIn(userId, List.of("request-1")))
                 .thenReturn(List.of(existing));
 
@@ -380,9 +391,6 @@ class ReviewServiceTest {
         return request;
     }
 
-    private User user() {
-        return new User();
-    }
 
     private Card card(String front, UUID deckId, UUID userId, int stage,
                       boolean learning, int learningStep) {
