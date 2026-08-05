@@ -35,6 +35,36 @@ services:
       POSTGRES_DB: karis_review
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?请在 .env.prod 中设置 POSTGRES_PASSWORD}"
+    # 性能参数按 4GB 内存服务器估算；内存不同请等比调整：
+    # shared_buffers ≈ 内存 25%、effective_cache_size ≈ 内存 75%
+    command:
+      - "postgres"
+      - "-c"
+      - "shared_buffers=1GB"
+      - "-c"
+      - "effective_cache_size=3GB"
+      - "-c"
+      - "work_mem=16MB"
+      - "-c"
+      - "maintenance_work_mem=256MB"
+      - "-c"
+      - "wal_buffers=16MB"
+      - "-c"
+      - "checkpoint_completion_target=0.9"
+      - "-c"
+      - "autovacuum=on"
+      - "-c"
+      - "autovacuum_vacuum_scale_factor=0.05"
+      - "-c"
+      - "autovacuum_analyze_scale_factor=0.02"
+      - "-c"
+      - "shared_preload_libraries=pg_stat_statements"
+      - "-c"
+      - "pg_stat_statements.max=10000"
+      - "-c"
+      - "pg_stat_statements.track=all"
+    # macOS / WSL 下默认 /dev/shm 仅 64MB，可能限制并行查询；Linux 上无副作用
+    shm_size: "1gb"
     volumes:
       - karis-review-prod-pgdata:/var/lib/postgresql/data
     healthcheck:
