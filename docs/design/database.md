@@ -268,7 +268,65 @@ src/main/resources/db/migration/
 ├── V9__add_sync_events.sql
 ├── V10__add_card_search_indexes.sql
 ├── V11__create_user_logs.sql
-└── V12__create_email_verification_codes.sql
+├── V12__create_email_verification_codes.sql
+├── V13__performance_optimizations.sql       # 索引 + 触发器优化 + 清理策略
+└── V14__fix_sync_trigger_existence_check.sql # 修复 V13 触发器的级联删除外键问题
+
+迁移约定：
+- `ddl-auto=none`，schema 完全由 Flyway 管理；改表必须新增迁移脚本，不能修改已提交脚本。
+- 生产大表建索引建议手动执行 `CREATE INDEX CONCURRENTLY`（不能放在事务内），脚本中的索引均带 `IF NOT EXISTS` 可安全跳过。
+
+## 4.1 索引设计
+
+### 全部索引清单
+
+| 表 | 索引 | 服务查询 |
+|----|------|----------|
+| users | `email` (UNIQUE) | 登录/注册按邮箱定位 |
+| decks | `idx_decks_user_id (user_id)` | 按用户查卡组 |
+| cards | `idx_cards_deck_id (deck_id)` | 卡组下卡片 |
+| cards | `idx_cards_user_id (user_id)` | 按用户查卡片 |
+| cards | `idx_cards_next_review (user_id, next_review_date) WHERE next_review_date IS NOT NULL` | **复习队列**：due 卡片 + 排序（V3） |
+| cards | `idx_cards_deck_created (deck_id, created_at)` | 卡片列表分页（all/new/learning 筛选共用排序，V13） |
+| cards | `idx_cards_user_stage_learning (user_id, stage, learning_mode, created_at)` | 新卡队列 + 统计聚合 Index Only Scan（V13） |
+| cards | `idx_cards_deck_due (deck_id, next_review_date) WHERE next_review_date IS NOT NULL` | 卡组 due 筛选（V13） |
+| cards | `idx_cards_user_learning_due (user_id, next_review_date) WHERE learning_mode AND next_review_date IS NOT NULL` | 重学队列（V13） |
+| cards | `idx_cards_front_search_trgm` / `idx_cards_back_search_trgm`（GIN trgm） | 卡片正反面 `%keyword%` 搜索（V10） |
+| review_logs | `idx_review_logs_card_id (card_id)` | 按卡查日志 |
+| review_logs | `idx_review_logs_user_id (user_id)` | 按用户查日志 |
+| review_logs | `idx_review_logs_reviewed_at (user_id, reviewed_at)` | 当日统计/趋势 |
+| review_logs | `idx_review_logs_user_card (user_id, card_id)` | 卡组今日复习统计 semi-join（V13） |
+| review_logs | `idx_review_logs_user_client_request` (UNIQUE 部分) | 评分幂等 |
+| sync_events | `idx_sync_events_seq` (UNIQUE) / `idx_sync_events_user_seq (user_id, event_seq)` | 增量游标 |
+| review_sessions / review_queue_items | session 相关索引 | 会话分页 |
+| backup_snapshots / email_verification_codes | user_id / expires_at | 查询与清理 |
+| user_logs | user_id / created_at | 查询与清理 |
+
+### 设计要点
+
+- **索引可反向扫描**：`ORDER BY created_at DESC` 无需单独建 DESC 索引，`(deck_id, created_at)` 一条同时服务 ASC/DESC。
+- **复习队列排序必须按列而非表达式**：`ORDER BY (next_review_date - :today) DESC` 等价于 `ORDER BY next_review_date ASC`（today 是常量），后者才能命中 `idx_cards_next_review` 消除 Sort。`CardRepository.findDueCards` 已按此实现。
+- **统计走 Index Only Scan**：`StatsService.getOverview` 用单条原生聚合 `aggregateOverviewStats`（按 stage 分组 + `FILTER` 计数），配合 `idx_cards_user_stage_learning` 一条索引覆盖全部统计，替代原来 7+ 条独立 COUNT。
+- **trgm 搜索局限**：`%pattern%` 中 pattern 少于 3 个字符时 GIN trgm 索引失效，退化为顺序扫描；短词搜索在应用层限制长度。
+- **索引写放大控制**：部分索引（`WHERE ...`）只维护有价值的子集，避免为全表维护低频查询索引。
+
+## 4.2 数据保留与定期清理
+
+| 表 | 保留策略 | 清理任务 | 调度 |
+|----|----------|----------|------|
+| user_logs | 30 天 | `UserLogService.cleanupOldLogs()` | 每天 03:00 |
+| sync_events | 60 天 | `SyncService.cleanupOldSyncEvents()` | 每天 03:30 |
+| email_verification_codes | 过期后 7 天 | `PasswordResetCodeService.cleanupExpiredCodes()` | 每天 03:40 |
+| backup_snapshots | 每用户最近 7 份 | `BackupService.cleanupOldSnapshots()` | 每天 03:50 |
+
+> ⚠️ `sync_events` 是写放大最严重的表（每次评分 2 条）。清理后，长时间未同步的客户端增量游标会失效，`SyncService.deltaBootstrap` 通过 `minSeq`/`latestSeq` 检查自动降级为全量同步，不破坏增量一致性。
+
+## 4.3 sync_events 触发器说明
+
+`record_sync_event()` 触发器在 decks/cards/review_logs/users 变更时写入事件：
+
+- **INSERT/UPDATE**：外键保证用户存在，直接写事件（零额外查询）。
+- **DELETE（含 users 表自身）**：必须检查 `EXISTS (SELECT 1 FROM users ...)`——`DELETE FROM users` 的级联删除会在用户行删除后执行子表 AFTER DELETE 触发器，此时写事件会违反 `sync_events_user_id_fkey`（V14 修复，V13 曾因移除该检查导致系统测试全量失败）。
 
 ## 5. 关键查询说明
 
