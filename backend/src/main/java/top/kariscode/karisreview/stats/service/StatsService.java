@@ -49,18 +49,44 @@ public class StatsService {
         LocalDateTime refreshEnd = today.plusDays(1).atTime(refreshTime);
 
         OverviewStatsResponse stats = new OverviewStatsResponse();
-        stats.setTotalCards(cardRepository.countByUserId(userId));
+
+        // 一次聚合查询产出：总量、各 stage 分布、due 分布、学习卡、熟练卡、新卡
+        // （替代原来的 7+ 条独立 COUNT，配合 (user_id, stage, learning_mode) 索引走 Index Only Scan）
+        long totalCards = 0;
+        long dueToday = 0;
+        long masteredCards = 0;
+        long newCards = 0;
+        long learningCards = 0;
+        List<Long> stageDistribution = new ArrayList<>(List.of(0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L));
+        List<Long> dueStageDistribution = new ArrayList<>(List.of(0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L));
+        for (Object[] row : cardRepository.aggregateOverviewStats(userId, today)) {
+            int stage = ((Number) row[0]).intValue();
+            long total = ((Number) row[1]).longValue();
+            long learning = ((Number) row[2]).longValue();
+            long mastered = ((Number) row[3]).longValue();
+            long fresh = ((Number) row[4]).longValue();
+            long due = ((Number) row[5]).longValue();
+            totalCards += total;
+            dueToday += due;
+            masteredCards += mastered;
+            newCards += fresh;
+            learningCards += learning;
+            if (stage >= 0 && stage <= 8) {
+                stageDistribution.set(stage, stageDistribution.get(stage) + total);
+                dueStageDistribution.set(stage, dueStageDistribution.get(stage) + due);
+            }
+        }
+
+        stats.setTotalCards(totalCards);
         stats.setTotalDecks(deckRepository.countByUserId(userId));
-        stats.setDueToday(cardRepository.countDueToday(userId, today));
+        stats.setDueToday(dueToday);
         stats.setReviewedToday(reviewLogRepository.countReviewedToday(userId, refreshStart, refreshEnd));
         stats.setLearnedToday(reviewLogRepository.countLearnedToday(userId, refreshStart, refreshEnd));
-        stats.setMasteredCards(cardRepository.countByUserIdAndStageGreaterThanEqual(userId, 5));
-        stats.setNewCards(cardRepository.countNewByUserId(userId));
-        stats.setLearningCards(cardRepository.countByUserIdAndStageLessThan(userId, 5)
-                - cardRepository.countByUserIdAndStageLessThan(userId, 0));
-        stats.setStageDistribution(distributionFromRows(cardRepository.countByStageGrouped(userId)));
-        stats.setDueStageDistribution(distributionFromRows(
-                cardRepository.countDueByStageGrouped(userId, today)));
+        stats.setMasteredCards(masteredCards);
+        stats.setNewCards(newCards);
+        stats.setLearningCards(learningCards);
+        stats.setStageDistribution(stageDistribution);
+        stats.setDueStageDistribution(dueStageDistribution);
         return stats;
     }
 

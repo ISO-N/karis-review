@@ -5,6 +5,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import top.kariscode.karisreview.auth.entity.User;
 import top.kariscode.karisreview.auth.repository.UserRepository;
 import top.kariscode.karisreview.card.entity.Card;
@@ -70,8 +72,9 @@ class SyncServiceTest {
         ReviewLog log = reviewLog(userId, card.getId());
         when(userRepository.findById(userId)).thenReturn(Optional.of(user(userId)));
         when(deckRepository.findByUserIdOrderByCreatedAtAsc(userId)).thenReturn(List.of(deck));
-        when(cardRepository.findByDeckIdOrderByCreatedAtAsc(deckId)).thenReturn(List.of(card));
-        when(reviewLogRepository.findByUserIdOrderByReviewedAtDesc(userId)).thenReturn(List.of(log));
+        when(cardRepository.findByUserId(userId)).thenReturn(List.of(card));
+        when(reviewLogRepository.findByUserIdOrderByReviewedAtDesc(userId, PageRequest.of(0, 500)))
+                .thenReturn(new PageImpl<>(List.of(log), PageRequest.of(0, 500), 1));
         when(syncEventRepository.latestSeq(userId)).thenReturn(42L);
 
         BootstrapResponse response = service.getBootstrap(userId, 0);
@@ -97,6 +100,7 @@ class SyncServiceTest {
         ReviewLog newLog = reviewLog(userId, cardId);
         when(userRepository.findById(userId)).thenReturn(Optional.of(user(userId)));
         when(syncEventRepository.latestSeq(userId)).thenReturn(30L);
+        when(syncEventRepository.minSeq(userId)).thenReturn(5L);
         when(syncEventRepository.findAfter(userId, 10L, 500)).thenReturn(List.of(
                 new SyncEventRepository.SyncEventRow("decks", deckId, "UPDATED", 11L),
                 new SyncEventRepository.SyncEventRow("cards", cardId, "UPDATED", 12L),
@@ -123,6 +127,7 @@ class SyncServiceTest {
         UUID userId = UUID.randomUUID();
         when(userRepository.findById(userId)).thenReturn(Optional.of(user(userId)));
         when(syncEventRepository.latestSeq(userId)).thenReturn(30L);
+        when(syncEventRepository.minSeq(userId)).thenReturn(0L);
         when(syncEventRepository.findAfter(userId, 30L, 500)).thenReturn(List.of());
 
         BootstrapResponse response = service.getBootstrap(userId, 30L);
@@ -142,12 +147,35 @@ class SyncServiceTest {
         }
         when(userRepository.findById(userId)).thenReturn(Optional.of(user(userId)));
         when(syncEventRepository.latestSeq(userId)).thenReturn(700L);
+        when(syncEventRepository.minSeq(userId)).thenReturn(1L);
         when(syncEventRepository.findAfter(userId, 100L, 500)).thenReturn(rows);
 
         BootstrapResponse response = service.getBootstrap(userId, 100L);
 
         assertTrue(response.isHasMore());
         assertEquals(600L, response.getEventCursor());
+    }
+
+    @Test
+    void deltaBootstrapFallsBackToFullWhenCursorTrimmed() {
+        UUID userId = UUID.randomUUID();
+        UUID deckId = UUID.randomUUID();
+        Card card = card(deckId, userId, "正面");
+        Deck deck = deck(deckId, userId, "日语");
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user(userId)));
+        when(syncEventRepository.latestSeq(userId)).thenReturn(30L);
+        // 事件被清理：客户端游标早于最早保留事件
+        when(syncEventRepository.minSeq(userId)).thenReturn(20L);
+        when(deckRepository.findByUserIdOrderByCreatedAtAsc(userId)).thenReturn(List.of(deck));
+        when(cardRepository.findByUserId(userId)).thenReturn(List.of(card));
+        when(reviewLogRepository.findByUserIdOrderByReviewedAtDesc(userId, PageRequest.of(0, 500)))
+                .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 500), 0));
+
+        BootstrapResponse response = service.getBootstrap(userId, 10L);
+
+        assertEquals(1, response.getDecks().size());
+        assertFalse(response.isResetRequired());
+        verify(syncEventRepository, never()).findAfter(eq(userId), anyLong(), anyInt());
     }
 
     @Test
@@ -162,6 +190,15 @@ class SyncServiceTest {
         assertEquals(30L, response.getEventCursor());
         assertFalse(response.isHasMore());
         verify(syncEventRepository, never()).findAfter(eq(userId), anyLong(), anyInt());
+    }
+
+    @Test
+    void cleanupOldSyncEventsDeletesEventsOlderThanRetention() {
+        when(syncEventRepository.deleteOlderThan(any())).thenReturn(5);
+
+        service.cleanupOldSyncEvents();
+
+        verify(syncEventRepository).deleteOlderThan(any());
     }
 
     private User user(UUID id) {

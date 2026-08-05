@@ -57,3 +57,34 @@ flutter test --coverage
 flutter build web --release
 ```
 CI 中后端测试复用 GitHub Actions 的 PostgreSQL service；前端测试运行 `flutter analyze`、`flutter test --coverage` 与 release Web 构建。
+
+## 数据库性能验证
+
+性能优化（V13/V14 迁移 + 应用层批量改造，见 architecture.md §9 与 database.md §4）落地后，用 EXPLAIN 验证查询计划，重点确认**从 Seq Scan / Sort 变为 Index Scan**。本地开发库数据量小时优化器会合理选择 Seq Scan，需在预发布环境用真实数据量验证。
+
+```sql
+-- 1) 复习队列：期望 Index Scan using idx_cards_next_review，无 Sort 节点
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT * FROM cards
+WHERE user_id = 'xxx' AND next_review_date IS NOT NULL
+  AND next_review_date <= '2026-08-05' AND learning_mode = false
+ORDER BY next_review_date ASC LIMIT 50;
+
+-- 2) 新卡队列：期望 Index Scan using idx_cards_user_stage_learning
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT * FROM cards
+WHERE user_id = 'xxx' AND stage = 0 AND learning_mode = false
+ORDER BY created_at ASC LIMIT 10;
+
+-- 3) 统计聚合（StatsService.getOverview）：期望 Index Only Scan using idx_cards_user_stage_learning
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT stage, COUNT(*) AS total,
+       COUNT(*) FILTER (WHERE stage < 5) AS learning_cards,
+       COUNT(*) FILTER (WHERE NOT learning_mode AND stage >= 5) AS mastered,
+       COUNT(*) FILTER (WHERE stage = 0 AND NOT learning_mode) AS new_cards,
+       COUNT(*) FILTER (WHERE next_review_date IS NOT NULL
+                         AND next_review_date <= '2026-08-05') AS due
+FROM cards WHERE user_id = 'xxx' GROUP BY stage;
+```
+
+压测建议：构造 5k / 50k 卡片用户数据，对 `/api/review/sync`（50 条评分）、`/api/decks/{id}/cards`（分页+搜索）、`/api/stats/overview` 做改动前后对比。

@@ -348,6 +348,8 @@ log ───────► common
 
 `sync_events` 表由数据库触发器记录卡组、卡片、复习日志和用户设置的创建/更新/删除事件。客户端保存单调 `event_cursor`，增量请求只拉取变更实体、新增日志和删除 ID；游标不可用时通过 `reset_required` 回退全量同步。
 
+`sync_events` 保留 60 天（`SyncService.cleanupOldSyncEvents()` 每日清理，见 database.md §4.2）。清理后旧客户端游标可能指向已删除事件，`deltaBootstrap` 通过 `SyncEventRepository.minSeq()`/`latestSeq()` 判断：游标早于最早保留事件或事件被整体清空时，自动降级为全量同步（等价于 `reset_required`），保证增量一致性不因清理而破坏。
+
 ## 7.1 传输优化
 
 - 服务端开启 gzip 压缩，稳定列表/统计接口返回私有 ETag 并支持 304。
@@ -375,3 +377,50 @@ log ───────► common
 ## 8. 跨设备评分锁
 
 `cards.review_version` 是 JPA `@Version` 乐观锁字段。评分和同步接口在事务内用 `PESSIMISTIC_WRITE` 锁住卡片并校验版本，旧设备提交会得到冲突，不会重复排期。
+
+批量评分同步（`ReviewService.syncRatings`）使用批量锁：一次 `SELECT ... FOR UPDATE`（`CardRepository.findByIdInAndUserIdForUpdate`）锁住一批卡片，配合批量幂等检查（`ReviewLogRepository.findByUserIdAndClientRequestIdIn`）与 `saveAll` 批量落库，N 条评分从 4N+ 条 SQL 降到约 5 条；`refresh_time` 在循环外只取一次，避免每条评分点查 `users` 表。
+
+## 9. 部署与运行时调优
+
+### 9.1 连接池（HikariCP，`application-prod.properties`）
+
+- 池大小按 CPU 核数 × 2~4 估算（默认 `maximum-pool-size=16`，`minimum-idle=4`，可通过 `HIKARI_MAX_POOL_SIZE` 环境变量覆盖）。
+- `connection-timeout=30s`、`max-lifetime=30min`。
+- 连接初始化时执行 `SET statement_timeout = '30s'`（`connection-init-sql`），任何失控查询最多 30 秒被终止，避免无限占住连接池。
+
+### 9.2 JDBC 批处理（`application.properties`）
+
+`hibernate.jdbc.batch_size=50` + `order_inserts`/`order_updates`，批量导入（`CardImportService`/`BackupService.importData`）与批量评分同步合并为批次 INSERT/UPDATE，减少网络往返。
+
+### 9.3 PostgreSQL 容器参数（`docker-compose.prod.yaml`）
+
+以下按 4GB 内存服务器估算，实际按机器内存等比调整（`shared_buffers ≈ 25%`、`effective_cache_size ≈ 75%`）：
+
+| 参数 | 值 | 说明 |
+|------|-----|------|
+| shared_buffers | 1GB | 共享缓冲区 |
+| effective_cache_size | 3GB | 优化器缓存估算 |
+| work_mem | 16MB | 排序/哈希内存 |
+| maintenance_work_mem | 256MB | 建索引/清理 |
+| wal_buffers | 16MB | WAL 缓冲 |
+| checkpoint_completion_target | 0.9 | 平滑检查点 |
+| autovacuum_vacuum_scale_factor | 0.05 | 更积极的 autovacuum |
+| autovacuum_analyze_scale_factor | 0.02 | 更积极的 analyze |
+| shared_preload_libraries | pg_stat_statements | 慢查询监控 |
+| pg_stat_statements.max / track | 10000 / all | 监控采样 |
+
+`shm_size: 1gb`（macOS/WSL 下默认 `/dev/shm` 仅 64MB，可能限制并行查询；Linux 上无副作用）。
+
+### 9.4 慢查询监控
+
+启用 `pg_stat_statements` 后（需要重启容器）：
+
+```sql
+-- Top 慢查询（按平均执行时间）
+SELECT query, calls, mean_exec_time, max_exec_time, rows
+FROM pg_stat_statements
+ORDER BY mean_exec_time DESC
+LIMIT 20;
+```
+
+验证模板见 testing.md §数据库性能验证。

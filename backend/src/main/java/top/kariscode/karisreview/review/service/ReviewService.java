@@ -38,6 +38,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 public class ReviewService {
@@ -168,52 +169,93 @@ public class ReviewService {
 
     @Transactional
     public ReviewSyncResponse syncRatings(UUID userId, ReviewSyncRequest request) {
-        List<ReviewSyncItemResult> results = new ArrayList<>();
+        List<ReviewSyncItem> items = request.getItems() == null ? List.of() : request.getItems();
+        List<ReviewSyncItemResult> results = new ArrayList<>(items.size());
         int synced = 0;
         int conflicts = 0;
         int missing = 0;
 
-        for (ReviewSyncItem item : request.getItems()) {
-            String clientRequestId = item.getClientRequestId();
-            Optional<ReviewLog> existing = clientRequestId == null || clientRequestId.isBlank()
-                    ? Optional.empty()
-                    : reviewLogRepository.findByUserIdAndClientRequestId(userId, clientRequestId);
+        // refresh_time 只取一次，避免循环内每条评分都点查 users 表
+        LocalTime refreshTime = getRefreshTime(userId);
+        LocalDate today = DateUtils.calculateToday(refreshTime);
 
-            if (existing.isPresent()) {
-                ReviewLog log = existing.get();
-                if (log.getCardId().equals(item.getCardId()) && log.getRating().equals(item.getRating())) {
-                    results.add(new ReviewSyncItemResult(
-                            clientRequestId, "ALREADY_SYNCED", null));
-                    continue;
-                }
-                results.add(new ReviewSyncItemResult(
-                        clientRequestId, "CONFLICT", null));
-                conflicts++;
+        // 1) 幂等检查批量化：一次 IN 查询替代逐条查询
+        List<String> requestIds = items.stream()
+                .map(ReviewSyncItem::getClientRequestId)
+                .filter(s -> s != null && !s.isBlank())
+                .toList();
+        Map<String, ReviewLog> existingById = requestIds.isEmpty() ? Map.of()
+                : reviewLogRepository.findByUserIdAndClientRequestIdIn(userId, requestIds).stream()
+                        .collect(Collectors.toMap(ReviewLog::getClientRequestId, l -> l, (a, b) -> a));
+
+        Map<Integer, ReviewSyncItemResult> resultByIndex = new HashMap<>();
+        List<Integer> pendingIndices = new ArrayList<>();
+        for (int i = 0; i < items.size(); i++) {
+            ReviewSyncItem item = items.get(i);
+            String clientRequestId = item.getClientRequestId();
+            ReviewLog existing = (clientRequestId == null || clientRequestId.isBlank())
+                    ? null
+                    : existingById.get(clientRequestId);
+            if (existing == null) {
+                pendingIndices.add(i);
                 continue;
             }
+            if (existing.getCardId().equals(item.getCardId()) && existing.getRating().equals(item.getRating())) {
+                resultByIndex.put(i, new ReviewSyncItemResult(clientRequestId, "ALREADY_SYNCED", null));
+            } else {
+                resultByIndex.put(i, new ReviewSyncItemResult(clientRequestId, "CONFLICT", null));
+                conflicts++;
+            }
+        }
 
-            Card card = cardRepository.findByIdAndUserIdForUpdate(item.getCardId(), userId)
-                    .orElse(null);
+        // 2) 需要落库的卡片一次批量加锁（SELECT ... FOR UPDATE），替代逐条加锁
+        List<UUID> pendingCardIds = pendingIndices.stream()
+                .map(items::get)
+                .map(ReviewSyncItem::getCardId)
+                .distinct()
+                .toList();
+        Map<UUID, Card> cardMap = pendingCardIds.isEmpty() ? Map.of()
+                : cardRepository.findByIdInAndUserIdForUpdate(pendingCardIds, userId).stream()
+                        .collect(Collectors.toMap(Card::getId, c -> c, (a, b) -> a));
+
+        // 3) 内存中完成排期计算，最后批量落库
+        List<Card> cardsToSave = new ArrayList<>();
+        List<ReviewLog> logsToSave = new ArrayList<>();
+        for (int idx : pendingIndices) {
+            ReviewSyncItem item = items.get(idx);
+            String clientRequestId = item.getClientRequestId();
+            Card card = cardMap.get(item.getCardId());
             if (card == null) {
-                results.add(new ReviewSyncItemResult(
-                        clientRequestId, "CARD_NOT_FOUND", null));
+                resultByIndex.put(idx, new ReviewSyncItemResult(clientRequestId, "CARD_NOT_FOUND", null));
                 missing++;
                 continue;
             }
-
             if (card.getReviewVersion() != item.getReviewVersion()) {
-                results.add(new ReviewSyncItemResult(
-                        clientRequestId, "CONFLICT", toReviewCardResponse(card)));
+                resultByIndex.put(idx,
+                        new ReviewSyncItemResult(clientRequestId, "CONFLICT", toReviewCardResponse(card)));
                 conflicts++;
                 continue;
             }
-
-            applyRating(
+            RatingOutcome outcome = computeRating(
                     userId, item.getCardId(), card, item.getRating(),
-                    clientRequestId, DateUtils.toBusinessLocalDateTime(item.getRatedAt()));
-            results.add(new ReviewSyncItemResult(
-                    clientRequestId, "SYNCED", null));
+                    clientRequestId, DateUtils.toBusinessLocalDateTime(item.getRatedAt()),
+                    refreshTime, today);
+            cardsToSave.add(card);
+            logsToSave.add(outcome.log());
+            resultByIndex.put(idx, new ReviewSyncItemResult(clientRequestId, "SYNCED", null));
             synced++;
+        }
+
+        if (!cardsToSave.isEmpty()) {
+            cardRepository.saveAll(cardsToSave);
+        }
+        if (!logsToSave.isEmpty()) {
+            reviewLogRepository.saveAll(logsToSave);
+        }
+
+        // 4) 结果按请求顺序输出
+        for (int i = 0; i < items.size(); i++) {
+            results.add(resultByIndex.get(i));
         }
 
         userLogService.log(userId, "INFO", "SYNC", String.format(
@@ -257,8 +299,10 @@ public class ReviewService {
             throw new BusinessException(409, "review.conflict.version");
         }
 
+        LocalTime refreshTime = getRefreshTime(userId);
+        LocalDate today = DateUtils.calculateToday(refreshTime);
         return applyRating(userId, cardId, card, request.getRating(),
-                clientRequestId, DateUtils.now());
+                clientRequestId, DateUtils.now(), refreshTime, today);
     }
 
     @Scheduled(fixedDelay = 3600000)
@@ -269,9 +313,23 @@ public class ReviewService {
 
     private RateResponse applyRating(UUID userId, UUID cardId, Card card,
                                      String rating, String clientRequestId,
-                                     LocalDateTime reviewedAt) {
-        LocalTime refreshTime = getRefreshTime(userId);
-        LocalDate today = DateUtils.calculateToday(refreshTime);
+                                     LocalDateTime reviewedAt,
+                                     LocalTime refreshTime, LocalDate today) {
+        RatingOutcome outcome = computeRating(
+                userId, cardId, card, rating, clientRequestId, reviewedAt, refreshTime, today);
+        cardRepository.save(card);
+        reviewLogRepository.save(outcome.log());
+        return toRateResponse(cardId, rating, card, outcome.result(), today);
+    }
+
+    /**
+     * 纯内存计算评分结果（不落库）：调用方决定如何批量保存。
+     * 排期算法会就地修改 card 字段，同时返回需要写入的 ReviewLog。
+     */
+    private RatingOutcome computeRating(UUID userId, UUID cardId, Card card,
+                                        String rating, String clientRequestId,
+                                        LocalDateTime reviewedAt,
+                                        LocalTime refreshTime, LocalDate today) {
         boolean wasNewCard = card.getStage() == 0 && !card.isLearningMode();
         int overdueDays = card.getNextReviewDate() == null
                 ? 0
@@ -284,8 +342,6 @@ public class ReviewService {
             default -> throw new BusinessException(400, "review.rating.invalid");
         }
 
-        card = cardRepository.save(card);
-
         ReviewLog log = new ReviewLog();
         log.setCardId(cardId);
         log.setUserId(userId);
@@ -295,8 +351,12 @@ public class ReviewService {
         log.setNewCard(wasNewCard);
         log.setClientRequestId(clientRequestId);
         log.setReviewedAt(reviewedAt == null ? DateUtils.now() : reviewedAt);
-        reviewLogRepository.save(log);
 
+        return new RatingOutcome(log, result);
+    }
+
+    private RateResponse toRateResponse(UUID cardId, String rating, Card card,
+                                        SchedulingEngine.RatingResult result, LocalDate today) {
         int nextIntervalDays = result.getNextReviewDate() == null
                 ? 0
                 : (int) ChronoUnit.DAYS.between(today, result.getNextReviewDate());
@@ -310,6 +370,8 @@ public class ReviewService {
                 nextIntervalDays,
                 card.getReviewVersion());
     }
+
+    private record RatingOutcome(ReviewLog log, SchedulingEngine.RatingResult result) {}
 
     private List<Card> buildDueQueue(UUID userId, UUID deckId) {
         LocalTime refreshTime = getRefreshTime(userId);

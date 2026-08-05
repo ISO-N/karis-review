@@ -65,6 +65,12 @@ public interface CardRepository extends JpaRepository<Card, UUID> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT c FROM Card c WHERE c.id = :id AND c.userId = :userId")
     Optional<Card> findByIdAndUserIdForUpdate(@Param("id") UUID id, @Param("userId") UUID userId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT c FROM Card c WHERE c.id IN :ids AND c.userId = :userId")
+    List<Card> findByIdInAndUserIdForUpdate(@Param("ids") List<UUID> ids, @Param("userId") UUID userId);
+
+    List<Card> findByUserId(UUID userId);
     long countByDeckId(UUID deckId);
     long countByUserId(UUID userId);
     long countByDeckIdAndLearningModeTrue(UUID deckId);
@@ -97,7 +103,9 @@ public interface CardRepository extends JpaRepository<Card, UUID> {
            "AND c.nextReviewDate IS NOT NULL AND c.nextReviewDate <= :today " +
            "AND c.learningMode = false " +
            "AND (:deckId IS NULL OR c.deckId = :deckId) " +
-           "ORDER BY (c.nextReviewDate - :today) DESC, c.nextReviewDate ASC")
+           // 逾期优先（逾期天数降序）在数学上等价于 next_review_date 升序，
+           // 直接按列排序可命中 idx_cards_next_review 部分索引，消除 Sort 节点。
+           "ORDER BY c.nextReviewDate ASC")
     List<Card> findDueCards(@Param("userId") UUID userId,
                             @Param("today") LocalDate today,
                             @Param("deckId") UUID deckId);
@@ -128,4 +136,20 @@ public interface CardRepository extends JpaRepository<Card, UUID> {
     @Query("SELECT COUNT(c) FROM Card c WHERE c.userId = :userId " +
            "AND c.learningMode = true")
     long countByLearningMode(@Param("userId") UUID userId);
+
+    /**
+     * 用户级概览聚合：一次查询产出全部计数与分布，替代原来的 7+ 条独立 COUNT。
+     * 配合 idx_cards_user_stage_learning 复合索引可走 Index Only Scan。
+     * 列顺序: stage, total, learning_cards(stage<5), mastered(stage>=5 非学习),
+     *         new_cards(stage=0 非学习), due(next_review_date <= :today)
+     */
+    @Query(value = "SELECT stage, COUNT(*) AS total, " +
+                   "COUNT(*) FILTER (WHERE stage < 5) AS learning_cards, " +
+                   "COUNT(*) FILTER (WHERE NOT learning_mode AND stage >= 5) AS mastered, " +
+                   "COUNT(*) FILTER (WHERE stage = 0 AND NOT learning_mode) AS new_cards, " +
+                   "COUNT(*) FILTER (WHERE next_review_date IS NOT NULL " +
+                   "AND next_review_date <= :today) AS due " +
+                   "FROM cards WHERE user_id = :userId GROUP BY stage",
+           nativeQuery = true)
+    List<Object[]> aggregateOverviewStats(@Param("userId") UUID userId, @Param("today") LocalDate today);
 }

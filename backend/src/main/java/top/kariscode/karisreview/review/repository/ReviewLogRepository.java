@@ -1,5 +1,7 @@
 package top.kariscode.karisreview.review.repository;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -17,7 +19,13 @@ public interface ReviewLogRepository extends JpaRepository<ReviewLog, UUID> {
 
     List<ReviewLog> findByUserIdOrderByReviewedAtDesc(UUID userId);
 
+    Page<ReviewLog> findByUserIdOrderByReviewedAtDesc(UUID userId, Pageable pageable);
+
     Optional<ReviewLog> findByUserIdAndClientRequestId(UUID userId, String clientRequestId);
+
+    @Query("SELECT r FROM ReviewLog r WHERE r.userId = :userId AND r.clientRequestId IN :ids")
+    List<ReviewLog> findByUserIdAndClientRequestIdIn(@Param("userId") UUID userId,
+                                                     @Param("ids") List<String> ids);
 
     @Query("SELECT COUNT(r) FROM ReviewLog r WHERE r.userId = :userId " +
            "AND r.reviewedAt >= :startOfDay AND r.reviewedAt < :endOfDay " +

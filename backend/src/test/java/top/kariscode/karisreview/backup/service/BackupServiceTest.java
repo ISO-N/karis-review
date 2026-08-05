@@ -101,7 +101,7 @@ class BackupServiceTest {
         when(deckRepository.findByUserIdOrderByCreatedAtAsc(userId)).thenReturn(List.of(deck));
         when(cardRepository.findByDeckIdOrderByCreatedAtAsc(deckId)).thenReturn(List.of(card));
         when(reviewLogRepository.findByUserIdOrderByReviewedAtDesc(userId)).thenReturn(List.of(log));
-        when(cardRepository.findById(cardId)).thenReturn(Optional.of(card));
+        when(cardRepository.findAllById(any())).thenReturn(List.of(card));
         when(backupRepository.save(any(BackupSnapshot.class))).thenAnswer(invocation -> {
             BackupSnapshot snapshot = invocation.getArgument(0);
             snapshot.setId(UUID.randomUUID());
@@ -128,20 +128,15 @@ class BackupServiceTest {
     @Test
     void importDataDeletesExistingDataAndRestoresDecksCardsLogs() {
         UUID userId = UUID.randomUUID();
-        UUID existingDeckId = UUID.randomUUID();
-        Deck existing = new Deck();
-        existing.setId(existingDeckId);
-        existing.setUserId(userId);
-        when(deckRepository.findByUserIdOrderByCreatedAtAsc(userId)).thenReturn(List.of(existing));
         when(deckRepository.save(any(Deck.class))).thenAnswer(invocation -> {
             Deck deck = invocation.getArgument(0);
             deck.setId(UUID.randomUUID());
             return deck;
         });
-        when(cardRepository.save(any(Card.class))).thenAnswer(invocation -> {
-            Card card = invocation.getArgument(0);
-            card.setId(UUID.randomUUID());
-            return card;
+        when(cardRepository.saveAll(any())).thenAnswer(invocation -> {
+            List<Card> cards = invocation.getArgument(0);
+            cards.forEach(c -> c.setId(UUID.randomUUID()));
+            return cards;
         });
 
         Map<String, Object> data = Map.of(
@@ -167,25 +162,24 @@ class BackupServiceTest {
         assertEquals(1, result.get("imported_decks"));
         assertEquals(1, result.get("imported_cards"));
         assertEquals(1, result.get("imported_review_logs"));
-        ArgumentCaptor<ReviewLog> logCaptor = ArgumentCaptor.forClass(ReviewLog.class);
-        verify(reviewLogRepository).save(logCaptor.capture());
-        assertEquals(true, logCaptor.getValue().isNewCard());
-        verify(deckRepository).delete(existing);
+        ArgumentCaptor<List<ReviewLog>> logCaptor = ArgumentCaptor.forClass(List.class);
+        verify(reviewLogRepository).saveAll(logCaptor.capture());
+        assertEquals(true, logCaptor.getValue().get(0).isNewCard());
+        verify(deckRepository).deleteAllByUserId(userId);
     }
 
     @Test
     void importDataMatchesLogByFrontFallback() {
         UUID userId = UUID.randomUUID();
-        when(deckRepository.findByUserIdOrderByCreatedAtAsc(userId)).thenReturn(List.of());
         when(deckRepository.save(any(Deck.class))).thenAnswer(invocation -> {
             Deck deck = invocation.getArgument(0);
             deck.setId(UUID.randomUUID());
             return deck;
         });
-        when(cardRepository.save(any(Card.class))).thenAnswer(invocation -> {
-            Card card = invocation.getArgument(0);
-            card.setId(UUID.randomUUID());
-            return card;
+        when(cardRepository.saveAll(any())).thenAnswer(invocation -> {
+            List<Card> cards = invocation.getArgument(0);
+            cards.forEach(c -> c.setId(UUID.randomUUID()));
+            return cards;
         });
 
         Map<String, Object> data = Map.of(
@@ -201,37 +195,35 @@ class BackupServiceTest {
         Map<String, Object> result = service.importData(userId, data);
 
         assertEquals(1, result.get("imported_review_logs"));
-        ArgumentCaptor<ReviewLog> logCaptor = ArgumentCaptor.forClass(ReviewLog.class);
-        verify(reviewLogRepository).save(logCaptor.capture());
-        assertEquals(false, logCaptor.getValue().isNewCard());
+        ArgumentCaptor<List<ReviewLog>> logCaptor = ArgumentCaptor.forClass(List.class);
+        verify(reviewLogRepository).saveAll(logCaptor.capture());
+        assertEquals(false, logCaptor.getValue().get(0).isNewCard());
     }
 
     @Test
     void importDataIgnoresMissingDecksAndLogsWithoutError() {
         UUID userId = UUID.randomUUID();
-        when(deckRepository.findByUserIdOrderByCreatedAtAsc(userId)).thenReturn(List.of());
 
         Map<String, Object> result = service.importData(userId, Map.of());
 
         assertEquals(0, result.get("imported_decks"));
         assertEquals(0, result.get("imported_cards"));
         assertEquals(0, result.get("imported_review_logs"));
-        verify(cardRepository, never()).save(any());
+        verify(cardRepository, never()).saveAll(any());
     }
 
     @Test
     void importDataDoesNotImportLogWithoutMatchingCard() {
         UUID userId = UUID.randomUUID();
-        when(deckRepository.findByUserIdOrderByCreatedAtAsc(userId)).thenReturn(List.of());
         when(deckRepository.save(any(Deck.class))).thenAnswer(invocation -> {
             Deck deck = invocation.getArgument(0);
             deck.setId(UUID.randomUUID());
             return deck;
         });
-        when(cardRepository.save(any(Card.class))).thenAnswer(invocation -> {
-            Card card = invocation.getArgument(0);
-            card.setId(UUID.randomUUID());
-            return card;
+        when(cardRepository.saveAll(any())).thenAnswer(invocation -> {
+            List<Card> cards = invocation.getArgument(0);
+            cards.forEach(c -> c.setId(UUID.randomUUID()));
+            return cards;
         });
 
         Map<String, Object> data = Map.of(
@@ -244,5 +236,14 @@ class BackupServiceTest {
 
         assertEquals(1, result.get("imported_cards"));
         assertEquals(0, result.get("imported_review_logs"));
+    }
+
+    @Test
+    void cleanupOldSnapshotsKeepsLatestPerUser() {
+        when(backupRepository.deleteExcessSnapshots(7)).thenReturn(4);
+
+        service.cleanupOldSnapshots();
+
+        verify(backupRepository).deleteExcessSnapshots(7);
     }
 }
