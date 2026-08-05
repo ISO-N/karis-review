@@ -1,0 +1,24 @@
+# Prometheus 抓取配置（WP-3/G3）
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: 'karis-review-backend'
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ['backend:8080']
+        labels:
+          application: karis-review
+
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres-exporter:9187']
+
+  - job_name: 'caddy'
+    static_configs:
+      - targets: ['caddy:9765']
+
+  - job_name: 'loki'
+    static_configs:
+      - targets: ['loki:3100']

@@ -1,0 +1,72 @@
+# Caddy 网关配置（WP-6/WP-7/G7/G8）
+# 职责：TLS 终结、Flutter Web 静态托管（CDN 替代）、API 反代、认证接口限流
+# 生产环境：域名需替换 review.kariscode.top 为实际域名，自动申请 Let's Encrypt 证书
+
+# 生产域名入口（HTTPS 自动证书）
+review.kariscode.top {
+    encode gzip
+
+    # ---- API 反代到 Spring Boot ----
+    handle_path /api/* {
+        # 认证类接口限流：每 IP 每 60 秒最多 20 个请求（防爆破）
+        @auth_high_risk path /api/auth/register /api/auth/login \
+            /api/auth/register-code /api/auth/password/reset-code /api/auth/password/reset
+        rate_limit @auth_high_risk {
+            zone auth_high_risk
+            events 20
+            window 60s
+        }
+
+        # 全局 API 限流：每 IP 每 60 秒 300 个请求（应用层还有按用户限流兜底）
+        rate_limit {
+            zone api
+            events 300
+            window 60s
+        }
+
+        reverse_proxy backend:8080 {
+            # 透传真实 IP（配合应用层 X-Forwarded-For 解析）
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+        }
+    }
+
+    # ---- Flutter Web 静态托管（WP-7/G8）----
+    # 构建产物挂载到 /srv/web（flutter build web --release 产物）
+    handle {
+        root * /srv/web
+
+        # index.html 短缓存（每次发布后需刷新，通过 ETag 协商）
+        @index path /
+        header @index Cache-Control "no-cache"
+
+        # 带内容哈希的 assets 长缓存（Flutter 构建产物文件名含 hash）
+        @assets path /assets/*
+        header @assets Cache-Control "public, max-age=31536000, immutable"
+
+        # SPA 路由回退：非静态文件一律回退 index.html
+        try_files {path} /index.html
+
+        file_server
+    }
+
+    # ---- 健康检查（网关探活）----
+    handle_path /healthz {
+        respond "ok" 200
+    }
+}
+
+# 本地/内网调试入口（http://localhost，供 docker 内部健康检查）
+:80 {
+    encode gzip
+
+    handle_path /api/* {
+        reverse_proxy backend:8080
+    }
+
+    handle {
+        root * /srv/web
+        try_files {path} /index.html
+        file_server
+    }
+}

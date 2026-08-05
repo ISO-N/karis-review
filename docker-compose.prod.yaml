@@ -1,6 +1,34 @@
 name: karis-review-prod
 
+# ============================================================
+# 生产部署（阶段一可靠性基建后）：网关 + 多副本单体 + 数据库 PITR
+# + 对象存储备份 + Redis + 可观测性（Prometheus/Grafana/Loki）
+# ============================================================
+
 services:
+  # ---------- API 网关（Caddy）：TLS / 限流 / Flutter Web 托管 ----------
+  caddy:
+    image: caddy:2.8
+    container_name: karis-review-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./deploy/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./deploy/web:/srv/web:ro          # Flutter Web 构建产物（WP-7/G8）
+      - caddy-data:/data                  # Let's Encrypt 证书
+      - caddy-config:/config
+    depends_on:
+      - backend
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # ---------- 后端（Spring Boot，多副本水平扩展） ----------
   backend:
     image: ghcr.io/iso-n/karis-review-backend:latest
     container_name: karis-review-backend
@@ -21,12 +49,26 @@ services:
       MAIL_SMTP_SOCKS_HOST: "${MAIL_SMTP_SOCKS_HOST:-}"
       MAIL_SMTP_SOCKS_PORT: "${MAIL_SMTP_SOCKS_PORT:-}"
       MAIL_FROM: "${MAIL_FROM:-noreply@kariscode.top}"
-    ports:
-      - "${BACKEND_PORT:-8080}:8080"
+      # 备份存储：S3/MinIO（WP-1/G1）
+      BACKUP_STORAGE_TYPE: "${BACKUP_STORAGE_TYPE:-s3}"
+      BACKUP_S3_ENDPOINT: "${BACKUP_S3_ENDPOINT:-http://minio:9000}"
+      BACKUP_S3_ACCESS_KEY: "${MINIO_ROOT_USER:-karis-review}"
+      BACKUP_S3_SECRET_KEY: "${MINIO_ROOT_PASSWORD:?请在 .env.prod 中设置 MINIO_ROOT_PASSWORD}"
+      BACKUP_S3_BUCKET: "${BACKUP_S3_BUCKET:-karis-review-backups}"
+    volumes:
+      - backend-logs:/var/log/karis-review
     depends_on:
       postgres:
         condition: service_healthy
+      minio:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:8080/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
 
+  # ---------- PostgreSQL 主库（WAL 归档 → PITR） ----------
   postgres:
     image: postgres:16
     container_name: karis-review-postgres-prod
@@ -35,38 +77,27 @@ services:
       POSTGRES_DB: karis_review
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?请在 .env.prod 中设置 POSTGRES_PASSWORD}"
-    # 性能参数按 4GB 内存服务器估算；内存不同请等比调整：
-    # shared_buffers ≈ 内存 25%、effective_cache_size ≈ 内存 75%
+      # WAL 归档到独立卷（PITR 基础，WP-2/G2）
+      POSTGRES_INITDB_ARGS: "--data-checksums"
     command:
       - "postgres"
       - "-c"
-      - "shared_buffers=1GB"
+      - "wal_level=replica"
       - "-c"
-      - "effective_cache_size=3GB"
+      - "archive_mode=on"
       - "-c"
-      - "work_mem=16MB"
+      - "archive_command=test ! -f /wal_archive/%f && cp %p /wal_archive/%f"
       - "-c"
-      - "maintenance_work_mem=256MB"
+      - "archive_timeout=300"
       - "-c"
-      - "wal_buffers=16MB"
+      - "max_wal_senders=5"
       - "-c"
-      - "checkpoint_completion_target=0.9"
-      - "-c"
-      - "autovacuum=on"
-      - "-c"
-      - "autovacuum_vacuum_scale_factor=0.05"
-      - "-c"
-      - "autovacuum_analyze_scale_factor=0.02"
-      - "-c"
-      - "shared_preload_libraries=pg_stat_statements"
-      - "-c"
-      - "pg_stat_statements.max=10000"
-      - "-c"
-      - "pg_stat_statements.track=all"
-    # macOS / WSL 下默认 /dev/shm 仅 64MB，可能限制并行查询；Linux 上无副作用
-    shm_size: "1gb"
+      - "wal_keep_size=256"
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     volumes:
       - karis-review-prod-pgdata:/var/lib/postgresql/data
+      - karis-review-wal-archive:/wal_archive   # WAL 归档独立卷（建议异地/对象存储同步）
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d karis_review"]
       interval: 10s
@@ -74,5 +105,126 @@ services:
       retries: 5
       start_period: 10s
 
+  # ---------- PostgreSQL 只读副本（读扩展，阶段一 WP-2） ----------
+  postgres-replica:
+    image: postgres:16
+    container_name: karis-review-postgres-replica
+    restart: unless-stopped
+    profiles: ["replica"]    # 默认不启动，需要读扩展时启用：docker compose --profile replica up -d
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?请在 .env.prod 中设置 POSTGRES_PASSWORD}"
+      PRIMARY_HOST: postgres
+      PRIMARY_PORT: 5432
+      REPLICA_USER: replica
+      REPLICA_PASSWORD: "${REPLICA_PASSWORD:-replica}"
+    volumes:
+      - ./deploy/postgres/replica-init.sh:/docker-entrypoint-initdb.d/00-replica-init.sh:ro
+      - karis-review-replica-data:/var/lib/postgresql/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ---------- MinIO 对象存储（备份快照外置，G1） ----------
+  minio:
+    image: minio/minio:RELEASE.2024-12-18T13-15-44Z
+    container_name: karis-review-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: "${MINIO_ROOT_USER:-karis-review}"
+      MINIO_ROOT_PASSWORD: "${MINIO_ROOT_PASSWORD:?请在 .env.prod 中设置 MINIO_ROOT_PASSWORD}"
+    ports:
+      - "127.0.0.1:${MINIO_API_PORT:-9000}:9000"
+      - "127.0.0.1:${MINIO_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - karis-review-minio-data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ---------- Redis（缓存，阶段一 WP-5） ----------
+  redis:
+    image: redis:7-alpine
+    container_name: karis-review-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - karis-review-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ---------- 可观测性（WP-3/G3） ----------
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    container_name: karis-review-prometheus
+    restart: unless-stopped
+    volumes:
+      - ./deploy/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - karis-review-prometheus-data:/prometheus
+    ports:
+      - "127.0.0.1:${PROMETHEUS_PORT:-9090}:9090"
+    depends_on:
+      - backend
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    container_name: karis-review-grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: "${GRAFANA_ADMIN_USER:-admin}"
+      GF_SECURITY_ADMIN_PASSWORD: "${GRAFANA_ADMIN_PASSWORD:?请在 .env.prod 中设置 GRAFANA_ADMIN_PASSWORD}"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ./deploy/grafana/provisioning:/etc/grafana/provisioning:ro
+      - karis-review-grafana-data:/var/lib/grafana
+    ports:
+      - "127.0.0.1:${GRAFANA_PORT:-3000}:3000"
+    depends_on:
+      - prometheus
+      - loki
+
+  loki:
+    image: grafana/loki:3.2.1
+    container_name: karis-review-loki
+    restart: unless-stopped
+    command: -config.file=/etc/loki/loki-config.yml
+    volumes:
+      - ./deploy/loki/loki-config.yml:/etc/loki/loki-config.yml:ro
+      - karis-review-loki-data:/loki
+    ports:
+      - "127.0.0.1:${LOKI_PORT:-3100}:3100"
+
+  promtail:
+    image: grafana/promtail:3.2.1
+    container_name: karis-review-promtail
+    restart: unless-stopped
+    command: -config.file=/etc/promtail/promtail-config.yml
+    volumes:
+      - ./deploy/promtail/promtail-config.yml:/etc/promtail/promtail-config.yml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      - loki
+
 volumes:
   karis-review-prod-pgdata:
+  karis-review-wal-archive:
+  karis-review-replica-data:
+  karis-review-minio-data:
+  karis-review-redis-data:
+  karis-review-prometheus-data:
+  karis-review-grafana-data:
+  karis-review-loki-data:
+  backend-logs:
+  caddy-data:
+  caddy-config:
