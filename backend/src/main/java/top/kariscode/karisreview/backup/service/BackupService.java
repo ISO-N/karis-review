@@ -5,6 +5,9 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import top.kariscode.karisreview.backup.entity.BackupSnapshot;
@@ -26,6 +29,11 @@ import java.util.*;
 
 @Service
 public class BackupService {
+
+    private static final Logger log = LoggerFactory.getLogger(BackupService.class);
+
+    /** 每个用户最多保留的全量快照份数（与 V13 迁移一致）。 */
+    private static final int MAX_SNAPSHOTS_PER_USER = 7;
 
     private final UserRepository userRepository;
     private final DeckRepository deckRepository;
@@ -93,8 +101,9 @@ public class BackupService {
         for (ReviewLog log : logs) {
             cardFrontMap.putIfAbsent(log.getCardId(), "");
         }
-        for (UUID cardId : cardFrontMap.keySet()) {
-            cardRepository.findById(cardId).ifPresent(c -> cardFrontMap.put(cardId, c.getFront()));
+        // 批量取卡片正面文本（替代逐条 findById，避免 N+1）
+        for (Card c : cardRepository.findAllById(cardFrontMap.keySet())) {
+            cardFrontMap.put(c.getId(), c.getFront());
         }
 
         for (ReviewLog log : logs) {
@@ -143,18 +152,17 @@ public class BackupService {
             throw new RuntimeException("Invalid backup data format", e);
         }
 
-        // Step 1: Delete all existing data for this user
-        List<Deck> existingDecks = deckRepository.findByUserIdOrderByCreatedAtAsc(userId);
-        for (Deck deck : existingDecks) {
-            deckRepository.delete(deck);
-        }
+        // Step 1: Delete all existing data for this user（批量删除，数据库级联 + 触发器照常记录）
+        deckRepository.deleteAllByUserId(userId);
 
         // Step 2: Import decks, cards, and track each new card by front+back so
         // review logs can be re-attached after the imported cards receive fresh IDs.
         JsonNode decksNode = root.get("decks");
         int importedDecks = 0;
         int importedCards = 0;
+        int importedLogs = 0;
         Map<String, UUID> cardFrontBackToId = new HashMap<>();
+        List<ReviewLog> logsToSave = new ArrayList<>();
 
         if (decksNode != null && decksNode.isArray()) {
             for (JsonNode deckNode : decksNode) {
@@ -166,6 +174,7 @@ public class BackupService {
 
                 JsonNode cardsNode = deckNode.get("cards");
                 if (cardsNode != null && cardsNode.isArray()) {
+                    List<Card> cardsToSave = new ArrayList<>();
                     for (JsonNode cardNode : cardsNode) {
                         Card card = new Card();
                         card.setDeckId(deck.getId());
@@ -183,10 +192,13 @@ public class BackupService {
                         if (cardNode.has("reentry_stage") && !cardNode.get("reentry_stage").isNull()) {
                             card.setReentryStage(cardNode.get("reentry_stage").asInt());
                         }
-                        card = cardRepository.save(card);
+                        cardsToSave.add(card);
+                    }
+                    // 批量插入（配合 hibernate.jdbc.batch_size 真正合并为批次 INSERT）
+                    for (Card saved : cardRepository.saveAll(cardsToSave)) {
                         importedCards++;
-                        String key = card.getFront() + "\u0000" + card.getBack();
-                        cardFrontBackToId.putIfAbsent(key, card.getId());
+                        String key = saved.getFront() + "\u0000" + saved.getBack();
+                        cardFrontBackToId.putIfAbsent(key, saved.getId());
                     }
                 }
             }
@@ -195,7 +207,6 @@ public class BackupService {
         // Step 3: Import review logs, matching by card_front. If the front text is
         // ambiguous (multiple cards share it), the first matching imported card is used.
         JsonNode logsNode = root.get("review_logs");
-        int importedLogs = 0;
 
         if (logsNode != null && logsNode.isArray()) {
             for (JsonNode logNode : logsNode) {
@@ -225,9 +236,13 @@ public class BackupService {
                         // Keep default now() when the timestamp is not parseable.
                     }
                 }
-                reviewLogRepository.save(log);
-                importedLogs++;
+                logsToSave.add(log);
             }
+        }
+
+        if (!logsToSave.isEmpty()) {
+            reviewLogRepository.saveAll(logsToSave);
+            importedLogs = logsToSave.size();
         }
 
         userLogService.log(userId, "INFO", "BACKUP",
@@ -238,5 +253,18 @@ public class BackupService {
         result.put("imported_cards", importedCards);
         result.put("imported_review_logs", importedLogs);
         return result;
+    }
+
+    /**
+     * 定期修剪备份快照：每个用户仅保留最近 7 份（每天 03:50，与其它清理任务错开）。
+     */
+    @Scheduled(cron = "0 50 3 * * *")
+    @Transactional
+    public void cleanupOldSnapshots() {
+        int deleted = backupRepository.deleteExcessSnapshots(MAX_SNAPSHOTS_PER_USER);
+        if (deleted > 0) {
+            log.info("Pruned {} excess backup snapshots (keeping {} per user)",
+                    deleted, MAX_SNAPSHOTS_PER_USER);
+        }
     }
 }

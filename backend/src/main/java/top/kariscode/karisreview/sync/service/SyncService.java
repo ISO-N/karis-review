@@ -1,5 +1,10 @@
 package top.kariscode.karisreview.sync.service;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import top.kariscode.karisreview.auth.entity.User;
@@ -18,19 +23,26 @@ import top.kariscode.karisreview.sync.dto.BootstrapReviewLog;
 import top.kariscode.karisreview.sync.dto.BootstrapUser;
 import top.kariscode.karisreview.sync.repository.SyncEventRepository;
 
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 public class SyncService {
 
+    private static final Logger log = LoggerFactory.getLogger(SyncService.class);
+
     private static final int DELTA_PAGE_SIZE = 500;
+    /** sync_events 保留天数：超过该时限的事件允许被清理（与 V13 迁移一致）。 */
+    private static final int SYNC_EVENT_RETENTION_DAYS = 60;
 
     private final UserRepository userRepository;
     private final DeckRepository deckRepository;
@@ -67,19 +79,48 @@ public class SyncService {
         return deltaBootstrap(user, serverTime, eventCursor);
     }
 
+    /**
+     * 定期清理过期 sync_events（每天 03:30，与 user_logs 的 03:00 错开）。
+     * 清理后旧客户端游标失效时，deltaBootstrap 的 minSeq/latestSeq 检查
+     * 会自动降级为全量同步，不影响增量一致性。
+     */
+    @Scheduled(cron = "0 30 3 * * *")
+    @Transactional
+    public void cleanupOldSyncEvents() {
+        LocalDateTime cutoff = LocalDateTime.now().minusDays(SYNC_EVENT_RETENTION_DAYS);
+        int deleted = syncEventRepository.deleteOlderThan(cutoff);
+        if (deleted > 0) {
+            log.info("Cleaned up {} sync_events older than {}", deleted, cutoff);
+        }
+    }
+
     private BootstrapResponse fullBootstrap(User user, OffsetDateTime serverTime) {
         List<Deck> decks = deckRepository.findByUserIdOrderByCreatedAtAsc(user.getId());
+
+        // 一次取出该用户全部卡片并按卡组分组，替代逐卡组查询（N+1）
+        Map<UUID, List<Card>> cardsByDeck = cardRepository.findByUserId(user.getId()).stream()
+                .collect(Collectors.groupingBy(Card::getDeckId));
         List<BootstrapDeck> deckResponses = decks.stream()
                 .map(deck -> new BootstrapDeck(
                         deck.getId(), deck.getName(), deck.getCreatedAt(), deck.getUpdatedAt(),
-                        cardsForDeck(deck.getId())))
+                        cardsForDeck(cardsByDeck, deck.getId())))
                 .toList();
 
-        List<BootstrapReviewLog> logResponses = reviewLogRepository
-                .findByUserIdOrderByReviewedAtDesc(user.getId())
-                .stream()
-                .map(this::toBootstrapLog)
-                .toList();
+        // 复习日志分批拉取，避免一次性拖出上万行（行为不变，仍返回全量）
+        List<BootstrapReviewLog> logResponses = new ArrayList<>();
+        int page = 0;
+        while (true) {
+            Page<ReviewLog> logPage = reviewLogRepository.findByUserIdOrderByReviewedAtDesc(
+                    user.getId(), PageRequest.of(page, DELTA_PAGE_SIZE));
+            if (!logPage.hasContent()) {
+                break;
+            }
+            logPage.getContent().stream().map(this::toBootstrapLog).forEach(logResponses::add);
+            if (!logPage.hasNext()) {
+                break;
+            }
+            page++;
+        }
 
         return new BootstrapResponse(
                 serverTime,
@@ -101,6 +142,13 @@ public class SyncService {
                     serverTime, toBootstrapUser(user), List.of(), List.of(),
                     List.of(), List.of(), List.of(), List.of(),
                     latestSeq, false, true);
+        }
+
+        // 游标已过期：要么事件被清理（cursor < 最早保留事件），要么事件被整体清空
+        // （latestSeq == 0 但客户端已有游标），此时增量无法继续，降级为全量同步。
+        long minSeq = syncEventRepository.minSeq(user.getId());
+        if (cursor < minSeq || latestSeq == 0) {
+            return fullBootstrap(user, serverTime);
         }
 
         List<SyncEventRepository.SyncEventRow> events =
@@ -177,9 +225,8 @@ public class SyncService {
                 lastSeq, hasMore, false);
     }
 
-    private List<BootstrapCard> cardsForDeck(UUID deckId) {
-        return cardRepository.findByDeckIdOrderByCreatedAtAsc(deckId)
-                .stream()
+    private List<BootstrapCard> cardsForDeck(Map<UUID, List<Card>> cardsByDeck, UUID deckId) {
+        return cardsByDeck.getOrDefault(deckId, List.of()).stream()
                 .map(this::toBootstrapCard)
                 .toList();
     }
