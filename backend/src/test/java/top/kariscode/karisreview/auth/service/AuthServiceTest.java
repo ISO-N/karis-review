@@ -6,9 +6,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import top.kariscode.karisreview.auth.dto.ChangePasswordRequest;
 import top.kariscode.karisreview.auth.dto.LoginRequest;
 import top.kariscode.karisreview.auth.dto.LoginResponse;
 import top.kariscode.karisreview.auth.dto.RegisterRequest;
+import top.kariscode.karisreview.auth.entity.PasswordResetCode;
 import top.kariscode.karisreview.auth.entity.User;
 import top.kariscode.karisreview.auth.repository.UserRepository;
 import top.kariscode.karisreview.common.exception.BusinessException;
@@ -44,12 +46,13 @@ class AuthServiceTest {
     private AuthService service;
     @Mock
     private UserLogService userLogService;
-
+    @Mock
+    private PasswordResetCodeService codeService;
 
     @BeforeEach
     void setUp() {
         service = new AuthService(userRepository, passwordEncoder, jwtProvider,
-                new InviteCodeConfig(false, ""), userLogService);
+                new InviteCodeConfig(false, ""), userLogService, codeService);
     }
 
     @Test
@@ -64,6 +67,10 @@ class AuthServiceTest {
             user.setId(userId);
             return user;
         });
+        PasswordResetCode record = new PasswordResetCode();
+        when(codeService.verifyCode(request.getEmail(),
+                PasswordResetCodeService.PURPOSE_REGISTER, request.getVerificationCode()))
+                .thenReturn(record);
         when(jwtProvider.generateToken(userId, request.getEmail())).thenReturn("token");
 
         LoginResponse response = service.register(request);
@@ -72,6 +79,7 @@ class AuthServiceTest {
         assertEquals(userId, response.getUser().getId());
         assertEquals(request.getEmail(), response.getUser().getEmail());
         verify(userRepository).save(any(User.class));
+        verify(codeService).consume(record);
     }
 
     @Test
@@ -129,6 +137,10 @@ class AuthServiceTest {
             user.setId(userId);
             return user;
         });
+        PasswordResetCode record = new PasswordResetCode();
+        when(codeService.verifyCode(request.getEmail(),
+                PasswordResetCodeService.PURPOSE_REGISTER, request.getVerificationCode()))
+                .thenReturn(record);
         when(jwtProvider.generateToken(userId, request.getEmail())).thenReturn("token");
 
         LoginResponse response = enabledService.register(request);
@@ -136,6 +148,7 @@ class AuthServiceTest {
         assertEquals("token", response.getToken());
         assertEquals(userId, response.getUser().getId());
         verify(userRepository).save(any(User.class));
+        verify(codeService).consume(record);
     }
 
     @Test
@@ -201,20 +214,95 @@ class AuthServiceTest {
     }
 
     @Test
+    void registerRejectsMissingVerificationCode() {
+        RegisterRequest request = request("new@example.com", "password123");
+        request.setVerificationCode(null);
+
+        BusinessException exception = assertThrows(
+                BusinessException.class, () -> service.register(request));
+
+        assertEquals(400, exception.getCode());
+        assertEquals("auth.register.code.required", exception.getMessage());
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
     void logoutIsClientSideNoOp() {
         service.logout();
         assertNotNull(service);
+    }
+
+    @Test
+    void changePasswordUpdatesHashWhenCurrentPasswordMatches() {
+        UUID userId = UUID.randomUUID();
+        User user = new User();
+        user.setId(userId);
+        user.setEmail("user@example.com");
+        user.setPasswordHash("old-hash");
+        ChangePasswordRequest request = new ChangePasswordRequest();
+        request.setCurrentPassword("old-password");
+        request.setNewPassword("new-password");
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches(request.getCurrentPassword(), user.getPasswordHash()))
+                .thenReturn(true);
+        when(passwordEncoder.encode(request.getNewPassword())).thenReturn("new-hash");
+
+        service.changePassword(userId, request);
+
+        assertEquals("new-hash", user.getPasswordHash());
+        verify(userRepository).save(user);
+        verify(userLogService).log(userId, "INFO", "AUTH", "Password changed");
+    }
+
+    @Test
+    void changePasswordRejectsWrongCurrentPassword() {
+        UUID userId = UUID.randomUUID();
+        User user = new User();
+        user.setId(userId);
+        user.setPasswordHash("old-hash");
+        ChangePasswordRequest request = new ChangePasswordRequest();
+        request.setCurrentPassword("wrong");
+        request.setNewPassword("new-password");
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches(request.getCurrentPassword(), user.getPasswordHash()))
+                .thenReturn(false);
+
+        BusinessException exception = assertThrows(
+                BusinessException.class, () -> service.changePassword(userId, request));
+
+        assertEquals(400, exception.getCode());
+        assertEquals("auth.password.current.wrong", exception.getMessage());
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void changePasswordRejectsMissingUser() {
+        UUID userId = UUID.randomUUID();
+        ChangePasswordRequest request = new ChangePasswordRequest();
+        request.setCurrentPassword("old-password");
+        request.setNewPassword("new-password");
+        when(userRepository.findById(userId)).thenReturn(Optional.empty());
+
+        BusinessException exception = assertThrows(
+                BusinessException.class, () -> service.changePassword(userId, request));
+
+        assertEquals(404, exception.getCode());
+        assertEquals("settings.notfound", exception.getMessage());
+        verify(passwordEncoder, never()).matches(any(), any());
     }
 
     private RegisterRequest request(String email, String password) {
         RegisterRequest request = new RegisterRequest();
         request.setEmail(email);
         request.setPassword(password);
+        request.setVerificationCode("123456");
         return request;
     }
 
     private AuthService service(boolean enabled, String code) {
         return new AuthService(userRepository, passwordEncoder, jwtProvider,
-                new InviteCodeConfig(enabled, code), userLogService);
+                new InviteCodeConfig(enabled, code), userLogService, codeService);
     }
 }

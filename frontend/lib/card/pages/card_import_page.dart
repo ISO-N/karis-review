@@ -168,8 +168,6 @@ class _CardImportPageState extends State<CardImportPage> {
               minLines: 12,
               maxLines: 14,
               keyboardType: TextInputType.multiline,
-              autocorrect: false,
-              enableSuggestions: false,
               onChanged: (_) => _markEdits(),
               style: karisMono(fontSize: 12),
               decoration: const InputDecoration(

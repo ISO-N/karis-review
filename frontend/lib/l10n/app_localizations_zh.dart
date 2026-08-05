@@ -403,6 +403,54 @@ class KarisReviewLocalizationsZh extends KarisReviewLocalizations {
   String get settingsLogout => '退出登录';
 
   @override
+  String get settingsChangePassword => '修改密码';
+
+  @override
+  String get settingsChangePasswordSubtitle => '更新登录密码';
+
+  @override
+  String get settingsChangePasswordTitle => '修改密码';
+
+  @override
+  String get settingsCurrentPasswordLabel => '当前密码';
+
+  @override
+  String get settingsNewPasswordLabel => '新密码';
+
+  @override
+  String get settingsConfirmPasswordLabel => '确认新密码';
+
+  @override
+  String get settingsNewPasswordShort => '新密码至少 6 位';
+
+  @override
+  String get settingsPasswordMismatch => '两次输入的密码不一致';
+
+  @override
+  String get settingsChangePasswordConfirm => '确认修改';
+
+  @override
+  String get settingsChangePasswordSuccess => '密码已修改，请重新登录';
+
+  @override
+  String get authForgotPassword => '忘记密码？';
+
+  @override
+  String get authForgotPasswordSubtitle => '通过邮箱验证码重置密码';
+
+  @override
+  String get authSendCode => '发送验证码';
+
+  @override
+  String get authResetPasswordButton => '重置密码';
+
+  @override
+  String get authResetPasswordSuccess => '密码已重置，请用新密码登录';
+
+  @override
+  String get authCodeLabel => '验证码';
+
+  @override
   String get settingsLanguage => '语言';
 
   @override

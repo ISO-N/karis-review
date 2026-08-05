@@ -56,7 +56,7 @@ class SettingsPage extends ConsumerWidget {
                       ),
                     )
                   else ...[
-                    _AccountBlock(settingsState: settingsState),
+                    _AccountBlock(settingsState: settingsState, ref: ref),
                     SizedBox(height: 22),
                     if (isTablet)
                       Row(
@@ -148,8 +148,9 @@ class _SettingsHeader extends StatelessWidget {
 
 class _AccountBlock extends StatelessWidget {
   final dynamic settingsState;
+  final WidgetRef ref;
 
-  const _AccountBlock({required this.settingsState});
+  const _AccountBlock({required this.settingsState, required this.ref});
 
   @override
   Widget build(BuildContext context) {
@@ -196,8 +197,114 @@ class _AccountBlock extends StatelessWidget {
             ],
           ),
         ),
+        SizedBox(height: 10),
+        SettingsActionTile(
+          icon: Icons.password_outlined,
+          title: l10n.settingsChangePassword,
+          subtitle: l10n.settingsChangePasswordSubtitle,
+          onTap: () => _changePassword(context, ref),
+        ),
       ],
     );
+  }
+
+  Future<void> _changePassword(BuildContext context, WidgetRef ref) async {
+    final l10n = KarisReviewLocalizations.of(context)!;
+    final currentController = TextEditingController();
+    final newController = TextEditingController();
+    final confirmController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    var obscure = true;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AlertDialog(
+          title: Text(l10n.settingsChangePasswordTitle),
+          content: SizedBox(
+            width: 420,
+            child: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextFormField(
+                    controller: currentController,
+                    obscureText: obscure,
+                    autofillHints: const [AutofillHints.password],
+                    decoration: InputDecoration(
+                      labelText: l10n.settingsCurrentPasswordLabel,
+                      prefixIcon: const Icon(Icons.lock_outline, size: 18),
+                    ),
+                    validator: (value) => (value == null || value.isEmpty)
+                        ? l10n.authPasswordLabel
+                        : null,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: newController,
+                    obscureText: obscure,
+                    autofillHints: const [AutofillHints.newPassword],
+                    decoration: InputDecoration(
+                      labelText: l10n.settingsNewPasswordLabel,
+                      prefixIcon: const Icon(Icons.lock_outline, size: 18),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.length < 6) {
+                        return l10n.settingsNewPasswordShort;
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: confirmController,
+                    obscureText: obscure,
+                    decoration: InputDecoration(
+                      labelText: l10n.settingsConfirmPasswordLabel,
+                      prefixIcon: const Icon(Icons.lock_outline, size: 18),
+                    ),
+                    validator: (value) =>
+                        (value != newController.text)
+                            ? l10n.settingsPasswordMismatch
+                            : null,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: Text(l10n.settingsForceServerCancel),
+            ),
+            FilledButton(
+              onPressed: () {
+                if (formKey.currentState!.validate()) {
+                  Navigator.pop(dialogContext, true);
+                }
+              },
+              child: Text(l10n.settingsChangePasswordConfirm),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (confirmed != true) return;
+
+    final notifier = ref.read(authProvider.notifier);
+    await notifier.changePassword(
+      currentController.text,
+      newController.text,
+    );
+    if (!context.mounted) return;
+    // 修改成功会触发登出，此处直接回登录页并提示
+    if (context.mounted) {
+      context.go('/login');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.settingsChangePasswordSuccess)),
+      );
+    }
   }
 }
 

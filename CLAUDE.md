@@ -56,6 +56,7 @@ Android release 包名为 `top.kariscode.karisreview`，debug 包名为 `top.kar
 
 - **用户身份获取**：`JwtAuthenticationFilter`（`config/`）解析 Token 后把 `UUID userId` 放进 `SecurityContextHolder`；Controller 用 `@AuthenticationPrincipal UUID userId` 拿到当前用户。所有业务查询都以 `userId` 过滤，实体用 `UUID` 外键字段（如 `card.getDeckId()`）而非 JPA 关联对象。
 - **注册邀请码**：`auth.invite.enabled` 与 `auth.invite.code` 控制，默认关闭；开启时注册必须先通过邀请码校验，前端通过公开 `GET /api/auth/config` 获取 `invite_code_required` 决定是否显示输入框。
+- **邮箱验证码**：注册与找回密码共用验证码机制（`PasswordResetCodeService` + `email_verification_codes` 表，V12 迁移）。验证码 6 位数字、15 分钟有效、同邮箱同用途 60 秒冷却、最多 10 次尝试，比较用常量时间算法。发送走 `MailSender` 抽象：未配置 `mail.smtp.host` 时 `NoopMailSender` 只打日志；配置后 `SmtpMailSender` 真实发送，支持 `mail.smtp.socks.host/port` 走本地 SOCKS5 代理（境外 SMTP 服务在国内部署时使用）。端点：`POST /api/auth/register-code`（注册发码，邮箱已注册报 400）、`POST /api/auth/password/reset-code`（找回发码，邮箱不存在也返回成功防枚举）、`POST /api/auth/password/reset`（校验验证码并重置密码）、`PUT /api/auth/password`（已登录改密，需当前密码，成功后前端主动登出）。
 - **统一响应**：所有接口返回 `common/dto/ApiResponse`（`code`/`message`/`data`）；业务错误抛 `BusinessException(code, message)`，由 `common/exception/GlobalExceptionHandler` 统一处理。
 - **权限边界**：`SecurityConfig` 放行 `/api/auth/config`、`/api/auth/register`、`/api/auth/login` 以及 OpenAPI 文档路径（`/v3/api-docs/**`、`/swagger-ui/**`、`/swagger-ui.html`），其余全部要求认证。跨域配置在 `CorsConfig`（全放开）。
 - **API 文档**：集成 Springdoc OpenAPI 3，配置了 JWT Bearer 安全方案；登录/注册/注册配置接口豁免认证要求，生产 profile 关闭文档。

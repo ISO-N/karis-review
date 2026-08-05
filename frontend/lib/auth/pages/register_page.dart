@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -25,23 +27,62 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
   final _passwordController = TextEditingController();
   final _confirmController = TextEditingController();
   final _inviteController = TextEditingController();
+  final _codeController = TextEditingController();
   final _emailFocus = FocusNode();
   final _passwordFocus = FocusNode();
   final _confirmFocus = FocusNode();
   final _inviteFocus = FocusNode();
+  final _codeFocus = FocusNode();
   bool _obscurePassword = true;
+  int _codeCountdown = 0;
+  Timer? _codeTimer;
 
   @override
   void dispose() {
+    _codeTimer?.cancel();
     _emailController.dispose();
     _passwordController.dispose();
     _confirmController.dispose();
     _inviteController.dispose();
+    _codeController.dispose();
     _emailFocus.dispose();
     _passwordFocus.dispose();
     _confirmFocus.dispose();
     _inviteFocus.dispose();
+    _codeFocus.dispose();
     super.dispose();
+  }
+
+  Future<void> _sendCode(AuthConfig config) async {
+    final email = _emailController.text.trim();
+    if (email.isEmpty || !email.contains('@')) {
+      _emailFocus.requestFocus();
+      return;
+    }
+    if (config.inviteCodeRequired && _inviteController.text.trim().isEmpty) {
+      _inviteFocus.requestFocus();
+      return;
+    }
+    await ref.read(authProvider.notifier).sendRegisterCode(email);
+    if (!mounted) return;
+    final state = ref.read(authProvider);
+    if (state.error == null) {
+      setState(() => _codeCountdown = 60);
+      _codeTimer?.cancel();
+      _codeTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+        if (!mounted) {
+          timer.cancel();
+          return;
+        }
+        setState(() {
+          _codeCountdown--;
+          if (_codeCountdown <= 0) timer.cancel();
+        });
+      });
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(const SnackBar(content: Text('验证码已发送，请查收邮件')));
+    }
   }
 
   Future<void> _register(AuthConfig config) async {
@@ -55,6 +96,8 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
       } else if (config.inviteCodeRequired &&
           _inviteController.text.trim().isEmpty) {
         _inviteFocus.requestFocus();
+      } else if (_codeController.text.trim().length < 6) {
+        _codeFocus.requestFocus();
       } else {
         _confirmFocus.requestFocus();
       }
@@ -66,6 +109,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
           inviteCode: config.inviteCodeRequired
               ? _inviteController.text.trim()
               : null,
+          verificationCode: _codeController.text.trim(),
         );
   }
 
@@ -214,6 +258,43 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                     },
                   ),
                 ],
+                SizedBox(height: 14),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: _codeController,
+                        focusNode: _codeFocus,
+                        keyboardType: TextInputType.number,
+                        autofillHints: const [AutofillHints.oneTimeCode],
+                        decoration: const InputDecoration(
+                          labelText: '邮箱验证码',
+                          prefixIcon: Icon(Icons.verified_outlined, size: 18),
+                        ),
+                        validator: (value) {
+                          if (value == null || value.trim().length < 6) {
+                            return '请输入邮箱验证码';
+                          }
+                          return null;
+                        },
+                      ),
+                    ),
+                    SizedBox(width: 10),
+                    SizedBox(
+                      height: 56,
+                      child: OutlinedButton(
+                        onPressed:
+                            _codeCountdown > 0 || authState.isLoading
+                            ? null
+                            : () => _sendCode(config),
+                        child: Text(
+                          _codeCountdown > 0 ? '${_codeCountdown}s' : '获取验证码',
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
                 if (authState.error != null) ...[
                   SizedBox(height: 14),
                   Text(

@@ -239,6 +239,23 @@ CREATE INDEX idx_backup_snapshots_user_id ON backup_snapshots(user_id);
 
 日志默认保留 30 天，由 `UserLogService.cleanupOldLogs()` 每日清理。
 
+### 3.9 email_verification_codes
+
+`email_verification_codes` 保存邮箱验证码，用于注册邮箱验证（purpose=REGISTER）与找回密码（purpose=RESET）。
+
+| 字段 | 类型 | 约束 | 说明 |
+|------|------|------|------|
+| id | UUID | PK, DEFAULT gen_random_uuid() | 主键 |
+| email | VARCHAR(255) | NOT NULL | 目标邮箱 |
+| purpose | VARCHAR(16) | NOT NULL | REGISTER（注册验证）/ RESET（找回密码） |
+| code | VARCHAR(6) | NOT NULL | 6 位数字验证码 |
+| expires_at | TIMESTAMP | NOT NULL | 过期时间（15 分钟） |
+| used | BOOLEAN | NOT NULL, DEFAULT FALSE | 是否已消费 |
+| attempt_count | INTEGER | NOT NULL, DEFAULT 0 | 校验失败次数（超 10 次作废） |
+| created_at | TIMESTAMP | NOT NULL, DEFAULT NOW() | 创建时间 |
+
+同一邮箱同一用途 60 秒内只允许发一次（由 service 层检查最近一条未过期记录）。
+
 ## 4. Flyway 迁移脚本结构
 src/main/resources/db/migration/
 ├── V2__create_decks_table.sql
@@ -250,7 +267,8 @@ src/main/resources/db/migration/
 ├── V8__add_review_lock_and_sessions.sql
 ├── V9__add_sync_events.sql
 ├── V10__add_card_search_indexes.sql
-└── V11__create_user_logs.sql
+├── V11__create_user_logs.sql
+└── V12__create_email_verification_codes.sql
 
 ## 5. 关键查询说明
 

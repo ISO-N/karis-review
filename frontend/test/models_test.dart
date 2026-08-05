@@ -211,12 +211,14 @@ void main() {
       final request = RegisterRequest(
         email: 'a@b.c',
         password: 'secret',
+        verificationCode: '123456',
         inviteCode: 'invite-1',
       );
 
       expect(request.toJson(), {
         'email': 'a@b.c',
         'password': 'secret',
+        'verification_code': '123456',
         'invite_code': 'invite-1',
       });
     });
@@ -225,10 +227,14 @@ void main() {
       final request = RegisterRequest(
         email: 'a@b.c',
         password: 'secret',
+        verificationCode: '123456',
         inviteCode: '',
       );
 
-      expect(request.toJson(), {'email': 'a@b.c', 'password': 'secret'});
+      expect(
+        request.toJson(),
+        {'email': 'a@b.c', 'password': 'secret', 'verification_code': '123456'},
+      );
     });
   });
 }

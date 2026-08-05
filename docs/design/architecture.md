@@ -89,13 +89,24 @@ top.kariscode.karisreview
 ├── auth/
 │   ├── controller/AuthController.java
 │   ├── service/AuthService.java
+│   ├── service/PasswordResetService.java        # 找回密码/注册验证码编排
+│   ├── service/PasswordResetCodeService.java    # 验证码生成/校验/消费
+│   ├── service/MailSender.java                  # 邮件抽象接口
+│   ├── service/NoopMailSender.java              # 未配 SMTP 时只打日志
+│   ├── service/SmtpMailSender.java              # 配 SMTP 后真实发送（支持 SOCKS 代理）
 │   ├── entity/User.java
+│   ├── entity/PasswordResetCode.java            # 邮箱验证码记录（email_verification_codes 表）
 │   ├── repository/UserRepository.java
+│   ├── repository/PasswordResetCodeRepository.java
 │   └── dto/
 │       ├── AuthConfigResponse.java
 │       ├── RegisterRequest.java
 │       ├── LoginRequest.java
-│       └── LoginResponse.java
+│       ├── LoginResponse.java
+│       ├── ChangePasswordRequest.java
+│       ├── SendRegisterCodeRequest.java
+│       ├── SendResetCodeRequest.java
+│       └── ResetPasswordRequest.java
 │
 ├── deck/
 │   ├── controller/DeckController.java
@@ -308,10 +319,11 @@ lib/
 
 - 使用 `springdoc-openapi-starter-webmvc-ui` 自动生成 OpenAPI 3 文档。
 - 默认地址：`/v3/api-docs`、`/swagger-ui.html`。
-- 受保护 Controller 用 `@SecurityRequirement` 声明 `bearerAuth` JWT 安全方案；登录/注册/注册配置接口不要求。
+- 受保护 Controller 用 `@SecurityRequirement` 声明 `bearerAuth` JWT 安全方案；登录/注册/注册配置/发验证码/重置密码接口不要求。
 - 注册公开配置接口 `GET /api/auth/config` 只返回 `invite_code_required`，不暴露邀请码本身。
-- `SecurityConfig` 放行 `/api/auth/config`、`/v3/api-docs/**`、`/swagger-ui/**`、`/swagger-ui.html`。
+- `SecurityConfig` 放行 `/api/auth/config`、`/api/auth/register`、`/api/auth/register-code`、`/api/auth/login`、`/api/auth/password/reset-code`、`/api/auth/password/reset`、`/v3/api-docs/**`、`/swagger-ui/**`、`/swagger-ui.html`。
 - 生产环境使用 `prod` profile 时关闭文档。
+- 邮件发送通过 `MailSender` 抽象：未配置 `mail.smtp.host` 时用 `NoopMailSender`（验证码仅打日志，便于本地开发）；配置后自动切换 `SmtpMailSender`。SMTP 支持 `mail.smtp.socks.host`/`mail.smtp.socks.port` 走本地 SOCKS5 代理（Resend 等境外服务在国内部署时使用）。
 
 ## 6. 模块间依赖关系
 ```

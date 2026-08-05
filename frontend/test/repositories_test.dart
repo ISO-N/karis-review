@@ -39,7 +39,11 @@ void main() {
       final client = FakeApiClient();
       client.onPost = (path, data) async {
         expect(path, apiPath('/auth/register'));
-        expect(data, {'email': 'a@b.c', 'password': 'secret'});
+        expect(data, {
+          'email': 'a@b.c',
+          'password': 'secret',
+          'verification_code': '123456',
+        });
         return okResponse({
           'token': 'token-1',
           'user': {'id': 'u1', 'email': 'a@b.c'},
@@ -48,7 +52,11 @@ void main() {
       final repository = AuthRepository(client: client);
 
       final response = await repository.register(
-        RegisterRequest(email: 'a@b.c', password: 'secret'),
+        RegisterRequest(
+          email: 'a@b.c',
+          password: 'secret',
+          verificationCode: '123456',
+        ),
       );
 
       expect(response.token, 'token-1');
@@ -63,6 +71,7 @@ void main() {
         expect(data, {
           'email': 'a@b.c',
           'password': 'secret',
+          'verification_code': '123456',
           'invite_code': 'invite-1',
         });
         return okResponse({
@@ -76,11 +85,55 @@ void main() {
         RegisterRequest(
           email: 'a@b.c',
           password: 'secret',
+          verificationCode: '123456',
           inviteCode: 'invite-1',
         ),
       );
 
       expect(await ApiClient.getToken(), 'token-2');
+    });
+
+    test('changePassword sends PUT to auth password endpoint', () async {
+      final client = FakeApiClient();
+      client.onPut = (path, data) async {
+        expect(path, apiPath('/auth/password'));
+        expect(data, {
+          'current_password': 'old-password',
+          'new_password': 'new-password',
+        });
+        return okResponse(null);
+      };
+      final repository = AuthRepository(client: client);
+
+      await repository.changePassword('old-password', 'new-password');
+    });
+
+    test('sendResetCode posts email to reset-code endpoint', () async {
+      final client = FakeApiClient();
+      client.onPost = (path, data) async {
+        expect(path, apiPath('/auth/password/reset-code'));
+        expect(data, {'email': 'a@b.c'});
+        return okResponse(null);
+      };
+      final repository = AuthRepository(client: client);
+
+      await repository.sendResetCode('a@b.c');
+    });
+
+    test('resetPassword posts email code and new password', () async {
+      final client = FakeApiClient();
+      client.onPost = (path, data) async {
+        expect(path, apiPath('/auth/password/reset'));
+        expect(data, {
+          'email': 'a@b.c',
+          'code': '123456',
+          'new_password': 'new-password',
+        });
+        return okResponse(null);
+      };
+      final repository = AuthRepository(client: client);
+
+      await repository.resetPassword('a@b.c', '123456', 'new-password');
     });
   });
 

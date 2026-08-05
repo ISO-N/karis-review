@@ -412,6 +412,58 @@ class KarisReviewLocalizationsEn extends KarisReviewLocalizations {
   String get settingsLogout => 'Logout';
 
   @override
+  String get settingsChangePassword => 'Change Password';
+
+  @override
+  String get settingsChangePasswordSubtitle => 'Update your login password';
+
+  @override
+  String get settingsChangePasswordTitle => 'Change Password';
+
+  @override
+  String get settingsCurrentPasswordLabel => 'Current Password';
+
+  @override
+  String get settingsNewPasswordLabel => 'New Password';
+
+  @override
+  String get settingsConfirmPasswordLabel => 'Confirm New Password';
+
+  @override
+  String get settingsNewPasswordShort =>
+      'Password must be at least 6 characters';
+
+  @override
+  String get settingsPasswordMismatch => 'Passwords do not match';
+
+  @override
+  String get settingsChangePasswordConfirm => 'Change';
+
+  @override
+  String get settingsChangePasswordSuccess =>
+      'Password changed, please log in again';
+
+  @override
+  String get authForgotPassword => 'Forgot password?';
+
+  @override
+  String get authForgotPasswordSubtitle =>
+      'Reset your password with an email code';
+
+  @override
+  String get authSendCode => 'Send Code';
+
+  @override
+  String get authResetPasswordButton => 'Reset Password';
+
+  @override
+  String get authResetPasswordSuccess =>
+      'Password reset, please log in with your new password';
+
+  @override
+  String get authCodeLabel => 'Verification Code';
+
+  @override
   String get settingsLanguage => 'Language';
 
   @override

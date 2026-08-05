@@ -103,7 +103,7 @@
 
 ### POST /api/auth/register
 
-注册新用户。
+注册新用户（需先通过 `POST /api/auth/register-code` 获取邮箱验证码）。
 
 **Request Body:**
 
@@ -111,6 +111,7 @@
 {
   "email": "user@example.com",
   "password": "securePassword123",
+  "verification_code": "123456",
   "invite_code": "可选邀请码"
 }
 ```
@@ -119,6 +120,7 @@
 |------|------|------|------|
 | email | string | 是 | 邮箱地址 |
 | password | string | 是 | 密码（6-128 位） |
+| verification_code | string | 是 | 邮箱验证码（6 位数字，15 分钟有效） |
 | invite_code | string | 启用邀请码时必填 | 注册邀请码；未启用时忽略 |
 
 **Response (200):**
@@ -137,7 +139,33 @@
 }
 ```
 
-**错误码：** 400（邮箱已注册/邮箱格式无效/密码太短/请输入邀请码/邀请码无效）
+**错误码：** 400（邮箱已注册/邮箱格式无效/密码太短/请输入邀请码/邀请码无效/验证码错误/验证码已过期/验证码尝试次数过多）
+
+---
+
+### POST /api/auth/register-code
+
+发送注册邮箱验证码。邮箱已注册时返回 400。
+
+**Request Body:**
+
+```json
+{
+  "email": "user@example.com"
+}
+```
+
+**Response (200):**
+
+```json
+{
+  "code": 200,
+  "message": "验证码已发送",
+  "data": null
+}
+```
+
+**错误码：** 400（邮箱已注册）、429（60 秒内重复请求）
 
 ---
 
@@ -189,6 +217,102 @@
   "data": null
 }
 ```
+
+---
+
+### PUT /api/auth/password
+
+修改密码（需登录）。
+
+**Headers:** `Authorization: Bearer <token>`
+
+**Request Body:**
+
+```json
+{
+  "current_password": "oldPassword123",
+  "new_password": "newPassword123"
+}
+```
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| current_password | string | 是 | 当前密码 |
+| new_password | string | 是 | 新密码（6-128 位） |
+
+**Response (200):**
+
+```json
+{
+  "code": 200,
+  "message": "密码已修改",
+  "data": null
+}
+```
+
+**说明：** 修改成功后服务端不强制吊销已有 Token，前端主动登出并回登录页。
+
+**错误码：** 400（当前密码错误/新密码格式无效）
+
+---
+
+### POST /api/auth/password/reset-code
+
+发送找回密码验证码。邮箱不存在时也返回成功（防枚举）。
+
+**Request Body:**
+
+```json
+{
+  "email": "user@example.com"
+}
+```
+
+**Response (200):**
+
+```json
+{
+  "code": 200,
+  "message": "验证码已发送",
+  "data": null
+}
+```
+
+**错误码：** 429（60 秒内重复请求）
+
+---
+
+### POST /api/auth/password/reset
+
+用验证码重置密码（未登录场景）。
+
+**Request Body:**
+
+```json
+{
+  "email": "user@example.com",
+  "code": "123456",
+  "new_password": "newPassword123"
+}
+```
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| email | string | 是 | 邮箱地址 |
+| code | string | 是 | 验证码（6 位数字，15 分钟有效） |
+| new_password | string | 是 | 新密码（6-128 位） |
+
+**Response (200):**
+
+```json
+{
+  "code": 200,
+  "message": "密码已重置",
+  "data": null
+}
+```
+
+**错误码：** 400（验证码错误/验证码已过期/验证码尝试次数过多）
 
 ---
 

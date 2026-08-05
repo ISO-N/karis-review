@@ -10,6 +10,7 @@ import 'package:go_router/go_router.dart';
 import 'package:karisreview/auth/models/login_request.dart';
 import 'package:karisreview/auth/models/login_response.dart';
 import 'package:karisreview/auth/models/register_request.dart';
+import 'package:karisreview/auth/pages/forgot_password_page.dart';
 import 'package:karisreview/auth/pages/login_page.dart';
 import 'package:karisreview/auth/pages/register_page.dart';
 import 'package:karisreview/card/models/card_import.dart';
@@ -84,7 +85,11 @@ void main() {
       LoginRequest(email: 'fallback@example.com', password: 'fallback'),
     );
     registerFallbackValue(
-      RegisterRequest(email: 'fallback@example.com', password: 'fallback'),
+      RegisterRequest(
+        email: 'fallback@example.com',
+        password: 'fallback',
+        verificationCode: '123456',
+      ),
     );
   });
 
@@ -159,12 +164,14 @@ void main() {
       await tester.enterText(find.byType(TextFormField).at(0), 'a@b.c');
       await tester.enterText(find.byType(TextFormField).at(1), 'secret');
       await tester.enterText(find.byType(TextFormField).at(2), 'secret');
+      await tester.enterText(find.byType(TextFormField).at(3), '123456');
       await tester.tap(find.text('注册'));
       await tester.pumpAndSettle();
 
       final captured = verify(() => repo.register(captureAny())).captured;
       final request = captured.single as RegisterRequest;
       expect(request.inviteCode, isNull);
+      expect(request.verificationCode, '123456');
     });
 
     testWidgets('register requires and sends invite code when enabled', (
@@ -198,6 +205,8 @@ void main() {
       await tester.enterText(find.byType(TextFormField).at(0), 'a@b.c');
       await tester.enterText(find.byType(TextFormField).at(1), 'secret');
       await tester.enterText(find.byType(TextFormField).at(2), 'secret');
+      await tester.enterText(find.byType(TextFormField).at(4), '123456');
+      await tester.ensureVisible(find.text('注册'));
       await tester.tap(find.text('注册'));
       await tester.pump();
 
@@ -205,12 +214,65 @@ void main() {
       verifyNever(() => repo.register(any()));
 
       await tester.enterText(find.byType(TextFormField).at(3), ' code ');
+      await tester.ensureVisible(find.text('注册'));
       await tester.tap(find.text('注册'));
       await tester.pumpAndSettle();
 
       final captured = verify(() => repo.register(captureAny())).captured;
       final request = captured.single as RegisterRequest;
       expect(request.inviteCode, 'code');
+    });
+
+    testWidgets('forgot password sends code and resets', (tester) async {
+      final repo = MockAuthRepository();
+      when(() => repo.isLoggedIn()).thenAnswer((_) async => false);
+      when(() => repo.sendResetCode(any())).thenAnswer((_) async {});
+      when(() => repo.resetPassword(any(), any(), any())).thenAnswer((_) async {});
+
+      final router = GoRouter(
+        initialLocation: '/forgot-password',
+        routes: [
+          GoRoute(
+            path: '/forgot-password',
+            builder: (_, _) => const ForgotPasswordPage(),
+          ),
+          GoRoute(path: '/login', builder: (_, _) => const Scaffold()),
+        ],
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: authOverrides(repo),
+          child: MaterialApp.router(
+            routerConfig: router,
+            localizationsDelegates: const [
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+              KarisReviewLocalizations.delegate,
+            ],
+            supportedLocales: KarisReviewLocalizations.supportedLocales,
+            locale: const Locale('zh'),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextFormField).at(0), 'a@b.c');
+      await tester.ensureVisible(find.text('获取验证码'));
+      await tester.tap(find.text('获取验证码'));
+      await tester.pumpAndSettle();
+
+      verify(() => repo.sendResetCode('a@b.c')).called(1);
+      expect(find.text('验证码已发送，请查收邮件'), findsOneWidget);
+
+      await tester.enterText(find.byType(TextFormField).at(1), '123456');
+      await tester.enterText(find.byType(TextFormField).at(2), 'new-password');
+      await tester.ensureVisible(find.text('重置密码'));
+      await tester.tap(find.text('重置密码'));
+      await tester.pumpAndSettle();
+
+      verify(() => repo.resetPassword('a@b.c', '123456', 'new-password')).called(1);
     });
   });
 
@@ -1361,6 +1423,30 @@ void main() {
   });
 
   group('Import page', () {
+    testWidgets('JSON input uses the normal keyboard (no suggestions suppressed)',
+        (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: const [
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+            KarisReviewLocalizations.delegate,
+          ],
+          supportedLocales: KarisReviewLocalizations.supportedLocales,
+          locale: const Locale('zh'),
+          home: CardImportPage(deckId: 'deck-1'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final field = tester.widget<TextField>(find.byType(TextField));
+      expect(field.keyboardType, TextInputType.multiline);
+      // 国产 ROM 会把"无建议输入"误判为敏感字段强制弹安全键盘，须保持默认（允许建议/纠正）
+      expect(field.autocorrect, isNot(false));
+      expect(field.enableSuggestions, isNot(false));
+    });
+
     testWidgets('previews and deletes imported rows', (tester) async {
       final repo = MockCardRepository();
       const content = '[{"front":"正面","back":"反面"},{"front":"","back":"反面"}]';
@@ -1541,6 +1627,76 @@ void main() {
       expect(find.text('设置'), findsWidgets);
       expect(find.text('a@b.c'), findsOneWidget);
       expect(find.text('04:00'), findsOneWidget);
+    });
+
+    testWidgets('settings change password dialog validates and submits', (
+      tester,
+    ) async {
+      final authRepo = MockAuthRepository();
+      when(() => authRepo.isLoggedIn()).thenAnswer((_) async => false);
+      when(() => authRepo.changePassword(any(), any())).thenAnswer((_) async {});
+      when(() => authRepo.logout()).thenAnswer((_) async {});
+      final settingsRepo = MockSettingsRepository();
+      when(
+        () => settingsRepo.getSettings(),
+      ).thenAnswer((_) async => {'email': 'a@b.c', 'refresh_time': '04:00:00'});
+
+      // 修改成功后跳 /login，需要真实 GoRouter 环境
+      final router = GoRouter(
+        initialLocation: '/settings',
+        routes: [
+          GoRoute(path: '/settings', builder: (_, _) => const SettingsPage()),
+          GoRoute(path: '/login', builder: (_, _) => const Scaffold()),
+        ],
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            ...authOverrides(authRepo),
+            ...settingsOverrides(settingsRepo),
+          ],
+          child: MaterialApp.router(
+            routerConfig: router,
+            localizationsDelegates: const [
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+              KarisReviewLocalizations.delegate,
+            ],
+            supportedLocales: KarisReviewLocalizations.supportedLocales,
+            locale: const Locale('zh'),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('修改密码'));
+      await tester.pumpAndSettle();
+      expect(find.text('当前密码'), findsOneWidget);
+
+      // 新密码过短 → 前端校验
+      await tester.enterText(find.byType(TextFormField).at(0), 'old-password');
+      await tester.enterText(find.byType(TextFormField).at(1), '123');
+      await tester.enterText(find.byType(TextFormField).at(2), '123');
+      await tester.tap(find.text('确认修改'));
+      await tester.pumpAndSettle();
+      expect(find.text('新密码至少 6 位'), findsOneWidget);
+
+      // 两次密码不一致 → 前端校验
+      await tester.enterText(find.byType(TextFormField).at(1), 'new-password');
+      await tester.enterText(find.byType(TextFormField).at(2), 'different');
+      await tester.tap(find.text('确认修改'));
+      await tester.pumpAndSettle();
+      expect(find.text('两次输入的密码不一致'), findsOneWidget);
+
+      // 合法提交 → 调用 changePassword 并跳转登录页
+      await tester.enterText(find.byType(TextFormField).at(2), 'new-password');
+      await tester.tap(find.text('确认修改'));
+      await tester.pumpAndSettle();
+
+      verify(() => authRepo.changePassword('old-password', 'new-password')).called(1);
+      verify(() => authRepo.logout()).called(1);
     });
   });
 
