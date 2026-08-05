@@ -635,6 +635,68 @@ void main() {
       expect(find.text('${now.year + 1}年1月5日'), findsOneWidget);
     });
 
+    testWidgets('card tile shows 今天 only for due cards, date for future reviews', (
+      tester,
+    ) async {
+      final now = DateTime.now();
+      final today = [
+        now.year.toString().padLeft(4, '0'),
+        now.month.toString().padLeft(2, '0'),
+        now.day.toString().padLeft(2, '0'),
+      ].join('-');
+      final future = '${now.year}-12-25';
+      final cardRepo = MockCardRepository();
+      when(
+        () => cardRepo.getDeckCards('deck-1', size: 500, filter: 'all'),
+      ).thenAnswer(
+        (_) async => {
+          'content': [
+            cardJson(
+              id: 'due-card',
+              front: '今天到期',
+              stage: 2,
+              nextReviewDate: today,
+              due: true,
+            ),
+            cardJson(
+              id: 'future-card',
+              front: '复习到未来',
+              stage: 3,
+              nextReviewDate: future,
+              due: false,
+            ),
+            cardJson(id: 'new-card', front: '未复习新卡', stage: 0),
+          ],
+        },
+      );
+      final statsRepo = MockStatsRepository();
+      when(
+        () => statsRepo.getOverview(),
+      ).thenAnswer((_) async => OverviewStats.fromJson(overviewStatsJson()));
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [...cardOverrides(cardRepo), ...statsOverrides(statsRepo)],
+          child: MaterialApp(
+            localizationsDelegates: const [
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+              KarisReviewLocalizations.delegate,
+            ],
+            supportedLocales: KarisReviewLocalizations.supportedLocales,
+          locale: const Locale('zh'),
+            home: CardListPage(deckId: 'deck-1')),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // 到期卡：右上角显示"今天"；已复习的未来卡：显示具体日期；新卡：显示"新卡"。
+      expect(find.text('今天'), findsOneWidget);
+      expect(find.text('12月25日'), findsOneWidget);
+      expect(find.text('未复习新卡'), findsOneWidget);
+    });
+
     testWidgets('card list selection bar uses compact labels', (tester) async {
       final cardRepo = MockCardRepository();
       when(
