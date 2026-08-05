@@ -1,12 +1,12 @@
 package top.kariscode.karisreview.backup.repository;
 
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import top.kariscode.karisreview.backup.entity.BackupSnapshot;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -16,14 +16,12 @@ public interface BackupRepository extends JpaRepository<BackupSnapshot, UUID> {
     void deleteByUserId(UUID userId);
 
     /**
-     * 保留策略：每个用户仅保留最近 {@code keep} 份快照，其余删除。
-     * 返回被删除的行数。
+     * 返回每个用户超出保留份数 {@code keep} 的快照（含 storage_key，供清理对象存储文件）。
      */
-    @Modifying
-    @Query(value = "DELETE FROM backup_snapshots b USING (" +
-                   "SELECT id, ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY created_at DESC) AS rn " +
-                   "FROM backup_snapshots) ranked " +
-                   "WHERE b.id = ranked.id AND ranked.rn > :keep",
+    @Query(value = "SELECT * FROM backup_snapshots b WHERE b.id IN (" +
+                   "SELECT id FROM (SELECT id, ROW_NUMBER() OVER " +
+                   "(PARTITION BY user_id ORDER BY created_at DESC) AS rn " +
+                   "FROM backup_snapshots) ranked WHERE ranked.rn > :keep)",
            nativeQuery = true)
-    int deleteExcessSnapshots(@Param("keep") int keep);
+    List<BackupSnapshot> findExcessSnapshots(@Param("keep") int keep);
 }
