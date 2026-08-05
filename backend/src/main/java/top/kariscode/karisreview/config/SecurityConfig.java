@@ -21,10 +21,14 @@ import java.util.Locale;
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final RateLimitFilter rateLimitFilter;
     private final MessageSource messageSource;
 
-    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter, MessageSource messageSource) {
+    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter,
+                          RateLimitFilter rateLimitFilter,
+                          MessageSource messageSource) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+        this.rateLimitFilter = rateLimitFilter;
         this.messageSource = messageSource;
     }
 
@@ -42,6 +46,10 @@ public class SecurityConfig {
                     "/api/auth/login",
                     "/api/auth/password/reset-code",
                     "/api/auth/password/reset",
+                    "/actuator/health/**",
+                    "/actuator/info",
+                    "/actuator/prometheus",
+                    "/actuator/metrics/**",
                     "/v3/api-docs/**",
                     "/swagger-ui/**",
                     "/swagger-ui.html"
@@ -66,7 +74,8 @@ public class SecurityConfig {
                     response.getWriter().write("{\"code\":401,\"message\":\"" + message + "\",\"data\":null}");
                 }
             }))
-            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+            .addFilterBefore(rateLimitFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
