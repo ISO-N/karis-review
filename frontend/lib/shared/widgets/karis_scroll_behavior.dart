@@ -32,7 +32,9 @@ class KarisScrollBehavior extends MaterialScrollBehavior {
         final precise = !_isTouchDevice;
         return Scrollbar(
           controller: details.controller,
-          interactive: precise,
+          // 桌面与触屏均可拖拽 thumb / 点按 track 滚动；
+          // 仅常驻/进度显示策略区分（触屏 overlay，桌面常驻）。
+          interactive: true,
           thumbVisibility: precise,
           trackVisibility: precise,
           child: child,
