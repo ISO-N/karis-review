@@ -1,17 +1,141 @@
 import 'package:flutter/material.dart';
 
-abstract final class KarisColors {
-  static const Color paper = Color(0xFFEEF2EE);
-  static const Color surface = Color(0xFFF9FBF7);
-  static const Color ink = Color(0xFF202B27);
-  static const Color stone = Color(0xFF66716B);
-  static const Color jade = Color(0xFF2F6B5C);
-  static const Color cinnabar = Color(0xFFC45B43);
-  static const Color amber = Color(0xFFB98A2F);
-  static const Color hairline = Color(0xFFDCE3DB);
-  static const Color jadeSoft = Color(0xFFE7EFE8);
-  static const Color amberSoft = Color(0xFFF5EDDA);
-  static const Color cinnabarSoft = Color(0xFFF6E7E2);
+/// Karis Review 语义化颜色 tokens。
+///
+/// 通过 [ThemeExtension] 挂载到 [ThemeData.extensions]，
+/// 页面使用 `context.karisColors.xxx` 访问（见 [KarisColorsContext]），
+/// 跟随明暗主题自动切换。禁止在页面中直接引用亮色常量。
+@immutable
+class KarisColors extends ThemeExtension<KarisColors> {
+  /// 页面背景（雾纸 / 夜纸）
+  final Color paper;
+
+  /// 卡片、面板、输入框表面（纸面 / 夜面）
+  final Color surface;
+
+  /// 主文字、主按钮（墨 / 夜墨）
+  final Color ink;
+
+  /// 次级文字、说明（石 / 夜石）
+  final Color stone;
+
+  /// 熟悉、完成、主强调（青 / 夜青）
+  final Color jade;
+
+  /// 忘记、危险操作（朱 / 夜朱）
+  final Color cinnabar;
+
+  /// 模糊、重学（金 / 夜金）
+  final Color amber;
+
+  /// 边框、分隔线（发丝线 / 夜线）
+  final Color hairline;
+
+  /// jade 弱化底色
+  final Color jadeSoft;
+
+  /// amber 弱化底色
+  final Color amberSoft;
+
+  /// cinnabar 弱化底色
+  final Color cinnabarSoft;
+
+  const KarisColors({
+    required this.paper,
+    required this.surface,
+    required this.ink,
+    required this.stone,
+    required this.jade,
+    required this.cinnabar,
+    required this.amber,
+    required this.hairline,
+    required this.jadeSoft,
+    required this.amberSoft,
+    required this.cinnabarSoft,
+  });
+
+  /// 亮色（现状保持不变）。
+  static const KarisColors light = KarisColors(
+    paper: Color(0xFFEEF2EE),
+    surface: Color(0xFFF9FBF7),
+    ink: Color(0xFF202B27),
+    stone: Color(0xFF66716B),
+    jade: Color(0xFF2F6B5C),
+    cinnabar: Color(0xFFC45B43),
+    amber: Color(0xFFB98A2F),
+    hairline: Color(0xFFDCE3DB),
+    jadeSoft: Color(0xFFE7EFE8),
+    amberSoft: Color(0xFFF5EDDA),
+    cinnabarSoft: Color(0xFFF6E7E2),
+  );
+
+  /// 暗色（纸感暗色，非纯黑；语义色提亮一档保证暗底对比度）。
+  static const KarisColors dark = KarisColors(
+    paper: Color(0xFF131A16),
+    surface: Color(0xFF1B231E),
+    ink: Color(0xFFE8EFE9),
+    stone: Color(0xFF96A49B),
+    jade: Color(0xFF57A08B),
+    cinnabar: Color(0xFFD9826B),
+    amber: Color(0xFFD6AC56),
+    hairline: Color(0xFF2C3A32),
+    jadeSoft: Color(0xFF22312A),
+    amberSoft: Color(0xFF332B1C),
+    cinnabarSoft: Color(0xFF362220),
+  );
+
+  @override
+  KarisColors copyWith({
+    Color? paper,
+    Color? surface,
+    Color? ink,
+    Color? stone,
+    Color? jade,
+    Color? cinnabar,
+    Color? amber,
+    Color? hairline,
+    Color? jadeSoft,
+    Color? amberSoft,
+    Color? cinnabarSoft,
+  }) {
+    return KarisColors(
+      paper: paper ?? this.paper,
+      surface: surface ?? this.surface,
+      ink: ink ?? this.ink,
+      stone: stone ?? this.stone,
+      jade: jade ?? this.jade,
+      cinnabar: cinnabar ?? this.cinnabar,
+      amber: amber ?? this.amber,
+      hairline: hairline ?? this.hairline,
+      jadeSoft: jadeSoft ?? this.jadeSoft,
+      amberSoft: amberSoft ?? this.amberSoft,
+      cinnabarSoft: cinnabarSoft ?? this.cinnabarSoft,
+    );
+  }
+
+  @override
+  KarisColors lerp(ThemeExtension<KarisColors>? other, double t) {
+    if (other is! KarisColors) return this;
+    return KarisColors(
+      paper: Color.lerp(paper, other.paper, t)!,
+      surface: Color.lerp(surface, other.surface, t)!,
+      ink: Color.lerp(ink, other.ink, t)!,
+      stone: Color.lerp(stone, other.stone, t)!,
+      jade: Color.lerp(jade, other.jade, t)!,
+      cinnabar: Color.lerp(cinnabar, other.cinnabar, t)!,
+      amber: Color.lerp(amber, other.amber, t)!,
+      hairline: Color.lerp(hairline, other.hairline, t)!,
+      jadeSoft: Color.lerp(jadeSoft, other.jadeSoft, t)!,
+      amberSoft: Color.lerp(amberSoft, other.amberSoft, t)!,
+      cinnabarSoft: Color.lerp(cinnabarSoft, other.cinnabarSoft, t)!,
+    );
+  }
+}
+
+/// 便捷访问：`context.karisColors.jade`。
+extension KarisColorsContext on BuildContext {
+  KarisColors get karisColors =>
+      Theme.of(this).extension<KarisColors>() ?? KarisColors.light;
 }
 
 abstract final class KarisTheme {
@@ -58,25 +182,29 @@ abstract final class KarisTheme {
   }
 }
 
-ThemeData _buildTheme() {
-  final base = Typography.material2021().black;
+ThemeData _buildTheme(Brightness brightness) {
+  final isDark = brightness == Brightness.dark;
+  final c = isDark ? KarisColors.dark : KarisColors.light;
+  final base =
+      isDark ? Typography.material2021().white : Typography.material2021().black;
 
   return ThemeData(
     useMaterial3: true,
-    brightness: Brightness.light,
-    scaffoldBackgroundColor: KarisColors.paper,
-    colorScheme: const ColorScheme.light(
-      primary: KarisColors.jade,
-      onPrimary: KarisColors.surface,
-      secondary: KarisColors.amber,
-      onSecondary: KarisColors.ink,
-      error: KarisColors.cinnabar,
-      onError: Color(0xFFFFF8F4),
-      surface: KarisColors.surface,
-      onSurface: KarisColors.ink,
-      outline: KarisColors.hairline,
-      outlineVariant: KarisColors.hairline,
-      surfaceContainerHighest: KarisColors.jadeSoft,
+    brightness: brightness,
+    scaffoldBackgroundColor: c.paper,
+    colorScheme: ColorScheme(
+      brightness: brightness,
+      primary: c.jade,
+      onPrimary: isDark ? const Color(0xFF07130F) : c.surface,
+      secondary: c.amber,
+      onSecondary: isDark ? const Color(0xFF251A03) : c.ink,
+      error: c.cinnabar,
+      onError: isDark ? const Color(0xFF240B06) : const Color(0xFFFFF8F4),
+      surface: c.surface,
+      onSurface: c.ink,
+      outline: c.hairline,
+      outlineVariant: c.hairline,
+      surfaceContainerHighest: c.jadeSoft,
     ),
     fontFamily: KarisTheme.bodyFamily,
     fontFamilyFallback: KarisTheme.bodyFallbacks,
@@ -145,48 +273,48 @@ ThemeData _buildTheme() {
         letterSpacing: 0,
       ),
     ),
-    cardTheme: const CardThemeData(
+    cardTheme: CardThemeData(
       elevation: 0,
-      color: KarisColors.surface,
+      color: c.surface,
       surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.all(Radius.circular(8)),
-        side: BorderSide(color: KarisColors.hairline),
+        side: BorderSide(color: c.hairline),
       ),
     ),
-    dividerTheme: const DividerThemeData(
-      color: KarisColors.hairline,
+    dividerTheme: DividerThemeData(
+      color: c.hairline,
       thickness: 1,
       space: 1,
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: KarisColors.paper,
+      fillColor: c.paper,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: KarisColors.hairline),
+        borderSide: BorderSide(color: c.hairline),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: KarisColors.hairline),
+        borderSide: BorderSide(color: c.hairline),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: KarisColors.jade, width: 1.4),
+        borderSide: BorderSide(color: c.jade, width: 1.4),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: KarisColors.cinnabar),
+        borderSide: BorderSide(color: c.cinnabar),
       ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-      labelStyle: const TextStyle(color: KarisColors.stone),
-      hintStyle: const TextStyle(color: KarisColors.stone),
+      labelStyle: TextStyle(color: c.stone),
+      hintStyle: TextStyle(color: c.stone),
     ),
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
         minimumSize: const Size(0, 46),
-        backgroundColor: KarisColors.ink,
-        foregroundColor: KarisColors.surface,
+        backgroundColor: c.ink,
+        foregroundColor: c.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         textStyle: const TextStyle(
           fontSize: 14,
@@ -198,8 +326,8 @@ ThemeData _buildTheme() {
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
         minimumSize: const Size(0, 46),
-        foregroundColor: KarisColors.ink,
-        side: const BorderSide(color: KarisColors.hairline),
+        foregroundColor: c.ink,
+        side: BorderSide(color: c.hairline),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         textStyle: const TextStyle(
           fontSize: 14,
@@ -210,7 +338,7 @@ ThemeData _buildTheme() {
     ),
     textButtonTheme: TextButtonThemeData(
       style: TextButton.styleFrom(
-        foregroundColor: KarisColors.jade,
+        foregroundColor: c.jade,
         minimumSize: const Size(44, 44),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         textStyle: const TextStyle(
@@ -221,10 +349,10 @@ ThemeData _buildTheme() {
       ),
     ),
     snackBarTheme: SnackBarThemeData(
-      backgroundColor: KarisColors.surface,
+      backgroundColor: c.surface,
       elevation: 0,
-      contentTextStyle: const TextStyle(
-        color: KarisColors.ink,
+      contentTextStyle: TextStyle(
+        color: c.ink,
         fontSize: 13,
         fontWeight: FontWeight.w500,
         letterSpacing: 0,
@@ -233,14 +361,14 @@ ThemeData _buildTheme() {
       insetPadding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
-        side: const BorderSide(color: KarisColors.hairline),
+        side: BorderSide(color: c.hairline),
       ),
     ),
     bannerTheme: MaterialBannerThemeData(
-      backgroundColor: KarisColors.surface,
+      backgroundColor: c.surface,
       elevation: 0,
-      contentTextStyle: const TextStyle(
-        color: KarisColors.ink,
+      contentTextStyle: TextStyle(
+        color: c.ink,
         fontSize: 13,
         fontWeight: FontWeight.w500,
         letterSpacing: 0,
@@ -248,10 +376,10 @@ ThemeData _buildTheme() {
     ),
     scrollbarTheme: ScrollbarThemeData(
       thumbColor: WidgetStatePropertyAll(
-        KarisColors.stone.withValues(alpha: 0.45),
+        c.stone.withValues(alpha: 0.45),
       ),
       trackColor: WidgetStatePropertyAll(
-        KarisColors.hairline.withValues(alpha: 0.5),
+        c.hairline.withValues(alpha: 0.5),
       ),
       thickness: const WidgetStatePropertyAll(6),
       radius: const Radius.circular(3),
@@ -260,29 +388,32 @@ ThemeData _buildTheme() {
       interactive: true,
     ),
     dialogTheme: DialogThemeData(
-      backgroundColor: KarisColors.surface,
+      backgroundColor: c.surface,
       surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(10),
-        side: const BorderSide(color: KarisColors.hairline),
+        side: BorderSide(color: c.hairline),
       ),
     ),
-    bottomSheetTheme: const BottomSheetThemeData(
-      backgroundColor: KarisColors.surface,
+    bottomSheetTheme: BottomSheetThemeData(
+      backgroundColor: c.surface,
       surfaceTintColor: Colors.transparent,
       showDragHandle: false,
-      shape: RoundedRectangleBorder(
+      shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(10)),
       ),
     ),
+    extensions: [c],
   );
 }
 
-final ThemeData appTheme = _buildTheme();
+final ThemeData appTheme = _buildTheme(Brightness.light);
+
+final ThemeData appDarkTheme = _buildTheme(Brightness.dark);
 
 TextStyle karisMono({
   double fontSize = 12,
-  Color color = KarisColors.ink,
+  Color? color,
   FontWeight weight = FontWeight.w500,
 }) {
   return TextStyle(
@@ -298,7 +429,7 @@ TextStyle karisMono({
 
 TextStyle karisDisplay({
   double fontSize = 26,
-  Color color = KarisColors.ink,
+  Color? color,
   FontWeight weight = FontWeight.w500,
 }) {
   return TextStyle(
