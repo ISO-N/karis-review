@@ -64,7 +64,7 @@ Android release 包名为 `top.kariscode.karisreview`，debug 包名为 `top.kar
 - **API 文档**：集成 Springdoc OpenAPI 3，配置了 JWT Bearer 安全方案；登录/注册接口豁免认证要求，生产 profile 关闭文档。
 - **"今天"的定义**：不是自然日。`common/util/DateUtils.calculateToday(refreshTime)` 依据用户设置的 `refresh_time`（默认 04:00）计算"今天"范围——当前时间在刷新点之前时算前一天。业务时区全局固定为 `app.timezone`（默认 `Asia/Shanghai`，UTC+8），前端离线排程同样按该时区计算；`server_time` 仍为 UTC。所有到期判断（due、stats、学习模式插入位置）都基于此。
 - **数据库变更**：`ddl-auto=none`，schema 由 Flyway 迁移管理（`src/main/resources/db/migration/V1~V10`）。改表必须新增迁移脚本，不能改已提交的脚本。
-- **统计口径**：`review_logs.is_new_card` 标记评分时是否为 Stage 0 且非重学的新卡；今日复习不含新学，今日新学只统计新卡上的 FAMILIAR。
+- **统计口径**：`review_logs.is_new_card` 标记评分时是否为 Stage 0 且非重学的新卡；今日复习不含新学，今日新学只统计新卡上的 FAMILIAR。`due_stage_distribution` 只统计已排期（`next_review_date` 非空且 ≤ 今日）的卡，不含未学新卡（`next_review_date` 为空）；今日页记忆刻度在其基础上把 `new_cards` 并入 stage 0，口径 = 今日任务（到期复习 + 待学新卡）。
 - **卡片快捷导入**：`card/service/CardImportParser` 负责解析 JSON 数组，`CardImportService` 校验卡组归属并批量写入新卡；`CardImportController` 暴露 `/api/decks/{deckId}/cards/import/preview` 与 `/api/decks/{deckId}/cards/import`，不写复习记录和排期状态；导入响应携带 `imported_card_ids`，卡片列表支持 `new` 筛选与 `/api/cards/batch-delete` 批量删除。列表接口 `GET /api/decks/{deckId}/cards` 支持 `q` 参数按正反面即时搜索，与现有筛选叠加，`%`、`_`、`\` 按字面值转义。
 
 #### 排期算法（核心业务逻辑）
@@ -96,7 +96,8 @@ Android release 包名为 `top.kariscode.karisreview`，debug 包名为 `top.kar
 - **路由/鉴权**：`app/router.dart` 的 GoRouter 监听 `authProvider` 做重定向（未登录 → `/login`，已登录访问登录页 → `/decks`）。`/review/due` 与 `/review/new` 共用 `ReviewPage`，用 `filter` 参数区分学习/复习模式，卡组筛选走 `deck_id` query 参数。
 - **富文本**：卡片正反面存 Quill Delta JSON 字符串（`flutter_quill` 编辑器，LaTeX 和代码块是自定义 custom block embed）。`shared/widgets/rich_card_content.dart` 渲染时自动识别——内容以 `[` 开头且可解析为 JSON 列表则按 Delta 渲染，否则按轻量 Markdown 解析（`**粗体**`、`*斜体*`、`` `行内代码` ``、`# 标题`、`- 列表`、`$$...$$` 行间公式、`$...$` 行内公式、` ``` 代码块 ````），并对 Delta/普通文本两种格式都做了容错处理。
 - **卡片编辑**：`card/pages/card_editor_page.dart` 为独立页面，正面/反面通过分段切换编辑，不把两面同时堆在一个界面里。
-- **卡片快捷导入**：`card/pages/card_import_page.dart` 为独立页面，支持粘贴 JSON 或选择 `.json` 文件；解析和最终导入都走后端，预览阶段可编辑/删除行，不支持新增和排序。导入接口返回 `imported_card_ids`，导入完成后可一键撤销；卡片列表支持 `new` 筛选（Stage 0 非重学、最新在前）、正反面即时搜索（300ms 防抖、搜索时分页拉取完整结果）和多选批量删除（`POST /api/cards/batch-delete`）。
+- **卡片快捷导入**：`card/pages/card_import_page.dart` 为独立页面，支持粘贴 JSON 或选择 `.json` 文件；解析和最终导入都走后端，预览阶段可编辑/删除行，不支持新增和排序。导入接口返回 `imported_card_ids`，导入完成后弹**常驻 MaterialBanner**（文案写明"撤销将删除这批卡片且不可恢复"）承载撤销入口，点击撤销先弹确认对话框再调批量删除，成功后反馈删除数量；卡片列表支持 `new` 筛选（Stage 0 非重学、最新在前）、正反面即时搜索（300ms 防抖、搜索时分页拉取完整结果）和多选批量删除（`POST /api/cards/batch-delete`）。
+- **全局滚动行为**：`shared/widgets/karis_scroll_behavior.dart` 作为 `MaterialApp.router` 的 `scrollBehavior` 全局生效——桌面/Web 纵向滚动常驻可拖拽滚动条（`scrollbarTheme` 配 `minThumbLength: 48` 兜底，防卡片过多时滚动块过小），触屏保持默认 overlay，横向滚动区域不显示。
 - **评分流程**：`review/providers/review_provider.dart` 维护 `ReviewSessionState`（卡片队列、当前索引、是否翻面、cursor、hasMore、待同步数）。在线通过复习会话 cursor 分页；离线回退到 Drift 本地队列；评分先写本地并自动同步。
 - **离线数据层**：`frontend/lib/offline/` 使用 Drift/SQLite 缓存卡组、卡片、复习日志与同步元数据；`SyncService` 通过 `/api/sync/bootstrap` 全量或 `event_cursor` 增量同步，提交 `/api/review/sync`，冲突默认按服务器刷新。`sync_events` 由数据库触发器写入，客户端保存事件游标并支持删除同步。
 - **跨设备评分锁**：`cards.review_version` 是 JPA 乐观锁版本；队列响应携带该值，评分/同步必须校验，旧设备提交会收到冲突。
