@@ -423,7 +423,9 @@ class _RatingArea extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final enabled = state.isFlipped && !state.isRating && !state.loadingMore;
+    // 翻面后立即解锁评分按钮；loadingMore 只是后台队列预加载，
+    // 与评分可用性无关（loadMore 仅向队尾追加，不移动 currentIndex）。
+    final enabled = state.isFlipped && !state.isRating;
     return Padding(
       padding: padding,
       child: Center(

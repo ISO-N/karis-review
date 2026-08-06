@@ -1293,6 +1293,54 @@ void main() {
       expect(find.text('本轮学习完成'), findsOneWidget);
       expect(find.text('本次 25 张 · 已学习 25'), findsOneWidget);
     });
+
+    testWidgets(
+      'rating buttons unlock after flip even while loading more queue',
+      (tester) async {
+        final repo = MockReviewRepository();
+        final state = ReviewSessionState(
+          cards: [ReviewCard.fromJson(reviewCardJson())],
+          isFlipped: true,
+          loadingMore: true,
+        );
+        final router = GoRouter(
+          initialLocation: '/review',
+          routes: [
+            GoRoute(path: '/review', builder: (_, _) => const ReviewPage()),
+          ],
+        );
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              reviewProvider.overrideWith(
+                (ref) => _StaticReviewNotifier(repo, state),
+              ),
+            ],
+            child: MaterialApp.router(
+              localizationsDelegates: const [
+                GlobalMaterialLocalizations.delegate,
+                GlobalWidgetsLocalizations.delegate,
+                GlobalCupertinoLocalizations.delegate,
+                KarisReviewLocalizations.delegate,
+              ],
+              supportedLocales: KarisReviewLocalizations.supportedLocales,
+              locale: const Locale('zh'),
+              routerConfig: router,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final inkWell = tester.widget<InkWell>(
+          find
+              .ancestor(of: find.text('熟悉'), matching: find.byType(InkWell))
+              .first,
+        );
+        expect(inkWell.onTap, isNotNull);
+        expect(tester.takeException(), isNull);
+      },
+    );
   });
   group('Card editor page', () {
     testWidgets('switches between front and back without losing drafts', (
