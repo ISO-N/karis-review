@@ -39,7 +39,7 @@ class _AdaptiveAppScaffoldState extends State<AdaptiveAppScaffold> {
     final size = MediaQuery.sizeOf(context);
     final isTablet = size.width >= 600;
     return Scaffold(
-      backgroundColor: KarisColors.paper,
+      backgroundColor: context.karisColors.paper,
       body: SafeArea(
         child: Stack(
           children: [
@@ -50,11 +50,6 @@ class _AdaptiveAppScaffoldState extends State<AdaptiveAppScaffold> {
             ),
             Positioned.fill(
               child: Focus(focusNode: _mainFocusNode, child: widget.body),
-            ),
-            Positioned(
-              left: 12,
-              top: 12,
-              child: KarisSkipLink(target: _mainFocusNode),
             ),
             if (widget.showNavigation) ...[
               _buildNavigationGlass(context, isTablet),
@@ -85,9 +80,9 @@ class _AdaptiveAppScaffoldState extends State<AdaptiveAppScaffold> {
                     : Alignment.bottomCenter,
                 end: isTablet ? Alignment.bottomCenter : Alignment.topCenter,
                 colors: [
-                  KarisColors.paper.withValues(alpha: 0.92),
-                  KarisColors.paper.withValues(alpha: 0.72),
-                  KarisColors.paper.withValues(alpha: 0),
+                  context.karisColors.paper.withValues(alpha: 0.92),
+                  context.karisColors.paper.withValues(alpha: 0.72),
+                  context.karisColors.paper.withValues(alpha: 0),
                 ],
                 stops: const [0, 0.6, 1],
               ),
@@ -99,6 +94,8 @@ class _AdaptiveAppScaffoldState extends State<AdaptiveAppScaffold> {
   }
 
   Widget _buildNavigation(BuildContext context, bool isTablet) {
+    final colors = context.karisColors;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final width = MediaQuery.sizeOf(context).width;
     final navWidth = isTablet
         ? (width - 64).clamp(0.0, 560.0).toDouble()
@@ -125,7 +122,8 @@ class _AdaptiveAppScaffoldState extends State<AdaptiveAppScaffold> {
             borderRadius: BorderRadius.circular(32),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF161F1B).withValues(alpha: 0.10),
+                color: (isDark ? const Color(0xFF000000) : const Color(0xFF161F1B))
+                    .withValues(alpha: isDark ? 0.45 : 0.10),
                 blurRadius: 24,
                 offset: const Offset(0, 8),
               ),
@@ -138,10 +136,12 @@ class _AdaptiveAppScaffoldState extends State<AdaptiveAppScaffold> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                 decoration: BoxDecoration(
-                  color: KarisColors.surface.withValues(alpha: 0.82),
+                  color: colors.surface.withValues(alpha: 0.82),
                   borderRadius: BorderRadius.circular(32),
                   border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.78),
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.08)
+                        : Colors.white.withValues(alpha: 0.78),
                   ),
                 ),
                 foregroundDecoration: BoxDecoration(
@@ -150,7 +150,7 @@ class _AdaptiveAppScaffoldState extends State<AdaptiveAppScaffold> {
                     begin: Alignment.topCenter,
                     end: const Alignment(0, 0.12),
                     colors: [
-                      Colors.white.withValues(alpha: 0.30),
+                      Colors.white.withValues(alpha: isDark ? 0.06 : 0.30),
                       Colors.white.withValues(alpha: 0),
                     ],
                   ),
@@ -158,7 +158,7 @@ class _AdaptiveAppScaffoldState extends State<AdaptiveAppScaffold> {
                 child: Row(
                   children: items.map((item) {
                     final active = item.$1 == widget.current;
-                    final color = active ? KarisColors.ink : KarisColors.stone;
+                    final color = active ? colors.ink : colors.stone;
                     return Expanded(
                       child: Semantics(
                         selected: active,
@@ -171,7 +171,7 @@ class _AdaptiveAppScaffoldState extends State<AdaptiveAppScaffold> {
                           child: Container(
                             decoration: isTablet && active
                                 ? BoxDecoration(
-                                    color: KarisColors.jade.withValues(
+                                    color: colors.jade.withValues(
                                       alpha: 0.08,
                                     ),
                                     borderRadius: BorderRadius.circular(8),
@@ -186,14 +186,14 @@ class _AdaptiveAppScaffoldState extends State<AdaptiveAppScaffold> {
                                     height: 2,
                                     margin: const EdgeInsets.only(bottom: 4),
                                     decoration: BoxDecoration(
-                                      color: KarisColors.jade,
+                                      color: colors.jade,
                                       borderRadius: BorderRadius.circular(2),
                                     ),
                                   ),
                                 Icon(
                                   active ? item.$3 : item.$2,
                                   size: 20,
-                                  color: active ? KarisColors.jade : color,
+                                  color: active ? colors.jade : color,
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
@@ -226,26 +226,27 @@ class KarisIconButton extends StatelessWidget {
   final IconData icon;
   final String tooltip;
   final VoidCallback? onPressed;
-  final Color color;
+  final Color? color;
 
   const KarisIconButton({
     super.key,
     required this.icon,
     required this.tooltip,
     this.onPressed,
-    this.color = KarisColors.ink,
+    this.color,
   });
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.karisColors;
     return IconButton(
       onPressed: onPressed,
-      icon: Icon(icon, size: 18, color: color),
+      icon: Icon(icon, size: 18, color: color ?? colors.ink),
       tooltip: tooltip,
       style: IconButton.styleFrom(
         minimumSize: const Size(40, 40),
-        backgroundColor: KarisColors.surface,
-        side: const BorderSide(color: KarisColors.hairline),
+        backgroundColor: colors.surface,
+        side: BorderSide(color: colors.hairline),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
     );
@@ -257,7 +258,7 @@ class KarisPrimaryButton extends StatelessWidget {
   final IconData icon;
   final VoidCallback? onPressed;
   final bool expanded;
-  final Color backgroundColor;
+  final Color? backgroundColor;
 
   const KarisPrimaryButton({
     super.key,
@@ -265,18 +266,19 @@ class KarisPrimaryButton extends StatelessWidget {
     this.icon = Icons.play_arrow_rounded,
     this.onPressed,
     this.expanded = true,
-    this.backgroundColor = KarisColors.ink,
+    this.backgroundColor,
   });
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.karisColors;
     return FilledButton.icon(
       onPressed: onPressed,
       icon: Icon(icon, size: 17),
       label: Text(label),
       style: FilledButton.styleFrom(
-        backgroundColor: backgroundColor,
-        foregroundColor: KarisColors.surface,
+        backgroundColor: backgroundColor ?? colors.ink,
+        foregroundColor: colors.surface,
         minimumSize: Size(expanded ? double.infinity : 0, 46),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),

@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../app/theme.dart';
 import '../../shared/widgets/adaptive_scaffold.dart';
+import '../../shared/widgets/app_feedback.dart';
 import '../../shared/widgets/app_semantics.dart';
 import '../../shared/widgets/rich_card_content.dart';
 import '../../shared/widgets/section_widgets.dart';
@@ -66,6 +67,7 @@ class _CardImportPageState extends State<CardImportPage> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.karisColors;
     return PopScope(
       canPop: !_hasEdits || _importing,
       onPopInvokedWithResult: (didPop, result) {
@@ -73,7 +75,7 @@ class _CardImportPageState extends State<CardImportPage> {
         _confirmAndClose();
       },
       child: Scaffold(
-        backgroundColor: KarisColors.paper,
+        backgroundColor: colors.paper,
         body: SafeArea(
           child: Center(
             child: ConstrainedBox(
@@ -200,18 +202,21 @@ class _CardImportPageState extends State<CardImportPage> {
     await Clipboard.setData(ClipboardData(text: _importSampleJson.trim()));
     if (!mounted) return;
     announceMessage(context, '示例 JSON 已复制');
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(const SnackBar(content: Text('示例 JSON 已复制')));
+    showKarisFeedback(
+      context,
+      tone: KarisFeedbackTone.success,
+      title: '示例 JSON 已复制',
+    );
   }
 
   Widget _buildFormatGuide() {
+    final colors = context.karisColors;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: KarisColors.surface,
-        border: Border.all(color: KarisColors.hairline),
+        color: colors.surface,
+        border: Border.all(color: colors.hairline),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
@@ -219,11 +224,11 @@ class _CardImportPageState extends State<CardImportPage> {
         children: [
           Row(
             children: [
-              const Expanded(
+              Expanded(
                 child: Text(
                   'JSON 格式',
                   style: TextStyle(
-                    color: KarisColors.ink,
+                    color: colors.ink,
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                     letterSpacing: 0,
@@ -237,9 +242,9 @@ class _CardImportPageState extends State<CardImportPage> {
                 style: OutlinedButton.styleFrom(
                   minimumSize: const Size(0, 36),
                   padding: const EdgeInsets.symmetric(horizontal: 10),
-                  backgroundColor: KarisColors.paper,
-                  foregroundColor: KarisColors.jade,
-                  side: const BorderSide(color: KarisColors.hairline),
+                  backgroundColor: colors.paper,
+                  foregroundColor: colors.jade,
+                  side: BorderSide(color: colors.hairline),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
@@ -252,8 +257,8 @@ class _CardImportPageState extends State<CardImportPage> {
             width: double.infinity,
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: KarisColors.paper,
-              border: Border.all(color: KarisColors.hairline),
+              color: colors.paper,
+              border: Border.all(color: colors.hairline),
               borderRadius: BorderRadius.circular(8),
             ),
             child: SingleChildScrollView(
@@ -266,10 +271,10 @@ class _CardImportPageState extends State<CardImportPage> {
             ),
           ),
           SizedBox(height: 12),
-          const Text(
+          Text(
             '格式要点',
             style: TextStyle(
-              color: KarisColors.ink,
+              color: colors.ink,
               fontSize: 13,
               fontWeight: FontWeight.w600,
               letterSpacing: 0,
@@ -298,12 +303,13 @@ class _CardImportPageState extends State<CardImportPage> {
   }
 
   Widget _buildFileStatus() {
+    final colors = context.karisColors;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: KarisColors.surface,
-        border: Border.all(color: KarisColors.hairline),
+        color: colors.surface,
+        border: Border.all(color: colors.hairline),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
@@ -314,7 +320,7 @@ class _CardImportPageState extends State<CardImportPage> {
                 ? Icons.description_outlined
                 : Icons.check_circle_outline,
             size: 22,
-            color: _fileName == null ? KarisColors.stone : KarisColors.jade,
+            color: _fileName == null ? colors.stone : colors.jade,
           ),
           SizedBox(width: 12),
           Expanded(
@@ -323,8 +329,8 @@ class _CardImportPageState extends State<CardImportPage> {
               children: [
                 Text(
                   _fileName ?? '未选择 JSON 文件',
-                  style: const TextStyle(
-                    color: KarisColors.ink,
+                  style: TextStyle(
+                    color: colors.ink,
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                     letterSpacing: 0,
@@ -335,8 +341,8 @@ class _CardImportPageState extends State<CardImportPage> {
                   _fileContent == null
                       ? '请选择一个 .json 文件，读取后会自动解析'
                       : '已读取 ${_fileContent!.length} 个字符，可重新选择',
-                  style: const TextStyle(
-                    color: KarisColors.stone,
+                  style: TextStyle(
+                    color: colors.stone,
                     fontSize: 12,
                     height: 1.5,
                     letterSpacing: 0,
@@ -351,6 +357,7 @@ class _CardImportPageState extends State<CardImportPage> {
   }
 
   Widget _buildPreviewBody() {
+    final colors = context.karisColors;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -363,18 +370,18 @@ class _CardImportPageState extends State<CardImportPage> {
               _SummaryBadge(
                 label: '总数',
                 value: '${_items.length}',
-                color: KarisColors.ink,
+                color: colors.ink,
               ),
               _SummaryBadge(
                 label: '有效',
                 value: '$_validCount',
-                color: KarisColors.jade,
+                color: colors.jade,
               ),
               if (_invalidCount > 0)
                 _SummaryBadge(
                   label: '无效',
                   value: '$_invalidCount',
-                  color: KarisColors.cinnabar,
+                  color: colors.cinnabar,
                 ),
             ],
           ),
@@ -398,15 +405,16 @@ class _CardImportPageState extends State<CardImportPage> {
   }
 
   Widget _buildPreviewItem(int index, CardImportPreviewItem item) {
+    final colors = context.karisColors;
     final invalid = !item.valid;
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: KarisColors.surface,
+        color: colors.surface,
         border: Border.all(
           color: invalid
-              ? KarisColors.cinnabar.withValues(alpha: 0.55)
-              : KarisColors.hairline,
+              ? colors.cinnabar.withValues(alpha: 0.55)
+              : colors.hairline,
         ),
         borderRadius: BorderRadius.circular(8),
       ),
@@ -420,8 +428,8 @@ class _CardImportPageState extends State<CardImportPage> {
                 if (invalid && item.message != null)
                   Text(
                     '${index + 1} · ${item.message}',
-                    style: const TextStyle(
-                      color: KarisColors.cinnabar,
+                    style: TextStyle(
+                      color: colors.cinnabar,
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
                       letterSpacing: 0,
@@ -431,29 +439,29 @@ class _CardImportPageState extends State<CardImportPage> {
                 if (item.front.trim().isNotEmpty)
                   RichCardContent(
                     content: item.front,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w600,
-                      color: KarisColors.ink,
+                      color: colors.ink,
                       height: 1.5,
                       letterSpacing: 0,
                     ),
                     maxLines: 3,
                   )
                 else
-                  const Text(
+                  Text(
                     '正面未填写',
                     style: TextStyle(
-                      color: KarisColors.stone,
+                      color: colors.stone,
                       fontSize: 13,
                       letterSpacing: 0,
                     ),
                   ),
                 SizedBox(height: 10),
-                const Text(
+                Text(
                   '反面',
                   style: TextStyle(
-                    color: KarisColors.stone,
+                    color: colors.stone,
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
                     letterSpacing: 0,
@@ -463,19 +471,19 @@ class _CardImportPageState extends State<CardImportPage> {
                 if (item.back.trim().isNotEmpty)
                   RichCardContent(
                     content: item.back,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 13,
-                      color: KarisColors.stone,
+                      color: colors.stone,
                       height: 1.5,
                       letterSpacing: 0,
                     ),
                     maxLines: 3,
                   )
                 else
-                  const Text(
+                  Text(
                     '反面未填写',
                     style: TextStyle(
-                      color: KarisColors.stone,
+                      color: colors.stone,
                       fontSize: 13,
                       letterSpacing: 0,
                     ),
@@ -490,11 +498,11 @@ class _CardImportPageState extends State<CardImportPage> {
                 onPressed: () => _editItem(index),
                 tooltip: '编辑',
                 icon: const Icon(Icons.edit_outlined, size: 18),
-                color: KarisColors.ink,
+                color: colors.ink,
                 style: IconButton.styleFrom(
                   minimumSize: const Size(36, 36),
-                  backgroundColor: KarisColors.paper,
-                  side: const BorderSide(color: KarisColors.hairline),
+                  backgroundColor: colors.paper,
+                  side: BorderSide(color: colors.hairline),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
@@ -505,12 +513,12 @@ class _CardImportPageState extends State<CardImportPage> {
                 onPressed: () => _deleteItem(index),
                 tooltip: '删除',
                 icon: const Icon(Icons.delete_outline, size: 18),
-                color: KarisColors.cinnabar,
+                color: colors.cinnabar,
                 style: IconButton.styleFrom(
                   minimumSize: const Size(36, 36),
-                  backgroundColor: KarisColors.cinnabarSoft,
-                  side: const BorderSide(
-                    color: KarisColors.cinnabar,
+                  backgroundColor: colors.cinnabarSoft,
+                  side: BorderSide(
+                    color: colors.cinnabar,
                     width: 0.6,
                   ),
                   shape: RoundedRectangleBorder(
@@ -526,11 +534,12 @@ class _CardImportPageState extends State<CardImportPage> {
   }
 
   Widget _buildPreviewFooter() {
+    final colors = context.karisColors;
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
-      decoration: const BoxDecoration(
-        color: KarisColors.paper,
-        border: Border(top: BorderSide(color: KarisColors.hairline)),
+      decoration: BoxDecoration(
+        color: colors.paper,
+        border: Border(top: BorderSide(color: colors.hairline)),
       ),
       child: SafeArea(
         top: false,
@@ -539,10 +548,10 @@ class _CardImportPageState extends State<CardImportPage> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             if (_invalidCount > 0)
-              const Text(
+              Text(
                 '还有无效卡片，请修复或删除后再导入',
                 style: TextStyle(
-                  color: KarisColors.cinnabar,
+                  color: colors.cinnabar,
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
                   letterSpacing: 0,
@@ -587,18 +596,19 @@ class _CardImportPageState extends State<CardImportPage> {
   }
 
   Widget _buildErrorBox(String message) {
+    final colors = context.karisColors;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: KarisColors.cinnabarSoft,
-        border: Border.all(color: KarisColors.cinnabar),
+        color: colors.cinnabarSoft,
+        border: Border.all(color: colors.cinnabar),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
         message,
-        style: const TextStyle(
-          color: KarisColors.cinnabar,
+        style: TextStyle(
+          color: colors.cinnabar,
           fontSize: 13,
           height: 1.5,
           letterSpacing: 0,
@@ -820,15 +830,16 @@ class _SourceButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.karisColors;
     return OutlinedButton.icon(
       onPressed: onPressed,
       icon: Icon(icon, size: 17),
       label: Text(label),
       style: OutlinedButton.styleFrom(
-        backgroundColor: active ? KarisColors.jadeSoft : KarisColors.surface,
-        foregroundColor: active ? KarisColors.jade : KarisColors.ink,
+        backgroundColor: active ? colors.jadeSoft : colors.surface,
+        foregroundColor: active ? colors.jade : colors.ink,
         side: BorderSide(
-          color: active ? KarisColors.jade : KarisColors.hairline,
+          color: active ? colors.jade : colors.hairline,
         ),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
@@ -844,18 +855,19 @@ class _FormatRule extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.karisColors;
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 16, color: KarisColors.jade),
+          Icon(icon, size: 16, color: colors.jade),
           SizedBox(width: 8),
           Expanded(
             child: Text(
               text,
-              style: const TextStyle(
-                color: KarisColors.stone,
+              style: TextStyle(
+                color: colors.stone,
                 fontSize: 12,
                 height: 1.5,
                 letterSpacing: 0,
@@ -881,11 +893,12 @@ class _SummaryBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.karisColors;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: KarisColors.surface,
-        border: Border.all(color: KarisColors.hairline),
+        color: colors.surface,
+        border: Border.all(color: colors.hairline),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
@@ -893,8 +906,8 @@ class _SummaryBadge extends StatelessWidget {
         children: [
           Text(
             label,
-            style: const TextStyle(
-              color: KarisColors.stone,
+            style: TextStyle(
+              color: colors.stone,
               fontSize: 12,
               fontWeight: FontWeight.w500,
               letterSpacing: 0,

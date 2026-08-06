@@ -29,7 +29,7 @@ CustomTransitionPage<Object?> _fadeSlidePage(
     key: state.pageKey,
     transitionDuration: reducedDuration(
       context,
-      const Duration(milliseconds: 260),
+      KarisMotion.page,
     ),
     reverseTransitionDuration: reducedDuration(
       context,

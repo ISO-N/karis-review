@@ -29,6 +29,7 @@ class DeckRow extends StatelessWidget {
   });
 
   void _showActions(BuildContext context) {
+    final colors = context.karisColors;
     final l10n = KarisReviewLocalizations.of(context)!;
     showModalBottomSheet<void>(
       context: context,
@@ -47,10 +48,10 @@ class DeckRow extends StatelessWidget {
                         name,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w600,
-                          color: KarisColors.ink,
+                          color: colors.ink,
                           letterSpacing: 0,
                         ),
                       ),
@@ -67,7 +68,7 @@ class DeckRow extends StatelessWidget {
                   _DeckActionTile(
                     icon: Icons.edit_outlined,
                     label: l10n.deckRenameLabel,
-                    color: KarisColors.ink,
+                    color: colors.ink,
                     onTap: () {
                       Navigator.pop(sheetContext);
                       onEdit?.call();
@@ -79,7 +80,7 @@ class DeckRow extends StatelessWidget {
                   _DeckActionTile(
                     icon: Icons.delete_outline,
                     label: l10n.deckDeleteLabel,
-                    color: KarisColors.cinnabar,
+                    color: colors.cinnabar,
                     onTap: () {
                       Navigator.pop(sheetContext);
                       onDelete?.call();
@@ -95,6 +96,7 @@ class DeckRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.karisColors;
     final l10n = KarisReviewLocalizations.of(context)!;
     final flag = name.trim().isEmpty
         ? '牌'
@@ -107,8 +109,8 @@ class DeckRow extends StatelessWidget {
           width: double.infinity,
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: KarisColors.surface,
-            border: Border.all(color: KarisColors.hairline),
+            color: colors.surface,
+            border: Border.all(color: colors.hairline),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Row(
@@ -118,13 +120,13 @@ class DeckRow extends StatelessWidget {
                 height: 36,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: KarisColors.jadeSoft,
+                  color: colors.jadeSoft,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
                   flag,
-                  style: const TextStyle(
-                    color: KarisColors.jade,
+                  style: TextStyle(
+                    color: colors.jade,
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                   ),
@@ -139,17 +141,17 @@ class DeckRow extends StatelessWidget {
                       name,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
-                        color: KarisColors.ink,
+                        color: colors.ink,
                         letterSpacing: 0,
                       ),
                     ),
                     SizedBox(height: 6),
                     Text(
                       '$cardCount 张 · 待复习 $dueCount',
-                      style: karisMono(fontSize: 10, color: KarisColors.stone),
+                      style: karisMono(fontSize: 10, color: colors.stone),
                     ),
                     SizedBox(height: 7),
                     MiniStageRuler(distribution: stageDistribution),
@@ -160,13 +162,13 @@ class DeckRow extends StatelessWidget {
                 KarisIconButton(
                   icon: Icons.more_horiz,
                   tooltip: l10n.deckOperationTooltip,
-                  color: KarisColors.stone,
+                  color: colors.stone,
                   onPressed: () => _showActions(context),
                 )
               else
-                const Icon(
+                Icon(
                   Icons.chevron_right,
-                  color: KarisColors.stone,
+                  color: colors.stone,
                   size: 18,
                 ),
             ],
@@ -192,6 +194,7 @@ class _DeckActionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.karisColors;
     return KarisInteractive(
       child: InkWell(
         onTap: onTap,
@@ -199,8 +202,8 @@ class _DeckActionTile extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
           decoration: BoxDecoration(
-            color: KarisColors.surface,
-            border: Border.all(color: KarisColors.hairline),
+            color: colors.surface,
+            border: Border.all(color: colors.hairline),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Row(

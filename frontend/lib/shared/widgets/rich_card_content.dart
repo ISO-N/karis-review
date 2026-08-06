@@ -1,10 +1,158 @@
+import 'dart:collection';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
 import 'package:flutter_quill/flutter_quill.dart' as quill;
-import 'package:flutter_highlight/flutter_highlight.dart';
+import 'package:highlight/highlight.dart' as hl;
 import 'package:flutter_highlight/themes/github.dart';
+
+/// 轻量 LRU 缓存：内容解析结果跨 build/跨列表项复用，
+/// 滚动返回或重复内容时零重复解析，缓解大列表拖拽卡顿。
+class _LruCache<K, V> {
+  _LruCache(this.limit);
+
+  final int limit;
+  final LinkedHashMap<K, V> _map = LinkedHashMap<K, V>();
+
+  V? operator [](K key) {
+    final value = _map[key];
+    if (value != null) {
+      // LRU 提升
+      _map.remove(key);
+      _map[key] = value;
+    }
+    return value;
+  }
+
+  void put(K key, V value) {
+    _map.remove(key);
+    _map[key] = value;
+    if (_map.length > limit) {
+      _map.remove(_map.keys.first);
+    }
+  }
+}
+
+/// 代码围栏分割结果缓存（完整渲染场景复用）。
+final _LruCache<String, List<_CodeSegment>> _codeFenceCache =
+    _LruCache(256);
+
+/// Quill Delta Document 解析结果缓存（同一 Delta 内容不重复 jsonDecode）。
+final _LruCache<String, quill.Document> _deltaDocumentCache = _LruCache(128);
+
+/// 行内 Markdown token 解析结果缓存（与 style 无关的中间表示）。
+final _LruCache<String, List<_InlineToken>> _inlineTokenCache = _LruCache(512);
+
+/// 代码高亮 parse 结果缓存（code+language → Node 树，词法解析只做一次）。
+final _LruCache<String, List<hl.Node>> _highlightParseCache = _LruCache(128);
+
+List<_CodeSegment> _cachedSplitCodeFences(String content) {
+  final cached = _codeFenceCache[content];
+  if (cached != null) return cached;
+  final result = _splitCodeFences(content);
+  _codeFenceCache.put(content, result);
+  return result;
+}
+
+/// 语言映射（供高亮与代码块标签复用）。
+String? _resolveHighlightLanguage(String language) {
+  return switch (language.toLowerCase()) {
+    'dart' => 'dart',
+    'java' => 'java',
+    'javascript' || 'js' => 'javascript',
+    'python' || 'py' => 'python',
+    'sql' => 'sql',
+    'html' || 'xml' => 'xml',
+    _ => null,
+  };
+}
+
+/// 复刻 flutter_highlight `HighlightView._convert` 的节点 → span 转换。
+List<TextSpan> _convertHighlightNodes(
+  List<hl.Node> nodes,
+  Map<String, TextStyle> theme,
+) {
+  final spans = <TextSpan>[];
+  var currentSpans = spans;
+  final stack = <List<TextSpan>>[];
+
+  void traverse(hl.Node node) {
+    if (node.value != null) {
+      currentSpans.add(
+        node.className == null
+            ? TextSpan(text: node.value)
+            : TextSpan(text: node.value, style: theme[node.className!]),
+      );
+    } else if (node.children != null) {
+      final tmp = <TextSpan>[];
+      currentSpans.add(TextSpan(children: tmp, style: theme[node.className!]));
+      stack.add(currentSpans);
+      currentSpans = tmp;
+      final children = node.children!;
+      for (final child in children) {
+        traverse(child);
+        if (identical(child, children.last)) {
+          currentSpans = stack.isEmpty ? spans : stack.removeLast();
+        }
+      }
+    }
+  }
+
+  for (final node in nodes) {
+    traverse(node);
+  }
+  return spans;
+}
+
+/// 带缓存的高亮代码块：同一 code+language 只做一次词法解析（[hl.highlight.parse]），
+/// 滚动返回 / 重复代码时直接复用 Node 树再映射 TextSpan，
+/// 相比 HighlightView 每次 build 重新解析，滚动成本大幅下降。
+class _CachedHighlight extends StatelessWidget {
+  final String code;
+  final String language;
+  final TextStyle textStyle;
+
+  const _CachedHighlight({
+    required this.code,
+    required this.language,
+    required this.textStyle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    const rootKey = 'root';
+    const defaultFontColor = Color(0xff000000);
+    const defaultBackgroundColor = Color(0xffffffff);
+    // 与 HighlightView 一致：tab 展开后再解析。
+    final source = code.replaceAll('\t', ' ' * 8);
+    final nodes = _cachedHighlightNodes(source, language);
+    final rootStyle = TextStyle(
+      fontFamily: 'monospace',
+      color: githubTheme[rootKey]?.color ?? defaultFontColor,
+    ).merge(textStyle);
+    return Container(
+      color: githubTheme[rootKey]?.backgroundColor ?? defaultBackgroundColor,
+      child: RichText(
+        text: TextSpan(
+          style: rootStyle,
+          children: _convertHighlightNodes(nodes, githubTheme),
+        ),
+      ),
+    );
+  }
+
+  List<hl.Node> _cachedHighlightNodes(String source, String language) {
+    final resolved = _resolveHighlightLanguage(language) ?? 'plaintext';
+    final key = '$resolved\u0000$source';
+    final cached = _highlightParseCache[key];
+    if (cached != null) return cached;
+    final nodes = hl.highlight.parse(source, language: resolved).nodes ??
+        const <hl.Node>[];
+    _highlightParseCache.put(key, nodes);
+    return nodes;
+  }
+}
 
 /// Renders card content as rich text.
 ///
@@ -46,9 +194,11 @@ class _RichCardContentState extends State<RichCardContent> {
     final trimmed = content.trim();
     if (!trimmed.startsWith('[')) return false;
     try {
-      final decoded = jsonDecode(trimmed);
-      if (decoded is! List) return false;
-      _document = quill.Document.fromJson(decoded);
+      final cached = _deltaDocumentCache[trimmed];
+      _document = cached ?? quill.Document.fromJson(jsonDecode(trimmed));
+      if (cached == null) {
+        _deltaDocumentCache.put(trimmed, _document!);
+      }
       if (widget.maxLines == null) {
         _quillController = quill.QuillController(
           document: _document!,
@@ -152,7 +302,8 @@ class _DeltaPreview extends StatelessWidget {
       style: effectiveStyle,
       textAlign: textAlign,
       maxLines: maxLines,
-      overflow: maxLines != null ? TextOverflow.ellipsis : null,
+      // 与行内预览一致：clip 避免全文测量（ellipsis 需完整排版来确定截断）。
+      overflow: maxLines != null ? TextOverflow.clip : null,
     );
   }
 }
@@ -324,29 +475,21 @@ class CodeEmbedBuilder extends quill.EmbedBuilder {
             ),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
-            child: HighlightView(
-              code,
-              language: _resolveLanguage(language) ?? 'plaintext',
-              theme: githubTheme,
+            child: Padding(
               padding: const EdgeInsets.all(12),
-              textStyle: const TextStyle(fontFamily: 'monospace', fontSize: 13),
+              child: _CachedHighlight(
+                code: code,
+                language: language,
+                textStyle: const TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 13,
+                ),
+              ),
             ),
           ),
         ],
       ),
     );
-  }
-
-  String? _resolveLanguage(String language) {
-    return switch (language.toLowerCase()) {
-      'dart' => 'dart',
-      'java' => 'java',
-      'javascript' || 'js' => 'javascript',
-      'python' || 'py' => 'python',
-      'sql' => 'sql',
-      'html' || 'xml' => 'xml',
-      _ => null,
-    };
   }
 }
 
@@ -370,7 +513,7 @@ class _MarkdownContent extends StatelessWidget {
     final effectiveStyle = style ?? DefaultTextStyle.of(context).style;
 
     // Split code fences out first so code is never passed through the inline parser.
-    final segments = _splitCodeFences(content);
+    final segments = _cachedSplitCodeFences(content);
     final children = <Widget>[];
 
     for (final segment in segments) {
@@ -407,14 +550,15 @@ class _MarkdownContent extends StatelessWidget {
                   ),
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
-                  child: HighlightView(
-                    segment.text,
-                    language: _languageName(segment.language) ?? 'plaintext',
-                    theme: githubTheme,
+                  child: Padding(
                     padding: const EdgeInsets.all(12),
-                    textStyle: const TextStyle(
-                      fontFamily: 'monospace',
-                      fontSize: 13,
+                    child: _CachedHighlight(
+                      code: segment.text,
+                      language: segment.language,
+                      textStyle: const TextStyle(
+                        fontFamily: 'monospace',
+                        fontSize: 13,
+                      ),
                     ),
                   ),
                 ),
@@ -493,18 +637,6 @@ class _MarkdownContent extends StatelessWidget {
       children: children,
     );
   }
-
-  String? _languageName(String language) {
-    return switch (language.toLowerCase()) {
-      'dart' => 'dart',
-      'java' => 'java',
-      'javascript' || 'js' => 'javascript',
-      'python' || 'py' => 'python',
-      'sql' => 'sql',
-      'html' || 'xml' => 'xml',
-      _ => null,
-    };
-  }
 }
 
 class _CodeSegment {
@@ -543,6 +675,177 @@ List<_CodeSegment> _splitCodeFences(String content) {
   return result;
 }
 
+/// 行内 Markdown 解析 token（与 style 无关的中间表示，可安全缓存复用）。
+sealed class _InlineToken {
+  const _InlineToken();
+}
+
+class _TokenText extends _InlineToken {
+  const _TokenText(this.text);
+  final String text;
+}
+
+class _TokenMath extends _InlineToken {
+  const _TokenMath(this.latex, {required this.display});
+  final String latex;
+  final bool display;
+}
+
+class _TokenBold extends _InlineToken {
+  const _TokenBold(this.text);
+  final String text;
+}
+
+class _TokenItalic extends _InlineToken {
+  const _TokenItalic(this.text);
+  final String text;
+}
+
+class _TokenCode extends _InlineToken {
+  const _TokenCode(this.text);
+  final String text;
+}
+
+List<_InlineToken> _cachedInlineTokens(String text) {
+  final cached = _inlineTokenCache[text];
+  if (cached != null) return cached;
+  final tokens = <_InlineToken>[];
+  _parseInlineTokens(text, tokens);
+  _inlineTokenCache.put(text, tokens);
+  return tokens;
+}
+
+void _parseInlineTokens(String text, List<_InlineToken> out) {
+  // Display math: $$...$$
+  final displayMath = RegExp(r'\$\$(.+?)\$\$', dotAll: true);
+  var index = 0;
+  for (final match in displayMath.allMatches(text)) {
+    if (match.start > index) {
+      _parseInlineMathTokens(text.substring(index, match.start), out);
+    }
+    out.add(_TokenMath(match.group(1)!, display: true));
+    index = match.end;
+  }
+  if (index < text.length) {
+    _parseInlineMathTokens(text.substring(index), out);
+  }
+}
+
+void _parseInlineMathTokens(String text, List<_InlineToken> out) {
+  // Inline math: $...$
+  final inlineMath = RegExp(r'\$([^$\n]+?)\$');
+  var index = 0;
+  for (final match in inlineMath.allMatches(text)) {
+    if (match.start > index) {
+      _parseFormattingTokens(text.substring(index, match.start), out);
+    }
+    out.add(_TokenMath(match.group(1)!, display: false));
+    index = match.end;
+  }
+  if (index < text.length) {
+    _parseFormattingTokens(text.substring(index), out);
+  }
+}
+
+void _parseFormattingTokens(String text, List<_InlineToken> out) {
+  // Bold
+  final bold = RegExp(r'\*\*(.+?)\*\*');
+  var index = 0;
+  for (final match in bold.allMatches(text)) {
+    if (match.start > index) {
+      _parseItalicAndCodeTokens(text.substring(index, match.start), out);
+    }
+    out.add(_TokenBold(match.group(1)!));
+    index = match.end;
+  }
+  if (index < text.length) {
+    _parseItalicAndCodeTokens(text.substring(index), out);
+  }
+}
+
+void _parseItalicAndCodeTokens(String text, List<_InlineToken> out) {
+  // Inline code
+  final inlineCode = RegExp(r'`([^`]+)`');
+  var index = 0;
+  for (final match in inlineCode.allMatches(text)) {
+    if (match.start > index) {
+      _parseItalicTokens(text.substring(index, match.start), out);
+    }
+    out.add(_TokenCode(match.group(1)!));
+    index = match.end;
+  }
+  if (index < text.length) {
+    _parseItalicTokens(text.substring(index), out);
+  }
+}
+
+void _parseItalicTokens(String text, List<_InlineToken> out) {
+  final italic = RegExp(r'\*([^*]+)\*');
+  var index = 0;
+  for (final match in italic.allMatches(text)) {
+    if (match.start > index) {
+      out.add(_TokenText(text.substring(index, match.start)));
+    }
+    out.add(_TokenItalic(match.group(1)!));
+    index = match.end;
+  }
+  if (index < text.length) {
+    out.add(_TokenText(text.substring(index)));
+  }
+}
+
+/// 将缓存的 token 映射为带 style 的 InlineSpan（轻量，无正则）。
+List<InlineSpan> _tokensToSpans(
+  List<_InlineToken> tokens,
+  TextStyle baseStyle,
+) {
+  final out = <InlineSpan>[];
+  for (final token in tokens) {
+    switch (token) {
+      case _TokenText(:final text):
+        out.add(TextSpan(text: text));
+      case _TokenMath(:final latex, :final display):
+        out.add(
+          WidgetSpan(
+            alignment: PlaceholderAlignment.middle,
+            child: Math.tex(
+              latex,
+              mathStyle: display ? MathStyle.display : MathStyle.text,
+              textStyle: baseStyle.copyWith(
+                fontSize: (baseStyle.fontSize ?? 16) + (display ? 2 : -1),
+              ),
+            ),
+          ),
+        );
+      case _TokenBold(:final text):
+        out.add(
+          TextSpan(
+            text: text,
+            style: baseStyle.copyWith(fontWeight: FontWeight.bold),
+          ),
+        );
+      case _TokenItalic(:final text):
+        out.add(
+          TextSpan(
+            text: text,
+            style: baseStyle.copyWith(fontStyle: FontStyle.italic),
+          ),
+        );
+      case _TokenCode(:final text):
+        out.add(
+          TextSpan(
+            text: text,
+            style: baseStyle.copyWith(
+              fontFamily: 'monospace',
+              backgroundColor: const Color(0xFFF0F0F0),
+            ),
+          ),
+        );
+    }
+  }
+  return out;
+}
+
 class _InlineRichText extends StatelessWidget {
   final String text;
   final TextStyle style;
@@ -558,14 +861,15 @@ class _InlineRichText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final spans = <InlineSpan>[];
-    _parseInline(text, style, spans);
+    final spans = _tokensToSpans(_cachedInlineTokens(text), style);
     final richText = Text.rich(
       TextSpan(children: spans),
       style: style,
       textAlign: textAlign,
       maxLines: maxLines,
-      overflow: maxLines != null ? TextOverflow.ellipsis : null,
+      // 限行预览用 clip 而非 ellipsis：省略号需要测量整个文本以确定截断点，
+      // 长文本卡（5k 大列表常见）测量成本高；clip 只排版 maxLines 行即停。
+      overflow: maxLines != null ? TextOverflow.clip : null,
     );
     if (!_hasMath(text)) return richText;
 
@@ -585,151 +889,9 @@ class _InlineRichText extends StatelessWidget {
     );
   }
 
-  bool _hasMath(String text) {
+  static bool _hasMath(String text) {
     final displayMath = RegExp(r'\$\$(.+?)\$\$', dotAll: true);
     if (displayMath.hasMatch(text)) return true;
     return RegExp(r'\$([^$\n]+?)\$').hasMatch(text);
-  }
-
-  void _parseInline(String text, TextStyle baseStyle, List<InlineSpan> out) {
-    // Display math: $$...$$
-    final displayMath = RegExp(r'\$\$(.+?)\$\$', dotAll: true);
-    var index = 0;
-    for (final match in displayMath.allMatches(text)) {
-      if (match.start > index) {
-        _parseInlineMathAndFormat(
-          text.substring(index, match.start),
-          baseStyle,
-          out,
-          isMathDisplay: false,
-        );
-      }
-      out.add(
-        WidgetSpan(
-          alignment: PlaceholderAlignment.middle,
-          child: Math.tex(
-            match.group(1)!,
-            mathStyle: MathStyle.display,
-            textStyle: baseStyle.copyWith(
-              fontSize: (baseStyle.fontSize ?? 16) + 2,
-            ),
-          ),
-        ),
-      );
-      index = match.end;
-    }
-    if (index < text.length) {
-      _parseInlineMathAndFormat(
-        text.substring(index),
-        baseStyle,
-        out,
-        isMathDisplay: false,
-      );
-    }
-  }
-
-  void _parseInlineMathAndFormat(
-    String text,
-    TextStyle baseStyle,
-    List<InlineSpan> out, {
-    required bool isMathDisplay,
-  }) {
-    // Inline math: $...$
-    final inlineMath = RegExp(r'\$([^$\n]+?)\$');
-    var index = 0;
-    for (final match in inlineMath.allMatches(text)) {
-      if (match.start > index) {
-        _parseFormatting(text.substring(index, match.start), baseStyle, out);
-      }
-      out.add(
-        WidgetSpan(
-          alignment: PlaceholderAlignment.middle,
-          child: Math.tex(
-            match.group(1)!,
-            mathStyle: MathStyle.text,
-            textStyle: baseStyle.copyWith(
-              fontSize: (baseStyle.fontSize ?? 16) - 1,
-            ),
-          ),
-        ),
-      );
-      index = match.end;
-    }
-    if (index < text.length) {
-      _parseFormatting(text.substring(index), baseStyle, out);
-    }
-  }
-
-  void _parseFormatting(
-    String text,
-    TextStyle baseStyle,
-    List<InlineSpan> out,
-  ) {
-    // Bold
-    final bold = RegExp(r'\*\*(.+?)\*\*');
-    var index = 0;
-    for (final match in bold.allMatches(text)) {
-      if (match.start > index) {
-        _parseItalicAndCode(text.substring(index, match.start), baseStyle, out);
-      }
-      out.add(
-        TextSpan(
-          text: match.group(1),
-          style: baseStyle.copyWith(fontWeight: FontWeight.bold),
-        ),
-      );
-      index = match.end;
-    }
-    if (index < text.length) {
-      _parseItalicAndCode(text.substring(index), baseStyle, out);
-    }
-  }
-
-  void _parseItalicAndCode(
-    String text,
-    TextStyle baseStyle,
-    List<InlineSpan> out,
-  ) {
-    // Inline code
-    final inlineCode = RegExp(r'`([^`]+)`');
-    var index = 0;
-    for (final match in inlineCode.allMatches(text)) {
-      if (match.start > index) {
-        _parseItalic(text.substring(index, match.start), baseStyle, out);
-      }
-      out.add(
-        TextSpan(
-          text: match.group(1),
-          style: baseStyle.copyWith(
-            fontFamily: 'monospace',
-            backgroundColor: const Color(0xFFF0F0F0),
-          ),
-        ),
-      );
-      index = match.end;
-    }
-    if (index < text.length) {
-      _parseItalic(text.substring(index), baseStyle, out);
-    }
-  }
-
-  void _parseItalic(String text, TextStyle baseStyle, List<InlineSpan> out) {
-    final italic = RegExp(r'\*([^*]+)\*');
-    var index = 0;
-    for (final match in italic.allMatches(text)) {
-      if (match.start > index) {
-        out.add(TextSpan(text: text.substring(index, match.start)));
-      }
-      out.add(
-        TextSpan(
-          text: match.group(1),
-          style: baseStyle.copyWith(fontStyle: FontStyle.italic),
-        ),
-      );
-      index = match.end;
-    }
-    if (index < text.length) {
-      out.add(TextSpan(text: text.substring(index)));
-    }
   }
 }

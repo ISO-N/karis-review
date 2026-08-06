@@ -7,6 +7,7 @@ import '../../app/theme.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../shared/widgets/adaptive_scaffold.dart';
 import '../../shared/widgets/app_semantics.dart';
+import '../../shared/widgets/entrance.dart';
 import '../../shared/widgets/section_widgets.dart';
 import '../../shared/widgets/stage_ruler.dart';
 import '../../stats/models/stats.dart';
@@ -92,6 +93,7 @@ class _HomeHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.karisColors;
     final today = DateFormat('M月d日 EEEE', 'zh_CN').format(DateTime.now());
     return Row(
       children: [
@@ -112,14 +114,14 @@ class _HomeHeader extends StatelessWidget {
           height: 38,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: KarisColors.surface,
-            border: Border.all(color: KarisColors.hairline),
+            color: colors.surface,
+            border: Border.all(color: colors.hairline),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Text(
             initial,
-            style: const TextStyle(
-              color: KarisColors.jade,
+            style: TextStyle(
+              color: colors.jade,
               fontFamily: KarisTheme.displayFamily,
               fontSize: 16,
               fontWeight: FontWeight.w500,
@@ -138,6 +140,7 @@ class _HomeMainColumn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.karisColors;
       final l10n = KarisReviewLocalizations.of(context)!;
     final stats = statsAsync.maybeWhen(
       data: (value) => value,
@@ -146,107 +149,135 @@ class _HomeMainColumn extends StatelessWidget {
     final due = stats?.dueToday ?? 0;
     final reviewed = stats?.reviewedToday ?? 0;
     final newCards = stats?.newCards ?? 0;
+    final isLoading = statsAsync.isLoading;
     // 今日任务刻度 = 今日到期分布 + 待学新卡（并入 stage 0，与「待复习/待学习」文案口径一致）。
     // dueStageDistribution 不含未学新卡（next_review_date 为空），直接使用会让 stage 0 恒为 0。
     final distribution = stats == null
         ? List.filled(9, 0)
         : [...stats.dueStageDistribution]..[0] += newCards;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(vertical: 22),
-          decoration: const BoxDecoration(
-            border: Border.symmetric(
-              horizontal: BorderSide(color: KarisColors.hairline),
-            ),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-          l10n.homeTodayReview,
-                      style: TextStyle(
-                        color: KarisColors.jade,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                        letterSpacing: 0,
-                      ),
-                    ),
-                    SizedBox(height: 8),
-                    Text.rich(
-                      TextSpan(
-                        children: [
-                          TextSpan(
-                            text: statsAsync.isLoading ? '--' : '$due',
-                            style: karisMono(
-                              fontSize: 54,
-                              weight: FontWeight.w500,
-                            ),
-                          ),
-                          const TextSpan(
-                            text: ' 张',
-                            style: TextStyle(
-                              color: KarisColors.stone,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    SizedBox(height: 6),
-                    Text(
-                      statsAsync.isLoading
-                          ? '正在整理今日队列'
-                          : '已复习 $reviewed · 还剩 $due',
-                      style: const TextStyle(
-                        color: KarisColors.stone,
-                        fontSize: 12,
-                        letterSpacing: 0,
-                      ),
-                    ),
-                  ],
-                ),
+    return KarisEntrance(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 22),
+            decoration: BoxDecoration(
+              border: Border.symmetric(
+                horizontal: BorderSide(color: colors.hairline),
               ),
-              FilledButton.icon(
-                onPressed: () => context.push('/start'),
-                icon: const Icon(Icons.play_arrow_rounded, size: 17),
-                label: const Text('开始'),
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size(0, 46),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        l10n.homeTodayReview,
+                        style: TextStyle(
+                          color: colors.jade,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          letterSpacing: 0,
+                        ),
+                      ),
+                      SizedBox(height: 8),
+                      if (isLoading)
+                        KarisSkeletonGroup(
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: KarisSkeleton(
+                              width: 104,
+                              height: 44,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                          ),
+                        )
+                      else
+                        Text.rich(
+                          TextSpan(
+                            children: [
+                              TextSpan(
+                                text: '$due',
+                                style: karisMono(
+                                  fontSize: 54,
+                                  weight: FontWeight.w500,
+                                ),
+                              ),
+                              TextSpan(
+                                text: ' 张',
+                                style: TextStyle(
+                                  color: colors.stone,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      SizedBox(height: 6),
+                      if (isLoading)
+                        KarisSkeletonGroup(
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: KarisSkeleton(
+                              width: 150,
+                              height: 12,
+                            ),
+                          ),
+                        )
+                      else
+                        Text(
+                          '已复习 $reviewed · 还剩 $due',
+                          style: TextStyle(
+                            color: colors.stone,
+                            fontSize: 12,
+                            letterSpacing: 0,
+                          ),
+                        ),
+                    ],
                   ),
                 ),
+                FilledButton.icon(
+                  onPressed: () => context.push('/start'),
+                  icon: const Icon(Icons.play_arrow_rounded, size: 17),
+                  label: const Text('开始'),
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size(0, 46),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(height: 18),
+          const SectionHeader(title: '记忆刻度', trailing: '0-180 天'),
+          SizedBox(height: 14),
+          if (isLoading)
+            KarisSkeletonGroup(
+              child: KarisSkeleton(height: 38, borderRadius: BorderRadius.circular(4)),
+            )
+          else ...[
+            StageRuler(distribution: distribution),
+            SizedBox(height: 10),
+            Text(
+              due > 0
+                  ? '$due 张待复习'
+                  : newCards > 0
+                  ? '$newCards 张待学习'
+                  : '今天没有新任务，补充新卡或休息一天',
+              style: TextStyle(
+                color: colors.stone,
+                fontSize: 12,
+                letterSpacing: 0,
               ),
-            ],
-          ),
-        ),
-        SizedBox(height: 18),
-        const SectionHeader(title: '记忆刻度', trailing: '0-180 天'),
-        SizedBox(height: 14),
-        StageRuler(distribution: distribution),
-        SizedBox(height: 10),
-        Text(
-          statsAsync.isLoading
-              ? '正在读取阶段分布'
-              : due > 0
-              ? '$due 张待复习'
-              : newCards > 0
-              ? '$newCards 张待学习'
-              : '今天没有新任务，补充新卡或休息一天',
-          style: const TextStyle(
-            color: KarisColors.stone,
-            fontSize: 12,
-            letterSpacing: 0,
-          ),
-        ),
-      ],
+            ),
+          ],
+        ],
+      ),
     );
   }
 

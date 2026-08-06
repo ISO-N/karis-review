@@ -29,6 +29,7 @@ import 'package:karisreview/review/pages/start_flow_page.dart';
 import 'package:karisreview/settings/pages/settings_page.dart';
 import 'package:karisreview/shared/widgets/adaptive_scaffold.dart';
 import 'package:karisreview/shared/widgets/app_feedback.dart';
+import 'package:karisreview/shared/widgets/entrance.dart';
 import 'package:karisreview/shared/widgets/metric_tile.dart';
 import 'package:karisreview/stats/pages/stats_page.dart';
 import 'package:karisreview/stats/models/stats.dart';
@@ -1332,12 +1333,16 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        final inkWell = tester.widget<InkWell>(
+        // 评分按钮翻面后解锁（KarisPressable 承载按压交互）。
+        final pressable = tester.widget<KarisPressable>(
           find
-              .ancestor(of: find.text('熟悉'), matching: find.byType(InkWell))
+              .ancestor(
+                of: find.text('熟悉'),
+                matching: find.byType(KarisPressable),
+              )
               .first,
         );
-        expect(inkWell.onTap, isNotNull);
+        expect(pressable.onTap, isNotNull);
         expect(tester.takeException(), isNull);
       },
     );

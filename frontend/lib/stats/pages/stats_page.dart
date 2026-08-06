@@ -10,6 +10,7 @@ import '../../app/theme.dart';
 import '../../shared/utils/motion.dart';
 import '../../shared/widgets/adaptive_scaffold.dart';
 import '../../shared/widgets/app_semantics.dart';
+import '../../shared/widgets/loading_widget.dart';
 import '../../shared/widgets/metric_tile.dart';
 import '../../shared/widgets/section_widgets.dart';
 import '../models/stats.dart';
@@ -66,9 +67,7 @@ class _StatsPageState extends ConsumerState<StatsPage> {
                   statsAsync.when(
                     loading: () => const Padding(
                       padding: EdgeInsets.symmetric(vertical: 60),
-                      child: Center(
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
+                      child: LoadingWidget(),
                     ),
                     error: (error, _) => EmptyState(
                       icon: Icons.error_outline,
@@ -139,6 +138,7 @@ class _StatsPageState extends ConsumerState<StatsPage> {
 class _StatsHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    final colors = context.karisColors;
     return Row(
       children: [
         Expanded(
@@ -158,11 +158,11 @@ class _StatsHeader extends StatelessWidget {
           height: 38,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: KarisColors.surface,
-            border: Border.all(color: KarisColors.hairline),
+            color: colors.surface,
+            border: Border.all(color: colors.hairline),
             borderRadius: BorderRadius.circular(8),
           ),
-          child: const Icon(Icons.bar_chart, size: 18, color: KarisColors.jade),
+          child: Icon(Icons.bar_chart, size: 18, color: colors.jade),
         ),
       ],
     );
@@ -176,6 +176,7 @@ class _MetricGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.karisColors;
     final metrics = [
       MetricTile(
         label: '总卡片',
@@ -190,25 +191,25 @@ class _MetricGrid extends StatelessWidget {
       MetricTile(
         label: '待复习',
         value: '${stats.dueToday}',
-        valueColor: KarisColors.cinnabar,
+        valueColor: colors.cinnabar,
         icon: Icons.schedule_outlined,
       ),
       MetricTile(
         label: '今日复习',
         value: '${stats.reviewedToday}',
-        valueColor: KarisColors.jade,
+        valueColor: colors.jade,
         icon: Icons.check_circle_outline,
       ),
       MetricTile(
         label: '今日新学',
         value: '${stats.learnedToday}',
-        valueColor: KarisColors.jade,
+        valueColor: colors.jade,
         icon: Icons.auto_stories_outlined,
       ),
       MetricTile(
         label: '已掌握',
         value: '${stats.masteredCards}',
-        valueColor: KarisColors.jade,
+        valueColor: colors.jade,
         icon: Icons.done_all_outlined,
       ),
     ];
@@ -247,32 +248,32 @@ class _TrendPanel extends StatelessWidget {
         trendAsync.when(
           loading: () => const SizedBox(
             height: 180,
-            child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+            child: LoadingWidget(),
           ),
-          error: (error, _) => const SizedBox(
+          error: (error, _) => SizedBox(
             height: 140,
             child: Center(
               child: Text(
                 '趋势加载失败',
-                style: TextStyle(color: KarisColors.cinnabar),
+                style: TextStyle(color: context.karisColors.cinnabar),
               ),
             ),
           ),
           data: (trend) {
             if (trend.isEmpty) {
-              return const SizedBox(
+              return SizedBox(
                 height: 140,
                 child: Center(
                   child: Text(
                     '暂无趋势数据',
-                    style: TextStyle(color: KarisColors.stone),
+                    style: TextStyle(color: context.karisColors.stone),
                   ),
                 ),
               );
             }
             return AspectRatio(
               aspectRatio: 3.2,
-              child: CustomPaint(painter: TrendChartPainter(points: trend)),
+              child: _TrendChart(points: trend),
             );
           },
         ),
@@ -288,6 +289,7 @@ class _DistributionPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.karisColors;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -311,15 +313,12 @@ class _DistributionPanel extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     AnimatedContainer(
-                      duration: reducedDuration(
-                        context,
-                        const Duration(milliseconds: 450),
-                      ),
-                      curve: Curves.easeOutCubic,
+                      duration: reducedDuration(context, KarisMotion.grow),
+                      curve: KarisMotion.easeOut,
                       height: height,
-                      decoration: const BoxDecoration(
-                        color: KarisColors.jade,
-                        borderRadius: BorderRadius.vertical(
+                      decoration: BoxDecoration(
+                        color: colors.jade,
+                        borderRadius: const BorderRadius.vertical(
                           top: Radius.circular(3),
                         ),
                       ),
@@ -327,7 +326,7 @@ class _DistributionPanel extends StatelessWidget {
                     const SizedBox(height: 6),
                     Text(
                       KarisTheme.stageLabels[index],
-                      style: karisMono(fontSize: 8, color: KarisColors.stone),
+                      style: karisMono(fontSize: 8, color: colors.stone),
                     ),
                   ],
                 ),
@@ -336,10 +335,10 @@ class _DistributionPanel extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 12),
-        const Text(
+        Text(
           '阶段越高，复习间隔越长。已掌握卡片集中在 15 天以上。',
           style: TextStyle(
-            color: KarisColors.stone,
+            color: colors.stone,
             fontSize: 12,
             height: 1.6,
             letterSpacing: 0,
@@ -350,10 +349,135 @@ class _DistributionPanel extends StatelessWidget {
   }
 }
 
+/// 趋势图：600ms 从左到右生长 + 点击数据点显示 tooltip。
+class _TrendChart extends StatefulWidget {
+  final List<TrendPoint> points;
+
+  const _TrendChart({required this.points});
+
+  @override
+  State<_TrendChart> createState() => _TrendChartState();
+}
+
+class _TrendChartState extends State<_TrendChart> {
+  int? _hoverIndex;
+
+  int _indexAt(double dx, double width) {
+    if (widget.points.length <= 1) return 0;
+    const left = 8.0;
+    const right = 8.0;
+    final chartWidth = width - left - right;
+    final stepX = chartWidth / (widget.points.length - 1);
+    return ((dx - left) / stepX).round().clamp(0, widget.points.length - 1);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final hover = _hoverIndex;
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTapDown: (details) {
+            final index = _indexAt(details.localPosition.dx, width);
+            if (hover != index) setState(() => _hoverIndex = index);
+          },
+          onTapCancel: () => setState(() => _hoverIndex = null),
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: TweenAnimationBuilder<double>(
+                  tween: Tween(begin: 0, end: 1),
+                  duration: reducedDuration(context, KarisMotion.grow),
+                  curve: KarisMotion.easeOut,
+                  builder: (context, progress, _) => CustomPaint(
+                    painter: TrendChartPainter(
+                      points: widget.points,
+                      colors: context.karisColors,
+                      progress: progress,
+                    ),
+                  ),
+                ),
+              ),
+              if (hover != null) _buildTooltip(context, hover, width),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildTooltip(BuildContext context, int index, double chartWidth) {
+    final colors = context.karisColors;
+    final point = widget.points[index];
+    final parsed = DateTime.tryParse(point.date);
+    final label = parsed != null ? DateFormat('M/d').format(parsed) : point.date;
+    const tooltipWidth = 76.0;
+    final x = _indexX(index, chartWidth);
+    return Positioned(
+      left: (x - tooltipWidth / 2).clamp(0.0, chartWidth - tooltipWidth),
+      top: 4,
+      child: IgnorePointer(
+        child: Container(
+          width: tooltipWidth,
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+          decoration: BoxDecoration(
+            color: colors.surface,
+            border: Border.all(color: colors.hairline),
+            borderRadius: BorderRadius.circular(6),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF161F1B).withValues(alpha: 0.08),
+                blurRadius: 10,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(label, style: karisMono(fontSize: 9, color: colors.stone)),
+              const SizedBox(height: 2),
+              Text(
+                '${point.reviewed} 次',
+                style: karisMono(
+                  fontSize: 11,
+                  color: colors.jade,
+                  weight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 与 TrendChartPainter 一致的 x 坐标（图表宽度按父级布局推算）。
+  double _indexX(int index, double width) {
+    if (widget.points.length <= 1) return width / 2;
+    const left = 8.0;
+    const right = 8.0;
+    final chartWidth = width - left - right;
+    final stepX = chartWidth / (widget.points.length - 1);
+    return left + stepX * index;
+  }
+}
+
 class TrendChartPainter extends CustomPainter {
   final List<TrendPoint> points;
 
-  TrendChartPainter({required this.points});
+  /// 生长进度 0..1：控制从左到右揭示的可见宽度。
+  final double progress;
+
+  final KarisColors colors;
+
+  TrendChartPainter({
+    required this.points,
+    required this.colors,
+    this.progress = 1,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -373,13 +497,19 @@ class TrendChartPainter extends CustomPainter {
 
     Offset pointAt(int index) {
       final x = left + stepX * index;
-      final y =
-          baselineY - (points[index].reviewed / maxY) * chartHeight;
+      final y = baselineY - (points[index].reviewed / maxY) * chartHeight;
       return Offset(x, y);
     }
 
+    // 生长动画：裁剪到可见宽度，让线条/面积/数据点从左到右自然揭示。
+    final visibleRight = left + chartWidth * progress.clamp(0.0, 1.0);
+    canvas.save();
+    canvas.clipRect(
+      Rect.fromLTRB(0, 0, visibleRight + 2, size.height),
+    );
+
     final axisPaint = Paint()
-      ..color = KarisColors.hairline
+      ..color = colors.hairline
       ..strokeWidth = 1;
     canvas.drawLine(Offset(left, top), Offset(left, baselineY), axisPaint);
     canvas.drawLine(
@@ -405,10 +535,10 @@ class TrendChartPainter extends CustomPainter {
     areaPath.close();
 
     final areaPaint = Paint()
-      ..color = KarisColors.jade.withValues(alpha: 0.10)
+      ..color = colors.jade.withValues(alpha: 0.10)
       ..style = PaintingStyle.fill;
     final linePaint = Paint()
-      ..color = KarisColors.jade
+      ..color = colors.jade
       ..strokeWidth = 2
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round
@@ -418,11 +548,11 @@ class TrendChartPainter extends CustomPainter {
     canvas.drawPath(linePath, linePaint);
 
     final dotPaint = Paint()
-      ..color = KarisColors.surface
+      ..color = colors.surface
       ..strokeWidth = 1.6
       ..style = PaintingStyle.fill;
     final dotBorder = Paint()
-      ..color = KarisColors.jade
+      ..color = colors.jade
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.6;
     final step = math.max(1, (points.length / 5).floor());
@@ -432,7 +562,9 @@ class TrendChartPainter extends CustomPainter {
       canvas.drawCircle(offset, 3, dotPaint);
     }
 
-    final labelStyle = karisMono(fontSize: 9, color: KarisColors.stone);
+    canvas.restore();
+
+    final labelStyle = karisMono(fontSize: 9, color: colors.stone);
     final dateFormat = DateFormat('M/d');
     for (var i = 0; i < points.length; i += step) {
       final offset = pointAt(i);
@@ -456,6 +588,8 @@ class TrendChartPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant TrendChartPainter oldDelegate) {
-    return oldDelegate.points != points;
+    return oldDelegate.points != points ||
+        oldDelegate.progress != progress ||
+        oldDelegate.colors != colors;
   }
 }

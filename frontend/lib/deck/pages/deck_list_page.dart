@@ -9,8 +9,11 @@ import '../../deck/models/deck.dart';
 import '../../deck/providers/deck_provider.dart';
 import '../../deck/widgets/deck_row.dart';
 import '../../shared/widgets/adaptive_scaffold.dart';
+import '../../shared/widgets/app_feedback.dart';
 import '../../shared/widgets/app_semantics.dart';
+import '../../shared/widgets/entrance.dart';
 import '../../shared/widgets/section_widgets.dart';
+import '../../shared/utils/motion.dart';
 import '../../stats/providers/stats_provider.dart';
 
 import '../../l10n/app_localizations.dart';
@@ -59,6 +62,7 @@ class _DeckListPageState extends ConsumerState<DeckListPage> {
   }
   @override
   Widget build(BuildContext context) {
+    final colors = context.karisColors;
     final l10n = KarisReviewLocalizations.of(context)!;
     final decksAsync = ref.watch(deckListProvider);
     final isTablet = MediaQuery.sizeOf(context).width >= 600;
@@ -127,10 +131,8 @@ class _DeckListPageState extends ConsumerState<DeckListPage> {
                   SizedBox(height: 12),
                   if (decksAsync.isLoading)
                     const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 60),
-                      child: Center(
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
+                      padding: EdgeInsets.symmetric(vertical: 20),
+                      child: _DeckListSkeleton(),
                     )
                   else if (decksAsync.hasError)
                     Padding(
@@ -139,7 +141,7 @@ class _DeckListPageState extends ConsumerState<DeckListPage> {
                         children: [
                           Text(
                             l10n.errorLoadFailed,
-                            style: TextStyle(color: KarisColors.cinnabar),
+                            style: TextStyle(color: colors.cinnabar),
                           ),
                           SizedBox(height: 10),
                           TextButton(
@@ -178,18 +180,23 @@ class _DeckListPageState extends ConsumerState<DeckListPage> {
                       separatorBuilder: (_, _) => SizedBox(height: 10),
                       itemBuilder: (context, index) {
                         final deck = filtered[index];
-                        return DeckRow(
-                          name: deck.name,
-                          cardCount: deck.cardCount,
-                          dueCount: deck.dueCount,
-                          newCount: deck.newCount,
-                          stageDistribution: deck.stageDistribution,
-                          onTap: () =>
-                              context.push('/decks/${deck.id}/cards'),
-                          onEdit: () =>
-                              _showDeckDialog(ref, deck: deck),
-                          onDelete: () =>
-                              _confirmDeleteDeck(context, ref, deck),
+                        return KarisEntrance(
+                          delay: KarisMotion.staggerDelay(index),
+                          // 仅首屏 8 个卡组播放入场动画，其余直接渲染。
+                          play: index < 8,
+                          child: DeckRow(
+                            name: deck.name,
+                            cardCount: deck.cardCount,
+                            dueCount: deck.dueCount,
+                            newCount: deck.newCount,
+                            stageDistribution: deck.stageDistribution,
+                            onTap: () =>
+                                context.push('/decks/${deck.id}/cards'),
+                            onEdit: () =>
+                                _showDeckDialog(ref, deck: deck),
+                            onDelete: () =>
+                                _confirmDeleteDeck(context, ref, deck),
+                          ),
                         );
                       },
                     ),
@@ -203,6 +210,7 @@ class _DeckListPageState extends ConsumerState<DeckListPage> {
   }
 
   Widget _buildSearchField() {
+    final colors = context.karisColors;
     return TextField(
       controller: _searchController,
       focusNode: _searchFocus,
@@ -226,15 +234,15 @@ class _DeckListPageState extends ConsumerState<DeckListPage> {
           },
         ),
         filled: true,
-        fillColor: KarisColors.surface,
+        fillColor: colors.surface,
         contentPadding: const EdgeInsets.symmetric(vertical: 14),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: KarisColors.hairline),
+          borderSide: BorderSide(color: colors.hairline),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: KarisColors.jade),
+          borderSide: BorderSide(color: colors.jade),
         ),
       ),
     );
@@ -301,9 +309,7 @@ class _DeckDialogState extends ConsumerState<_DeckDialog> {
     if (!mounted) return;
     if (ref.read(deckListProvider).hasError) {
       setState(() => _saving = false);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(l10n.errorSaveFailed)));
+      showKarisFeedback(context, tone: KarisFeedbackTone.error, title: l10n.errorSaveFailed);
       return;
     }
     ref.invalidate(statsProvider);
@@ -347,6 +353,7 @@ class _DeckDialogState extends ConsumerState<_DeckDialog> {
 }
 
 void _confirmDeleteDeck(BuildContext context, WidgetRef ref, Deck deck) {
+  final colors = context.karisColors;
   final l10n = KarisReviewLocalizations.of(context)!;
   showDialog<void>(
     context: context,
@@ -361,8 +368,8 @@ void _confirmDeleteDeck(BuildContext context, WidgetRef ref, Deck deck) {
           ),
           FilledButton(
             style: FilledButton.styleFrom(
-              backgroundColor: KarisColors.cinnabar,
-              foregroundColor: KarisColors.surface,
+              backgroundColor: colors.cinnabar,
+              foregroundColor: colors.surface,
             ),
             onPressed: () async {
               await ref.read(deckListProvider.notifier).deleteDeck(deck.id);
@@ -376,4 +383,48 @@ void _confirmDeleteDeck(BuildContext context, WidgetRef ref, Deck deck) {
       );
     },
   );
+}
+
+/// 卡组列表加载骨架：模拟三行卡组项，shimmer 流光扫过。
+class _DeckListSkeleton extends StatelessWidget {
+  const _DeckListSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return KarisSkeletonGroup(
+      child: Column(
+        children: [
+          for (var i = 0; i < 3; i++) ...[
+            Container(
+              height: 76,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+              decoration: BoxDecoration(
+                color: context.karisColors.surface,
+                border: Border.all(color: context.karisColors.hairline),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  const KarisSkeleton(width: 36, height: 36, borderRadius: BorderRadius.all(Radius.circular(8))),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: const [
+                        KarisSkeleton(width: 140, height: 13),
+                        SizedBox(height: 8),
+                        KarisSkeleton(width: 90, height: 10),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 10),
+          ],
+        ],
+      ),
+    );
+  }
 }

@@ -5,8 +5,10 @@ import 'package:flutter/material.dart';
 ///
 /// - 桌面 / Web（鼠标、触控板）：纵向滚动区域常驻显示可拖拽的滚动条
 ///   （thumb 颜色、最小长度等由 `scrollbarTheme` 控制），方便快速定位；
-/// - 触屏平台（Android / iOS / fuchsia）：保持默认行为（拖动时叠加显示），
-///   不常驻、不占用屏幕空间；
+/// - 触屏平台（Android / iOS / fuchsia，含手机浏览器 Web）：同样添加
+///   Scrollbar 但使用 overlay 行为——不常驻、不占屏幕空间，拖动时叠加显示
+///   滚动位置指示（Flutter Web 触屏没有浏览器原生滚动条，若不添加则完全
+///   看不到滚动进度）；
 /// - 水平滚动区域（如卡组页的筛选 chips）不显示滚动条，避免视觉噪音。
 class KarisScrollBehavior extends MaterialScrollBehavior {
   const KarisScrollBehavior();
@@ -24,16 +26,26 @@ class KarisScrollBehavior extends MaterialScrollBehavior {
     Widget child,
     ScrollableDetails details,
   ) {
-    if (_isTouchDevice) return child;
     switch (details.direction) {
       case AxisDirection.up:
       case AxisDirection.down:
-        return Scrollbar(
-          controller: details.controller,
-          interactive: true,
-          thumbVisibility: true,
-          trackVisibility: true,
-          child: child,
+        final precise = !_isTouchDevice;
+        final base = ScrollbarTheme.of(context);
+        return ScrollbarTheme(
+          data: base.copyWith(
+            // 触屏：thumb 加粗并离屏幕边缘一段距离（crossAxisMargin），
+            // 避免曲面屏/圆角边缘贴边难命中；桌面保持原样。
+            thumbVisibility: WidgetStatePropertyAll(precise),
+            trackVisibility: WidgetStatePropertyAll(precise),
+            thickness: WidgetStatePropertyAll(precise ? 6 : 9),
+            crossAxisMargin: precise ? 0 : 6,
+            radius: Radius.circular(precise ? 3 : 4.5),
+          ),
+          child: Scrollbar(
+            controller: details.controller,
+            interactive: true,
+            child: child,
+          ),
         );
       case AxisDirection.left:
       case AxisDirection.right:

@@ -23,7 +23,8 @@ class SettingsActionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = danger ? KarisColors.cinnabar : KarisColors.jade;
+    final colors = context.karisColors;
+    final color = danger ? colors.cinnabar : colors.jade;
     return KarisInteractive(
       child: InkWell(
         onTap: onTap,
@@ -34,11 +35,11 @@ class SettingsActionTile extends StatelessWidget {
           margin: const EdgeInsets.only(top: 10),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
-            color: KarisColors.surface,
+            color: colors.surface,
             border: Border.all(
               color: danger
-                  ? KarisColors.cinnabar.withValues(alpha: 0.42)
-                  : KarisColors.hairline,
+                  ? colors.cinnabar.withValues(alpha: 0.42)
+                  : colors.hairline,
             ),
             borderRadius: BorderRadius.circular(8),
           ),
@@ -48,9 +49,7 @@ class SettingsActionTile extends StatelessWidget {
                 width: 34,
                 height: 34,
                 decoration: BoxDecoration(
-                  color: danger
-                      ? KarisColors.cinnabarSoft
-                      : KarisColors.jadeSoft,
+                  color: danger ? colors.cinnabarSoft : colors.jadeSoft,
                   borderRadius: BorderRadius.circular(7),
                 ),
                 child: Icon(icon, size: 17, color: color),
@@ -65,15 +64,15 @@ class SettingsActionTile extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
-                        color: danger ? KarisColors.cinnabar : KarisColors.ink,
+                        color: danger ? colors.cinnabar : colors.ink,
                         letterSpacing: 0,
                       ),
                     ),
                     const SizedBox(height: 3),
                     Text(
                       subtitle,
-                      style: const TextStyle(
-                        color: KarisColors.stone,
+                      style: TextStyle(
+                        color: colors.stone,
                         fontSize: 11,
                         letterSpacing: 0,
                       ),

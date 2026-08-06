@@ -11,7 +11,7 @@
 - [数据库设计](design/database.md) — ERD、表结构、索引、Flyway 迁移、关键查询
 - [接口设计](design/api.md) — REST API 完整定义，含请求/响应示例
 - [测试说明](design/testing.md) — 部件测试、系统测试、运行命令与数据隔离
-- [前端设计说明](frontend-design.md) — 视觉规范、信息架构、动效与响应式方案；交互原型见 [frontend-design/index.html](frontend-design/index.html)，Flutter 页面截图见 [手机版](frontend-design/screenshots/mobile/) 与 [平板版](frontend-design/screenshots/tablet/)
+- [前端设计说明](frontend-design.md) — 视觉规范（含暗色模式）、信息架构、动效规范（Motion Tokens）、组件规范与实现文件索引；交互原型见 [frontend-design/index.html](frontend-design/index.html)，Flutter 页面截图见 [手机版](frontend-design/screenshots/mobile/) 与 [平板版](frontend-design/screenshots/tablet/)
 
 ## 项目信息
 

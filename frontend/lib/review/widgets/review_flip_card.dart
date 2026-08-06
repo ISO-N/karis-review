@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../app/theme.dart';
+import '../../shared/utils/motion.dart';
 
 class ReviewFlipCard extends StatefulWidget {
   final bool flipped;
@@ -34,11 +35,11 @@ class _ReviewFlipCardState extends State<ReviewFlipCard>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 480),
+      duration: KarisMotion.flip,
     );
     _animation = CurvedAnimation(
       parent: _controller,
-      curve: Curves.easeInOutCubic,
+      curve: KarisMotion.easeInOut,
     );
     if (widget.flipped) _controller.value = 1;
   }
@@ -52,8 +53,8 @@ class _ReviewFlipCardState extends State<ReviewFlipCard>
       } else {
         _controller.animateTo(
           widget.flipped ? 1 : 0,
-          duration: const Duration(milliseconds: 480),
-          curve: Curves.easeInOutCubic,
+          duration: KarisMotion.flip,
+          curve: KarisMotion.easeInOut,
         );
       }
     }
@@ -108,16 +109,19 @@ class ReviewCardFrame extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.karisColors;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       width: double.infinity,
       height: double.infinity,
       decoration: BoxDecoration(
-        color: KarisColors.surface,
-        border: Border.all(color: KarisColors.hairline),
+        color: colors.surface,
+        border: Border.all(color: colors.hairline),
         borderRadius: BorderRadius.circular(8),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF202B27).withValues(alpha: 0.08),
+            color: (isDark ? const Color(0xFF000000) : const Color(0xFF202B27))
+                .withValues(alpha: isDark ? 0.5 : 0.08),
             blurRadius: 34,
             offset: const Offset(0, 14),
           ),

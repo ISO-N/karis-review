@@ -11,7 +11,9 @@ import '../../auth/providers/auth_provider.dart';
 import '../../offline/providers.dart';
 import '../../shared/providers/data_refresh_provider.dart';
 import '../../shared/widgets/adaptive_scaffold.dart';
+import '../../shared/widgets/app_feedback.dart';
 import '../../shared/widgets/app_semantics.dart';
+import '../../shared/widgets/loading_widget.dart';
 import '../../shared/widgets/section_widgets.dart';
 import '../../shared/widgets/settings_action_tile.dart';
 import '../../sync/providers.dart';
@@ -49,12 +51,7 @@ class SettingsPage extends ConsumerWidget {
                   const _SettingsHeader(),
                   SizedBox(height: 20),
                   if (settingsState.isLoading)
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 60),
-                      child: Center(
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
-                    )
+                    const LoadingWidget()
                   else ...[
                     _AccountBlock(settingsState: settingsState, ref: ref),
                     SizedBox(height: 22),
@@ -116,6 +113,7 @@ class _SettingsHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
       final l10n = KarisReviewLocalizations.of(context)!;
+      final colors = context.karisColors;
     return Row(
       children: [
         Expanded(
@@ -135,11 +133,11 @@ class _SettingsHeader extends StatelessWidget {
           height: 38,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: KarisColors.surface,
-            border: Border.all(color: KarisColors.hairline),
+            color: colors.surface,
+            border: Border.all(color: colors.hairline),
             borderRadius: BorderRadius.circular(8),
           ),
-          child: const Icon(Icons.settings, size: 18, color: KarisColors.jade),
+          child: Icon(Icons.settings, size: 18, color: colors.jade),
         ),
       ],
     );
@@ -155,6 +153,7 @@ class _AccountBlock extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
       final l10n = KarisReviewLocalizations.of(context)!;
+      final colors = context.karisColors;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -165,8 +164,8 @@ class _AccountBlock extends StatelessWidget {
           margin: const EdgeInsets.only(top: 10),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
-            color: KarisColors.surface,
-            border: Border.all(color: KarisColors.hairline),
+            color: colors.surface,
+            border: Border.all(color: colors.hairline),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Row(
@@ -182,14 +181,14 @@ class _AccountBlock extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
-                        color: KarisColors.ink,
+                        color: colors.ink,
                         letterSpacing: 0,
                       ),
                     ),
                     SizedBox(height: 3),
                     Text(
                       settingsState.email,
-                      style: karisMono(fontSize: 11, color: KarisColors.stone),
+                      style: karisMono(fontSize: 11, color: colors.stone),
                     ),
                   ],
                 ),
@@ -301,8 +300,10 @@ class _AccountBlock extends StatelessWidget {
     // 修改成功会触发登出，此处直接回登录页并提示
     if (context.mounted) {
       context.go('/login');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.settingsChangePasswordSuccess)),
+      showKarisFeedback(
+        context,
+        tone: KarisFeedbackTone.success,
+        title: l10n.settingsChangePasswordSuccess,
       );
     }
   }
@@ -317,6 +318,7 @@ class _ReviewSettingsBlock extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
       final l10n = KarisReviewLocalizations.of(context)!;
+      final colors = context.karisColors;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -329,15 +331,15 @@ class _ReviewSettingsBlock extends StatelessWidget {
           trailing: Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
             decoration: BoxDecoration(
-              color: KarisColors.paper,
-              border: Border.all(color: KarisColors.hairline),
+              color: colors.paper,
+              border: Border.all(color: colors.hairline),
               borderRadius: BorderRadius.circular(6),
             ),
             child: Text(
               settingsState.refreshTime.length >= 8
                   ? settingsState.refreshTime.substring(0, 5)
                   : settingsState.refreshTime,
-              style: karisMono(fontSize: 11, color: KarisColors.ink),
+              style: karisMono(fontSize: 11, color: colors.ink),
             ),
           ),
         ),
@@ -402,6 +404,7 @@ class _DataBlock extends StatelessWidget {
   }
 
   Future<void> _forceServer(BuildContext context, WidgetRef ref) async {
+    final colors = context.karisColors;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -414,8 +417,8 @@ class _DataBlock extends StatelessWidget {
           ),
           FilledButton(
             style: FilledButton.styleFrom(
-              backgroundColor: KarisColors.cinnabar,
-              foregroundColor: KarisColors.surface,
+              backgroundColor: colors.cinnabar,
+              foregroundColor: colors.surface,
             ),
             onPressed: () => Navigator.pop(dialogContext, true),
             child: Text(l10n.settingsForceServerConfirm),
@@ -439,9 +442,11 @@ class _DataBlock extends StatelessWidget {
       }
     } catch (_) {
       if (context.mounted) {
-        ScaffoldMessenger.of(
+        showKarisFeedback(
           context,
-        ).showSnackBar(SnackBar(content: Text(l10n.settingsSyncFail)));
+          tone: KarisFeedbackTone.error,
+          title: l10n.settingsSyncFail,
+        );
       }
     }
   }
@@ -462,14 +467,17 @@ class _DataBlock extends StatelessWidget {
     } catch (e) {
       if (context.mounted) {
         announceMessage(context, l10n.settingsExportFail);
-        ScaffoldMessenger.of(
+        showKarisFeedback(
           context,
-        ).showSnackBar(SnackBar(content: Text(l10n.settingsExportFail)));
+          tone: KarisFeedbackTone.error,
+          title: l10n.settingsExportFail,
+        );
       }
     }
   }
 
   Future<void> _import(BuildContext context, WidgetRef ref) async {
+    final colors = context.karisColors;
     final result = await FilePicker.platform.pickFiles(
       dialogTitle: '选择备份文件',
       type: FileType.custom,
@@ -488,9 +496,11 @@ class _DataBlock extends StatelessWidget {
     } catch (e) {
       if (context.mounted) {
         announceMessage(context, l10n.settingsImportReadFail);
-        ScaffoldMessenger.of(
+        showKarisFeedback(
           context,
-        ).showSnackBar(SnackBar(content: Text(l10n.settingsImportReadFail)));
+          tone: KarisFeedbackTone.error,
+          title: l10n.settingsImportReadFail,
+        );
       }
       return;
     }
@@ -508,8 +518,8 @@ class _DataBlock extends StatelessWidget {
           ),
           FilledButton(
             style: FilledButton.styleFrom(
-              backgroundColor: KarisColors.cinnabar,
-              foregroundColor: KarisColors.surface,
+              backgroundColor: colors.cinnabar,
+              foregroundColor: colors.surface,
             ),
             onPressed: () => Navigator.pop(dialogContext, true),
             child: Text(l10n.settingsImportConfirm),
@@ -526,22 +536,22 @@ class _DataBlock extends StatelessWidget {
       await controller.armDailyRefresh();
       ref.invalidate(settingsProvider);
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              '数据已恢复：${result['imported_decks']} 个卡组，'
+        showKarisFeedback(
+          context,
+          tone: KarisFeedbackTone.success,
+          title: '数据已恢复：${result['imported_decks']} 个卡组，'
               '${result['imported_cards']} 张卡片，'
               '${result['imported_review_logs']} 条记录',
-            ),
-          ),
         );
       }
     } catch (e) {
       if (context.mounted) {
         announceMessage(context, l10n.settingsImportFail);
-        ScaffoldMessenger.of(
+        showKarisFeedback(
           context,
-        ).showSnackBar(SnackBar(content: Text(l10n.settingsImportFail)));
+          tone: KarisFeedbackTone.error,
+          title: l10n.settingsImportFail,
+        );
       }
     }
   }
@@ -581,6 +591,7 @@ class _LogoutButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
       final l10n = KarisReviewLocalizations.of(context)!;
+      final colors = context.karisColors;
     return OutlinedButton.icon(
       onPressed: () async {
         await ref.read(authProvider.notifier).logout();
@@ -589,8 +600,8 @@ class _LogoutButton extends StatelessWidget {
       icon: const Icon(Icons.logout, size: 17),
       label: Text(l10n.settingsLogout),
       style: OutlinedButton.styleFrom(
-        foregroundColor: KarisColors.cinnabar,
-        side: BorderSide(color: KarisColors.cinnabar.withValues(alpha: 0.45)),
+        foregroundColor: colors.cinnabar,
+        side: BorderSide(color: colors.cinnabar.withValues(alpha: 0.45)),
         minimumSize: const Size(double.infinity, 46),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
@@ -605,14 +616,15 @@ class _SettingIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.karisColors;
     return Container(
       width: 34,
       height: 34,
       decoration: BoxDecoration(
-        color: KarisColors.jadeSoft,
+        color: colors.jadeSoft,
         borderRadius: BorderRadius.circular(7),
       ),
-      child: Icon(icon, size: 17, color: KarisColors.jade),
+      child: Icon(icon, size: 17, color: colors.jade),
     );
   }
 }
