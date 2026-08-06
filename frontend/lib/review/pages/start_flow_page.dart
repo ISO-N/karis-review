@@ -157,6 +157,7 @@ class _StartFlowPageState extends ConsumerState<StartFlowPage> {
                                 meta: _countLabel(totalCount),
                                 active: _scope == 'all',
                                 onTap: () => _setScope('all'),
+                                play: true,
                               );
                             }
                             final deck = eligible[index - 1];
@@ -167,6 +168,7 @@ class _StartFlowPageState extends ConsumerState<StartFlowPage> {
                               ),
                               active: scope == deck.id,
                               onTap: () => _setScope(deck.id),
+                              play: index < 8,
                             );
                           },
                         ),
@@ -328,18 +330,21 @@ class _ScopeOption extends StatelessWidget {
   final String meta;
   final bool active;
   final VoidCallback onTap;
+  final bool play;
 
   const _ScopeOption({
     required this.name,
     required this.meta,
     required this.active,
     required this.onTap,
+    this.play = true,
   });
 
   @override
   Widget build(BuildContext context) {
     final colors = context.karisColors;
     return KarisEntrance(
+      play: play,
       child: KarisInteractive(
         selected: active,
         child: InkWell(

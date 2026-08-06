@@ -6,13 +6,20 @@ import '../utils/motion.dart';
 
 /// 列表项入场动画：淡入 + 上移。
 ///
-/// 用法：列表项包一层，`delay` 传 `index * KarisMotion.staggerStep`，
-/// 形成逐项递进的「档案翻开」感。reduced-motion 时直接返回子组件。
+/// 用法：列表项包一层，`delay` 传 `KarisMotion.staggerDelay(index)`，
+/// 形成逐项递进的「档案翻开」感。
+///
+/// 性能约定：滚动加载（非首屏）的列表项应传 `play: false` 直接渲染，
+/// 避免深层项长延迟 + 大量动画同时播放导致的掉帧；首屏保留交错入场动效。
+/// reduced-motion 时同样直接返回子组件。
 class KarisEntrance extends StatelessWidget {
   final Widget child;
   final Duration delay;
   final Offset offset;
   final Duration duration;
+
+  /// 为 false 时跳过动画直接渲染（零开销，用于滚动加载的列表项）。
+  final bool play;
 
   const KarisEntrance({
     super.key,
@@ -20,11 +27,12 @@ class KarisEntrance extends StatelessWidget {
     this.delay = Duration.zero,
     this.offset = const Offset(0, 8),
     this.duration = KarisMotion.page,
+    this.play = true,
   });
 
   @override
   Widget build(BuildContext context) {
-    if (MediaQuery.disableAnimationsOf(context)) return child;
+    if (!play || MediaQuery.disableAnimationsOf(context)) return child;
     final total = duration + delay;
     final begin = delay.inMilliseconds / total.inMilliseconds;
     return TweenAnimationBuilder<double>(

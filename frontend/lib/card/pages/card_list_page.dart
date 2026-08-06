@@ -347,8 +347,12 @@ class _CardListPageState extends ConsumerState<CardListPage> {
                                           ),
                                           child: KarisEntrance(
                                             delay: KarisMotion.staggerDelay(
-                                              index * 2,
+                                              index * (isTablet ? 2 : 1),
                                             ),
+                                            // 仅首屏约 12 张播放入场动画；
+                                            // 滚动加载的项直接渲染，避免深层延迟与动画掉帧。
+                                            play: index * (isTablet ? 2 : 1) <
+                                                12,
                                             child: item,
                                           ),
                                         ),

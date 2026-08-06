@@ -182,6 +182,8 @@ class _DeckListPageState extends ConsumerState<DeckListPage> {
                         final deck = filtered[index];
                         return KarisEntrance(
                           delay: KarisMotion.staggerDelay(index),
+                          // 仅首屏 8 个卡组播放入场动画，其余直接渲染。
+                          play: index < 8,
                           child: DeckRow(
                             name: deck.name,
                             cardCount: deck.cardCount,

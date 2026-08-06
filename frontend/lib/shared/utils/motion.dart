@@ -26,16 +26,21 @@ abstract final class KarisMotion {
   /// 列表入场交错步进（相邻项间隔）。
   static const Duration staggerStep = Duration(milliseconds: 40);
 
+  /// 第 [index] 项的入场延迟。
+  ///
+  /// 延迟随索引增长，但封顶为前 [maxItems] 步：列表深处（滚动加载）的项
+  /// 不应等待过长时间才出现，避免快速滚动时卡片「出现变慢」。
+  static Duration staggerDelay(int index, {int maxItems = 6}) {
+    final steps = index.clamp(0, maxItems - 1);
+    return Duration(milliseconds: steps * staggerStep.inMilliseconds);
+  }
+
   /// 骨架屏流光扫过（循环）。
   static const Duration shimmer = Duration(milliseconds: 1200);
 
   static const Curve easeOut = Curves.easeOutCubic;
   static const Curve easeInOut = Curves.easeInOutCubic;
   static const Curve springy = Curves.easeOutBack;
-
-  /// 第 [index] 个列表项的入场延迟（`index * staggerStep`）。
-  static Duration staggerDelay(int index) =>
-      Duration(milliseconds: index * staggerStep.inMilliseconds);
 }
 
 /// prefers-reduced-motion：开启时动画时长归零（保留状态切换）。
