@@ -146,7 +146,11 @@ class _HomeMainColumn extends StatelessWidget {
     final due = stats?.dueToday ?? 0;
     final reviewed = stats?.reviewedToday ?? 0;
     final newCards = stats?.newCards ?? 0;
-    final distribution = stats?.dueStageDistribution ?? List.filled(9, 0);
+    // 今日任务刻度 = 今日到期分布 + 待学新卡（并入 stage 0，与「待复习/待学习」文案口径一致）。
+    // dueStageDistribution 不含未学新卡（next_review_date 为空），直接使用会让 stage 0 恒为 0。
+    final distribution = stats == null
+        ? List.filled(9, 0)
+        : [...stats.dueStageDistribution]..[0] += newCards;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
