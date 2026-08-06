@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../app/theme.dart';
+import '../../shared/widgets/app_feedback.dart';
 import '../../shared/widgets/app_semantics.dart';
 import '../../shared/widgets/section_widgets.dart';
 import '../providers/auth_provider.dart';
@@ -67,9 +68,11 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
           if (_codeCountdown <= 0) timer.cancel();
         });
       });
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(const SnackBar(content: Text('验证码已发送，请查收邮件')));
+      showKarisFeedback(
+        context,
+        tone: KarisFeedbackTone.success,
+        title: '验证码已发送，请查收邮件',
+      );
     }
   }
 
@@ -83,15 +86,18 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
     if (!mounted) return;
     final state = ref.read(authProvider);
     if (state.error == null) {
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(const SnackBar(content: Text('密码已重置，请用新密码登录')));
+      showKarisFeedback(
+        context,
+        tone: KarisFeedbackTone.success,
+        title: '密码已重置，请用新密码登录',
+      );
       context.go('/login');
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.karisColors;
     final authState = ref.watch(authProvider);
 
     return Scaffold(
@@ -114,8 +120,8 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
                     const SizedBox(height: 10),
                     Text(
                       l10n.authForgotPasswordSubtitle,
-                      style: const TextStyle(
-                        color: KarisColors.stone,
+                      style: TextStyle(
+                        color: colors.stone,
                         fontSize: 14,
                       ),
                     ),
@@ -215,8 +221,8 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
                       const SizedBox(height: 14),
                       Text(
                         authState.error!,
-                        style: const TextStyle(
-                          color: KarisColors.cinnabar,
+                        style: TextStyle(
+                          color: colors.cinnabar,
                           fontSize: 13,
                         ),
                       ),
@@ -225,12 +231,12 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
                     FilledButton(
                       onPressed: authState.isLoading ? null : _reset,
                       child: authState.isLoading
-                          ? const SizedBox(
+                          ? SizedBox(
                               width: 20,
                               height: 20,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
-                                color: KarisColors.surface,
+                                color: colors.surface,
                               ),
                             )
                           : const Text('重置密码'),

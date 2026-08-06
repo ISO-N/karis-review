@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../app/theme.dart';
 import '../../shared/widgets/adaptive_scaffold.dart';
+import '../../shared/widgets/app_feedback.dart';
 import '../../shared/widgets/app_semantics.dart';
 import '../../shared/widgets/rich_card_content.dart';
 import '../../shared/widgets/section_widgets.dart';
@@ -118,9 +119,11 @@ class _CardEditorPageState extends ConsumerState<CardEditorPage> {
     if (_frontController.document.toPlainText().trim().isEmpty ||
         _backController.document.toPlainText().trim().isEmpty) {
       announceMessage(context, '正面和反面内容不能为空');
-      ScaffoldMessenger.of(
+      showKarisFeedback(
         context,
-      ).showSnackBar(const SnackBar(content: Text('正面和反面内容不能为空')));
+        tone: KarisFeedbackTone.error,
+        title: '正面和反面内容不能为空',
+      );
       return;
     }
 
@@ -144,9 +147,11 @@ class _CardEditorPageState extends ConsumerState<CardEditorPage> {
       if (mounted) {
         setState(() => _isSaving = false);
         announceMessage(context, '保存失败，请检查网络后重试');
-        ScaffoldMessenger.of(
+        showKarisFeedback(
           context,
-        ).showSnackBar(const SnackBar(content: Text('保存失败，请检查网络后重试')));
+          tone: KarisFeedbackTone.error,
+          title: '保存失败，请检查网络后重试',
+        );
       }
     }
   }
@@ -306,6 +311,7 @@ class _CardEditorPageState extends ConsumerState<CardEditorPage> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.karisColors;
     final embedBuilders = const [LatexEmbedBuilder(), CodeEmbedBuilder()];
 
     return PopScope(
@@ -315,7 +321,7 @@ class _CardEditorPageState extends ConsumerState<CardEditorPage> {
         _confirmDiscard();
       },
       child: Scaffold(
-        backgroundColor: KarisColors.paper,
+        backgroundColor: colors.paper,
         body: SafeArea(
           child: Center(
             child: ConstrainedBox(
@@ -410,11 +416,12 @@ class _CardEditorPageState extends ConsumerState<CardEditorPage> {
   }
 
   Widget _buildFooter() {
+    final colors = context.karisColors;
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
-      decoration: const BoxDecoration(
-        color: KarisColors.paper,
-        border: Border(top: BorderSide(color: KarisColors.hairline)),
+      decoration: BoxDecoration(
+        color: colors.paper,
+        border: Border(top: BorderSide(color: colors.hairline)),
       ),
       child: KarisPrimaryButton(
         label: _isSaving ? '保存中…' : l10n.cardEditorSave,
@@ -432,10 +439,11 @@ class _CardEditorPageState extends ConsumerState<CardEditorPage> {
     required VoidCallback onLatex,
     required VoidCallback onCode,
   }) {
+    final colors = context.karisColors;
     return Container(
       decoration: BoxDecoration(
-        color: KarisColors.surface,
-        border: Border.all(color: KarisColors.hairline),
+        color: colors.surface,
+        border: Border.all(color: colors.hairline),
         borderRadius: BorderRadius.circular(8),
       ),
       clipBehavior: Clip.antiAlias,
@@ -473,10 +481,11 @@ class _CardEditorPageState extends ConsumerState<CardEditorPage> {
     required VoidCallback onLatex,
     required VoidCallback onCode,
   }) {
+    final colors = context.karisColors;
     return RepaintBoundary(
       child: Container(
         height: 52,
-        color: KarisColors.surface,
+        color: colors.surface,
         child: SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
@@ -660,6 +669,7 @@ class _CardEditorPageState extends ConsumerState<CardEditorPage> {
     quill.QuillController controller, {
     required bool background,
   }) async {
+    final colors = context.karisColors;
     final result = await showDialog<_EditorColorResult>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -684,7 +694,7 @@ class _CardEditorPageState extends ConsumerState<CardEditorPage> {
                     decoration: BoxDecoration(
                       color: _editorColorPresets[i],
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: KarisColors.hairline),
+                      border: Border.all(color: colors.hairline),
                     ),
                   ),
                 ),
@@ -701,14 +711,14 @@ class _CardEditorPageState extends ConsumerState<CardEditorPage> {
                     width: 36,
                     height: 36,
                     decoration: BoxDecoration(
-                      color: KarisColors.paper,
+                      color: colors.paper,
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: KarisColors.hairline),
+                      border: Border.all(color: colors.hairline),
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.format_color_reset,
                       size: 18,
-                      color: KarisColors.stone,
+                      color: colors.stone,
                     ),
                   ),
                 ),

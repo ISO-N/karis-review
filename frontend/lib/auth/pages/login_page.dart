@@ -49,6 +49,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.karisColors;
     final l10n = KarisReviewLocalizations.of(context)!;
     final authState = ref.watch(authProvider);
 
@@ -69,13 +70,13 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       height: 26,
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
-                        color: KarisColors.ink,
+                        color: colors.ink,
                         borderRadius: BorderRadius.circular(6),
                       ),
-                      child: const Text(
+                      child: Text(
                         'K',
                         style: TextStyle(
-                          color: KarisColors.surface,
+                          color: colors.surface,
                           fontFamily: KarisTheme.displayFamily,
                           fontSize: 18,
                           fontWeight: FontWeight.w600,
@@ -91,7 +92,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                     const SizedBox(height: 10),
                     Text(
           l10n.authLoginSubtitle,
-                      style: TextStyle(color: KarisColors.stone, fontSize: 14),
+                      style: TextStyle(color: colors.stone, fontSize: 14),
                     ),
                     const SizedBox(height: 32),
                     TextFormField(
@@ -145,8 +146,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       const SizedBox(height: 14),
                       Text(
                         authState.error!,
-                        style: const TextStyle(
-                          color: KarisColors.cinnabar,
+                        style: TextStyle(
+                          color: colors.cinnabar,
                           fontSize: 13,
                         ),
                       ),
@@ -155,12 +156,12 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                     FilledButton(
                       onPressed: authState.isLoading ? null : _login,
                       child: authState.isLoading
-                          ? const SizedBox(
+                          ? SizedBox(
                               width: 20,
                               height: 20,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
-                                color: KarisColors.surface,
+                                color: colors.surface,
                               ),
                             )
                           : const Text('登录'),
@@ -175,7 +176,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       child: Text(
                         '忘记密码？',
                         style: TextStyle(
-                          color: KarisColors.stone,
+                          color: colors.stone,
                           fontSize: 13,
                         ),
                       ),

@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../app/theme.dart';
 import '../../l10n/app_localizations.dart';
+import '../../shared/widgets/loading_widget.dart';
 import '../providers/logs_provider.dart';
 
 class LogsPage extends ConsumerStatefulWidget {
@@ -43,22 +44,23 @@ class _LogsPageState extends ConsumerState<LogsPage> {
   Widget build(BuildContext context) {
     final l10n = KarisReviewLocalizations.of(context)!;
     final state = ref.watch(logsProvider);
+    final colors = context.karisColors;
 
     return Scaffold(
-      backgroundColor: KarisColors.paper,
+      backgroundColor: colors.paper,
       appBar: AppBar(
-        backgroundColor: KarisColors.surface,
-        surfaceTintColor: KarisColors.surface,
+        backgroundColor: colors.surface,
+        surfaceTintColor: colors.surface,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, size: 20),
           onPressed: () => context.go('/settings'),
         ),
         title: Text(
           l10n.logTitle,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w600,
-            color: KarisColors.ink,
+            color: colors.ink,
             letterSpacing: 0,
           ),
         ),
@@ -72,7 +74,7 @@ class _LogsPageState extends ConsumerState<LogsPage> {
             onCategoryChanged: (v) => ref.read(logsProvider.notifier).setCategoryFilter(v),
             l10n: l10n,
           ),
-          const Divider(height: 1, color: KarisColors.hairline),
+          Divider(height: 1, color: colors.hairline),
           Expanded(
             child: _buildLogList(state, l10n),
           ),
@@ -82,10 +84,9 @@ class _LogsPageState extends ConsumerState<LogsPage> {
   }
 
   Widget _buildLogList(LogsState state, KarisReviewLocalizations l10n) {
+    final colors = context.karisColors;
     if (state.isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(strokeWidth: 2),
-      );
+      return const LoadingWidget();
     }
 
     if (state.error != null) {
@@ -95,11 +96,11 @@ class _LogsPageState extends ConsumerState<LogsPage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.error_outline, size: 36, color: KarisColors.cinnabar),
+              Icon(Icons.error_outline, size: 36, color: colors.cinnabar),
               const SizedBox(height: 12),
               Text(
                 state.error!,
-                style: const TextStyle(color: KarisColors.stone, fontSize: 13),
+                style: TextStyle(color: colors.stone, fontSize: 13),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 16),
@@ -124,18 +125,18 @@ class _LogsPageState extends ConsumerState<LogsPage> {
                 width: 54,
                 height: 54,
                 decoration: BoxDecoration(
-                  color: KarisColors.jadeSoft,
+                  color: colors.jadeSoft,
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Icon(Icons.terminal, color: KarisColors.jade, size: 26),
+                child: Icon(Icons.terminal, color: colors.jade, size: 26),
               ),
               const SizedBox(height: 16),
               Text(
                 l10n.logEmpty,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
-                  color: KarisColors.ink,
+                  color: colors.ink,
                   letterSpacing: 0,
                 ),
               ),
@@ -154,7 +155,7 @@ class _LogsPageState extends ConsumerState<LogsPage> {
           if (state.isLoadingMore) {
             return const Padding(
               padding: EdgeInsets.all(16),
-              child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+              child: LoadingWidget(),
             );
           }
           return const SizedBox.shrink();
@@ -182,9 +183,10 @@ class _FilterBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.karisColors;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      color: KarisColors.surface,
+      color: colors.surface,
       child: Row(
         children: [
           Expanded(
@@ -249,19 +251,20 @@ class _DropdownFilter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.karisColors;
     return DropdownButtonFormField<String?>(
       initialValue: value,
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: const TextStyle(fontSize: 12, color: KarisColors.stone),
+        labelStyle: TextStyle(fontSize: 12, color: colors.stone),
         contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(6),
-          borderSide: const BorderSide(color: KarisColors.hairline),
+          borderSide: BorderSide(color: colors.hairline),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(6),
-          borderSide: const BorderSide(color: KarisColors.hairline),
+          borderSide: BorderSide(color: colors.hairline),
         ),
         isDense: true,
       ),
@@ -270,12 +273,12 @@ class _DropdownFilter extends StatelessWidget {
           value: item.value,
           child: Text(
             item.label,
-            style: const TextStyle(fontSize: 13, color: KarisColors.ink),
+            style: TextStyle(fontSize: 13, color: colors.ink),
           ),
         );
       }).toList(),
       onChanged: onChanged,
-      style: const TextStyle(fontSize: 13, color: KarisColors.ink),
+      style: TextStyle(fontSize: 13, color: colors.ink),
     );
   }
 }
@@ -295,27 +298,28 @@ class _LogTileState extends State<_LogTile> {
   Color _levelColor() {
     switch (widget.entry.level) {
       case 'ERROR':
-        return KarisColors.cinnabar;
+        return context.karisColors.cinnabar;
       case 'WARN':
         return const Color(0xFFD4A72C);
       default:
-        return KarisColors.jade;
+        return context.karisColors.jade;
     }
   }
 
   Color _levelBgColor() {
     switch (widget.entry.level) {
       case 'ERROR':
-        return KarisColors.cinnabarSoft;
+        return context.karisColors.cinnabarSoft;
       case 'WARN':
         return const Color(0xFFFFF3CD);
       default:
-        return KarisColors.jadeSoft;
+        return context.karisColors.jadeSoft;
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.karisColors;
     final entry = widget.entry;
     final hasDetails = entry.details != null && entry.details!.isNotEmpty;
 
@@ -326,9 +330,9 @@ class _LogTileState extends State<_LogTile> {
           onTap: hasDetails ? () => setState(() => _expanded = !_expanded) : null,
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               border: Border(
-                bottom: BorderSide(color: KarisColors.hairline, width: 0.5),
+                bottom: BorderSide(color: colors.hairline, width: 0.5),
               ),
             ),
             child: Row(
@@ -354,14 +358,14 @@ class _LogTileState extends State<_LogTile> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color: KarisColors.jadeSoft,
+                    color: colors.jadeSoft,
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
                     entry.category,
                     style: karisMono(
                       fontSize: 10,
-                      color: KarisColors.jade,
+                      color: colors.jade,
                       weight: FontWeight.w500,
                     ),
                   ),
@@ -373,9 +377,9 @@ class _LogTileState extends State<_LogTile> {
                     children: [
                       Text(
                         entry.message,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 13,
-                          color: KarisColors.ink,
+                          color: colors.ink,
                           letterSpacing: 0,
                         ),
                         maxLines: 2,
@@ -384,7 +388,7 @@ class _LogTileState extends State<_LogTile> {
                       const SizedBox(height: 4),
                       Text(
                         _formatTime(entry.createdAt),
-                        style: karisMono(fontSize: 10, color: KarisColors.stone),
+                        style: karisMono(fontSize: 10, color: colors.stone),
                       ),
                     ],
                   ),
@@ -393,7 +397,7 @@ class _LogTileState extends State<_LogTile> {
                   Icon(
                     _expanded ? Icons.expand_less : Icons.expand_more,
                     size: 18,
-                    color: KarisColors.stone,
+                    color: colors.stone,
                   ),
               ],
             ),
@@ -403,15 +407,15 @@ class _LogTileState extends State<_LogTile> {
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(16),
-            decoration: const BoxDecoration(
-              color: KarisColors.surface,
+            decoration: BoxDecoration(
+              color: colors.surface,
               border: Border(
-                bottom: BorderSide(color: KarisColors.hairline, width: 0.5),
+                bottom: BorderSide(color: colors.hairline, width: 0.5),
               ),
             ),
             child: Text(
               const JsonEncoder.withIndent('  ').convert(entry.details),
-              style: karisMono(fontSize: 11, color: KarisColors.stone),
+              style: karisMono(fontSize: 11, color: colors.stone),
             ),
           ),
       ],

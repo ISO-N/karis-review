@@ -12,7 +12,10 @@ import '../../card/pages/card_editor_page.dart';
 import '../../deck/providers/deck_provider.dart';
 import '../../shared/utils/motion.dart';
 import '../../shared/widgets/adaptive_scaffold.dart';
+import '../../shared/widgets/app_feedback.dart';
 import '../../shared/widgets/app_semantics.dart';
+import '../../shared/widgets/entrance.dart';
+import '../../shared/widgets/loading_widget.dart';
 import '../../shared/widgets/metric_tile.dart';
 import '../../shared/widgets/rich_card_content.dart';
 import '../../shared/widgets/section_widgets.dart';
@@ -121,6 +124,7 @@ class _CardListPageState extends ConsumerState<CardListPage> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.karisColors;
     final statsAsync = ref.watch(deckStatsProvider(widget.deckId));
     final cardsAsync = ref.watch(
       cardListProvider(CardListArgs(widget.deckId, _filter)),
@@ -131,7 +135,7 @@ class _CardListPageState extends ConsumerState<CardListPage> {
     );
     final isTablet = MediaQuery.sizeOf(context).width >= 600;
     return Scaffold(
-      backgroundColor: KarisColors.paper,
+      backgroundColor: colors.paper,
       body: SafeArea(
         child: Column(
           children: [
@@ -179,9 +183,7 @@ class _CardListPageState extends ConsumerState<CardListPage> {
                       sliver: cardsAsync.when(
                         loading: () => const SliverFillRemaining(
                           hasScrollBody: false,
-                          child: Center(
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          ),
+                          child: LoadingWidget(),
                         ),
                         error: (error, _) => SliverFillRemaining(
                           hasScrollBody: false,
@@ -189,9 +191,9 @@ class _CardListPageState extends ConsumerState<CardListPage> {
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Text(
+                                Text(
                                   '加载卡片失败，请检查网络后重试',
-                                  style: TextStyle(color: KarisColors.cinnabar),
+                                  style: TextStyle(color: colors.cinnabar),
                                 ),
                                 const SizedBox(height: 10),
                                 TextButton(
@@ -342,7 +344,12 @@ class _CardListPageState extends ConsumerState<CardListPage> {
                                           constraints: const BoxConstraints(
                                             maxWidth: 980,
                                           ),
-                                          child: item,
+                                          child: KarisEntrance(
+                                            delay: KarisMotion.staggerDelay(
+                                              index * 2,
+                                            ),
+                                            child: item,
+                                          ),
                                         ),
                                       ),
                                     );
@@ -366,8 +373,8 @@ class _CardListPageState extends ConsumerState<CardListPage> {
           ? null
           : FloatingActionButton.extended(
               onPressed: () => _openEditor(),
-              backgroundColor: KarisColors.ink,
-              foregroundColor: KarisColors.surface,
+              backgroundColor: colors.ink,
+              foregroundColor: colors.surface,
               elevation: 0,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(8),
@@ -379,6 +386,7 @@ class _CardListPageState extends ConsumerState<CardListPage> {
   }
 
   Widget _buildHeader(BuildContext context, String deckName) {
+    final colors = context.karisColors;
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
       child: Row(
@@ -407,7 +415,7 @@ class _CardListPageState extends ConsumerState<CardListPage> {
           if (_selecting)
             Text(
               '已选 ${_selectedIds.length} 张',
-              style: karisMono(fontSize: 12, color: KarisColors.jade),
+              style: karisMono(fontSize: 12, color: colors.jade),
             )
           else ...[
             KarisIconButton(
@@ -433,6 +441,7 @@ class _CardListPageState extends ConsumerState<CardListPage> {
   }
 
   Widget _buildOverview(AsyncValue<DeckStats> statsAsync) {
+    final colors = context.karisColors;
     final stats = statsAsync.maybeWhen(
       data: (value) => value,
       orElse: () => null,
@@ -451,7 +460,7 @@ class _CardListPageState extends ConsumerState<CardListPage> {
           child: MetricTile(
             label: '今日待复习',
             value: stats == null ? '--' : '${stats.dueToday}',
-            valueColor: KarisColors.cinnabar,
+            valueColor: colors.cinnabar,
             icon: Icons.schedule_outlined,
           ),
         ),
@@ -460,7 +469,7 @@ class _CardListPageState extends ConsumerState<CardListPage> {
           child: MetricTile(
             label: '已掌握',
             value: stats == null ? '--' : '${stats.masteredCards}',
-            valueColor: KarisColors.jade,
+            valueColor: colors.jade,
             icon: Icons.done_all_outlined,
           ),
         ),
@@ -469,6 +478,7 @@ class _CardListPageState extends ConsumerState<CardListPage> {
   }
 
   Widget _buildSearchField() {
+    final colors = context.karisColors;
     return TextField(
       controller: _searchController,
       focusNode: _searchFocus,
@@ -492,15 +502,15 @@ class _CardListPageState extends ConsumerState<CardListPage> {
           },
         ),
         filled: true,
-        fillColor: KarisColors.surface,
+        fillColor: colors.surface,
         contentPadding: const EdgeInsets.symmetric(vertical: 14),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: KarisColors.hairline),
+          borderSide: BorderSide(color: colors.hairline),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: KarisColors.jade),
+          borderSide: BorderSide(color: colors.jade),
         ),
       ),
     );
@@ -566,6 +576,7 @@ class _CardListPageState extends ConsumerState<CardListPage> {
   }
 
   Future<void> _openImport() async {
+    final colors = context.karisColors;
     final result = await context.push<CardImportResult>(
       '/decks/${widget.deckId}/cards/import',
     );
@@ -580,7 +591,7 @@ class _CardListPageState extends ConsumerState<CardListPage> {
       ..hideCurrentMaterialBanner();
     messenger.showMaterialBanner(
       MaterialBanner(
-        leading: const Icon(Icons.undo, size: 20, color: KarisColors.jade),
+        leading: Icon(Icons.undo, size: 20, color: colors.jade),
         content: Text('已导入 $count 张卡片，可撤销导入（将删除这批卡片，不可恢复）'),
         actions: [
           TextButton(
@@ -590,8 +601,8 @@ class _CardListPageState extends ConsumerState<CardListPage> {
           if (result.importedCardIds.isNotEmpty)
             FilledButton.tonal(
               style: FilledButton.styleFrom(
-                backgroundColor: KarisColors.jadeSoft,
-                foregroundColor: KarisColors.jade,
+                backgroundColor: colors.jadeSoft,
+                foregroundColor: colors.jade,
                 minimumSize: const Size(0, 40),
               ),
               onPressed: () async {
@@ -609,6 +620,7 @@ class _CardListPageState extends ConsumerState<CardListPage> {
   }
 
   Future<bool?> _confirmUndoImport(int count) {
+    final colors = context.karisColors;
     return showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -621,8 +633,8 @@ class _CardListPageState extends ConsumerState<CardListPage> {
           ),
           FilledButton(
             style: FilledButton.styleFrom(
-              backgroundColor: KarisColors.cinnabar,
-              foregroundColor: KarisColors.surface,
+              backgroundColor: colors.cinnabar,
+              foregroundColor: colors.surface,
             ),
             onPressed: () => Navigator.pop(dialogContext, true),
             child: const Text('撤销导入'),
@@ -637,31 +649,33 @@ class _CardListPageState extends ConsumerState<CardListPage> {
     await ref.read(cardListProvider(args).notifier).deleteCards(cardIds);
     if (!mounted) return;
     if (ref.read(cardListProvider(args)).hasError) {
-      _showMessage('撤销失败，请重试');
+      _showMessage('撤销失败，请重试', KarisFeedbackTone.error);
       return;
     }
     _refreshAfterChange();
-    _showMessage('已撤销导入，已删除 ${cardIds.length} 张卡片');
+    _showMessage(
+      '已撤销导入，已删除 ${cardIds.length} 张卡片',
+      KarisFeedbackTone.success,
+    );
   }
 
-  void _showMessage(String message) {
+  void _showMessage(String message, KarisFeedbackTone tone) {
     if (!mounted) return;
     announceMessage(context, message);
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
+    showKarisFeedback(context, tone: tone, title: message);
   }
 
   Widget _buildSelectionBar(AsyncValue<List<FlashCard>> cardsAsync) {
+    final colors = context.karisColors;
     final cards = cardsAsync.valueOrNull ?? const <FlashCard>[];
     final allSelected =
         cards.isNotEmpty &&
         cards.every((card) => _selectedIds.contains(card.id));
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 10, 20, 10),
-      decoration: const BoxDecoration(
-        color: KarisColors.paper,
-        border: Border(top: BorderSide(color: KarisColors.hairline)),
+      decoration: BoxDecoration(
+        color: colors.paper,
+        border: Border(top: BorderSide(color: colors.hairline)),
       ),
       child: SafeArea(
         top: false,
@@ -688,8 +702,8 @@ class _CardListPageState extends ConsumerState<CardListPage> {
                 label: Text(allSelected ? '取消全选' : '全选'),
                 style: OutlinedButton.styleFrom(
                   minimumSize: const Size(0, 44),
-                  foregroundColor: KarisColors.jade,
-                  side: const BorderSide(color: KarisColors.hairline),
+                  foregroundColor: colors.jade,
+                  side: BorderSide(color: colors.hairline),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
@@ -704,8 +718,8 @@ class _CardListPageState extends ConsumerState<CardListPage> {
                 label: Text('删除所选（${_selectedIds.length}）'),
                 style: FilledButton.styleFrom(
                   minimumSize: const Size(0, 44),
-                  backgroundColor: KarisColors.cinnabar,
-                  foregroundColor: KarisColors.surface,
+                  backgroundColor: colors.cinnabar,
+                  foregroundColor: colors.surface,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
@@ -719,6 +733,7 @@ class _CardListPageState extends ConsumerState<CardListPage> {
   }
 
   Future<void> _deleteSelected() async {
+    final colors = context.karisColors;
     final cardIds = _selectedIds.toList();
     if (cardIds.isEmpty) return;
     final confirmed = await showDialog<bool>(
@@ -733,8 +748,8 @@ class _CardListPageState extends ConsumerState<CardListPage> {
           ),
           FilledButton(
             style: FilledButton.styleFrom(
-              backgroundColor: KarisColors.cinnabar,
-              foregroundColor: KarisColors.surface,
+              backgroundColor: colors.cinnabar,
+              foregroundColor: colors.surface,
             ),
             onPressed: () => Navigator.pop(dialogContext, true),
             child: const Text('删除'),
@@ -747,7 +762,7 @@ class _CardListPageState extends ConsumerState<CardListPage> {
     await ref.read(cardListProvider(args).notifier).deleteCards(cardIds);
     if (!mounted) return;
     if (ref.read(cardListProvider(args)).hasError) {
-      _showMessage('删除失败，请检查网络后重试');
+      _showMessage('删除失败，请检查网络后重试', KarisFeedbackTone.error);
       return;
     }
     setState(() {
@@ -755,7 +770,7 @@ class _CardListPageState extends ConsumerState<CardListPage> {
       _selectedIds.clear();
     });
     _refreshAfterChange();
-    _showMessage('已删除 ${cardIds.length} 张卡片');
+    _showMessage('已删除 ${cardIds.length} 张卡片', KarisFeedbackTone.success);
   }
 
   void _refreshAfterChange() {
@@ -776,6 +791,7 @@ class _CardListPageState extends ConsumerState<CardListPage> {
   }
 
   void _confirmDelete(FlashCard card) {
+    final colors = context.karisColors;
     showDialog<void>(
       context: context,
       builder: (dialogContext) {
@@ -789,8 +805,8 @@ class _CardListPageState extends ConsumerState<CardListPage> {
             ),
             FilledButton(
               style: FilledButton.styleFrom(
-                backgroundColor: KarisColors.cinnabar,
-                foregroundColor: KarisColors.surface,
+                backgroundColor: colors.cinnabar,
+                foregroundColor: colors.surface,
               ),
               onPressed: () async {
                 await ref
@@ -830,6 +846,7 @@ class _FilterChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.karisColors;
     return KarisInteractive(
       selected: active,
       child: InkWell(
@@ -840,9 +857,9 @@ class _FilterChip extends StatelessWidget {
           height: 34,
           padding: const EdgeInsets.symmetric(horizontal: 12),
           decoration: BoxDecoration(
-            color: active ? KarisColors.jadeSoft : KarisColors.surface,
+            color: active ? colors.jadeSoft : colors.surface,
             border: Border.all(
-              color: active ? KarisColors.jade : KarisColors.hairline,
+              color: active ? colors.jade : colors.hairline,
             ),
             borderRadius: BorderRadius.circular(8),
           ),
@@ -851,7 +868,7 @@ class _FilterChip extends StatelessWidget {
               Text(
                 label,
                 style: TextStyle(
-                  color: active ? KarisColors.jade : KarisColors.stone,
+                  color: active ? colors.jade : colors.stone,
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
                   letterSpacing: 0,
@@ -862,7 +879,7 @@ class _FilterChip extends StatelessWidget {
                 '$count',
                 style: karisMono(
                   fontSize: 10,
-                  color: active ? KarisColors.jade : KarisColors.stone,
+                  color: active ? colors.jade : colors.stone,
                 ),
               ),
             ],
@@ -890,6 +907,7 @@ class _CardTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.karisColors;
     final nextLabel = _nextLabel();
     return KarisInteractive(
       child: InkWell(
@@ -900,9 +918,9 @@ class _CardTile extends StatelessWidget {
           width: double.infinity,
           padding: const EdgeInsets.all(15),
           decoration: BoxDecoration(
-            color: selected ? KarisColors.jadeSoft : KarisColors.surface,
+            color: selected ? colors.jadeSoft : colors.surface,
             border: Border.all(
-              color: selected ? KarisColors.jade : KarisColors.hairline,
+              color: selected ? colors.jade : colors.hairline,
             ),
             borderRadius: BorderRadius.circular(8),
           ),
@@ -915,13 +933,13 @@ class _CardTile extends StatelessWidget {
                   const Spacer(),
                   Text(
                     nextLabel,
-                    style: karisMono(fontSize: 10, color: KarisColors.stone),
+                    style: karisMono(fontSize: 10, color: colors.stone),
                   ),
                   if (selecting)
                     Checkbox(
                       value: selected,
                       onChanged: (_) => onTap(),
-                      activeColor: KarisColors.jade,
+                      activeColor: colors.jade,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(4),
                       ),
@@ -930,10 +948,10 @@ class _CardTile extends StatelessWidget {
                     IconButton(
                       onPressed: onDelete,
                       tooltip: '删除卡片',
-                      icon: const Icon(
+                      icon: Icon(
                         Icons.delete_outline,
                         size: 17,
-                        color: KarisColors.cinnabar,
+                        color: colors.cinnabar,
                       ),
                       style: IconButton.styleFrom(
                         minimumSize: const Size(36, 36),
@@ -944,10 +962,10 @@ class _CardTile extends StatelessWidget {
               const SizedBox(height: 11),
               RichCardContent(
                 content: card.front,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
-                  color: KarisColors.ink,
+                  color: colors.ink,
                   height: 1.5,
                 ),
                 maxLines: 2,
@@ -955,9 +973,9 @@ class _CardTile extends StatelessWidget {
               const SizedBox(height: 4),
               RichCardContent(
                 content: card.back,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 13,
-                  color: KarisColors.stone,
+                  color: colors.stone,
                   height: 1.5,
                 ),
                 maxLines: 1,
@@ -994,11 +1012,12 @@ class _StageBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.karisColors;
     final (String label, Color color, Color background) = switch ((stage, learning)) {
-      (_, true) => ('重学', KarisColors.amber, KarisColors.amberSoft),
-      (0, false) => ('新卡', KarisColors.jade, KarisColors.jadeSoft),
-      (8, false) => ('掌握', KarisColors.jade, KarisColors.jadeSoft),
-      _ => ('复习', KarisColors.jade, KarisColors.jadeSoft),
+      (_, true) => ('重学', colors.amber, colors.amberSoft),
+      (0, false) => ('新卡', colors.jade, colors.jadeSoft),
+      (8, false) => ('掌握', colors.jade, colors.jadeSoft),
+      _ => ('复习', colors.jade, colors.jadeSoft),
     };
     return Container(
       height: 24,

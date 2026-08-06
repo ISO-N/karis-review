@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../app/theme.dart';
+import '../../shared/widgets/app_feedback.dart';
 import '../../shared/widgets/app_semantics.dart';
 import '../../shared/widgets/error_widget.dart';
 import '../../shared/widgets/loading_widget.dart';
@@ -79,9 +80,11 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
           if (_codeCountdown <= 0) timer.cancel();
         });
       });
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(const SnackBar(content: Text('验证码已发送，请查收邮件')));
+      showKarisFeedback(
+        context,
+        tone: KarisFeedbackTone.success,
+        title: '验证码已发送，请查收邮件',
+      );
     }
   }
 
@@ -133,6 +136,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
   }
 
   Widget _buildForm(AuthState authState, AuthConfig config) {
+    final colors = context.karisColors;
     return Center(
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
@@ -148,13 +152,13 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                   height: 26,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: KarisColors.ink,
+                    color: colors.ink,
                     borderRadius: BorderRadius.circular(6),
                   ),
-                  child: const Text(
+                  child: Text(
                     'K',
                     style: TextStyle(
-                      color: KarisColors.surface,
+                      color: colors.surface,
                       fontFamily: KarisTheme.displayFamily,
                       fontSize: 18,
                       fontWeight: FontWeight.w600,
@@ -170,7 +174,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                 SizedBox(height: 10),
                 Text(
           l10n.authRegisterSubtitle,
-                  style: TextStyle(color: KarisColors.stone, fontSize: 14),
+                  style: TextStyle(color: colors.stone, fontSize: 14),
                 ),
                 SizedBox(height: 32),
                 TextFormField(
@@ -299,8 +303,8 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                   SizedBox(height: 14),
                   Text(
                     authState.error!,
-                    style: const TextStyle(
-                      color: KarisColors.cinnabar,
+                    style: TextStyle(
+                      color: colors.cinnabar,
                       fontSize: 13,
                     ),
                   ),
@@ -314,7 +318,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                           height: 20,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            color: KarisColors.surface,
+                            color: colors.surface,
                           ),
                         )
                       : const Text('注册'),
