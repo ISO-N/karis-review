@@ -8,6 +8,8 @@ import '../../deck/providers/deck_provider.dart';
 import '../../shared/widgets/adaptive_scaffold.dart';
 import '../../shared/utils/motion.dart';
 import '../../shared/widgets/app_semantics.dart';
+import '../../shared/widgets/entrance.dart';
+import '../../shared/widgets/loading_widget.dart';
 import '../../shared/widgets/section_widgets.dart';
 
 import '../../l10n/app_localizations.dart';
@@ -68,7 +70,7 @@ class _StartFlowPageState extends ConsumerState<StartFlowPage> {
     final isTablet = MediaQuery.sizeOf(context).width >= 600;
 
     return Scaffold(
-      backgroundColor: KarisColors.paper,
+      backgroundColor: context.karisColors.paper,
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
@@ -78,9 +80,7 @@ class _StartFlowPageState extends ConsumerState<StartFlowPage> {
               child: decksAsync.when(
                 loading: () => const Padding(
                   padding: EdgeInsets.symmetric(vertical: 80),
-                  child: Center(
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
+                  child: LoadingWidget(),
                 ),
                 error: (error, _) => EmptyState(
                   icon: Icons.error_outline,
@@ -122,7 +122,7 @@ class _StartFlowPageState extends ConsumerState<StartFlowPage> {
                             '$totalCount 张',
                             style: karisMono(
                               fontSize: 12,
-                              color: KarisColors.stone,
+                              color: context.karisColors.stone,
                             ),
                           ),
                         ],
@@ -236,12 +236,13 @@ class _ModeSwitch extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-      final l10n = KarisReviewLocalizations.of(context)!;
+    final colors = context.karisColors;
+    final l10n = KarisReviewLocalizations.of(context)!;
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: const Color(0xFFE7EAE3),
-        border: Border.all(color: KarisColors.hairline),
+        color: colors.hairline.withValues(alpha: 0.45),
+        border: Border.all(color: colors.hairline),
         borderRadius: BorderRadius.circular(10),
       ),
       child: Row(
@@ -279,23 +280,28 @@ class _ModeOption extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.karisColors;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return KarisInteractive(
       selected: active,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(8),
         child: AnimatedContainer(
-          duration: reducedDuration(context, const Duration(milliseconds: 180)),
-          curve: Curves.easeOut,
+          duration: reducedDuration(context, KarisMotion.feedback),
+          curve: KarisMotion.easeOut,
           height: 48,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: active ? KarisColors.surface : Colors.transparent,
+            color: active ? colors.surface : Colors.transparent,
             borderRadius: BorderRadius.circular(8),
             boxShadow: active
                 ? [
                     BoxShadow(
-                      color: const Color(0xFF161F1B).withValues(alpha: 0.08),
+                      color: (isDark
+                              ? const Color(0xFF000000)
+                              : const Color(0xFF161F1B))
+                          .withValues(alpha: isDark ? 0.35 : 0.08),
                       blurRadius: 10,
                       offset: const Offset(0, 2),
                     ),
@@ -305,7 +311,7 @@ class _ModeOption extends StatelessWidget {
           child: Text(
             label,
             style: TextStyle(
-              color: active ? KarisColors.ink : KarisColors.stone,
+              color: active ? colors.ink : colors.stone,
               fontSize: 14,
               fontWeight: FontWeight.w600,
               letterSpacing: 0,
@@ -332,71 +338,75 @@ class _ScopeOption extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return KarisInteractive(
-      selected: active,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          width: double.infinity,
-          constraints: const BoxConstraints(minHeight: 62),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          decoration: BoxDecoration(
-            color: active ? KarisColors.jadeSoft : KarisColors.surface,
-            border: Border.all(
-              color: active ? KarisColors.jade : KarisColors.hairline,
+    final colors = context.karisColors;
+    return KarisEntrance(
+      child: KarisInteractive(
+        selected: active,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(8),
+          child: Container(
+            width: double.infinity,
+            constraints: const BoxConstraints(minHeight: 62),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: active ? colors.jadeSoft : colors.surface,
+              border: Border.all(
+                color: active ? colors.jade : colors.hairline,
+              ),
+              borderRadius: BorderRadius.circular(8),
             ),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 18,
-                height: 18,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: active ? KarisColors.jade : KarisColors.hairline,
-                    width: 1.5,
+            child: Row(
+              children: [
+                Container(
+                  width: 18,
+                  height: 18,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: active ? colors.jade : colors.hairline,
+                      width: 1.5,
+                    ),
+                  ),
+                  child: active
+                      ? Padding(
+                          padding: const EdgeInsets.all(4),
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: colors.jade,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                        )
+                      : null,
+                ),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: colors.ink,
+                          letterSpacing: 0,
+                        ),
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        meta,
+                        style:
+                            karisMono(fontSize: 10, color: colors.stone),
+                      ),
+                    ],
                   ),
                 ),
-                child: active
-                    ? Padding(
-                        padding: const EdgeInsets.all(4),
-                        child: DecoratedBox(
-                          decoration: const BoxDecoration(
-                            color: KarisColors.jade,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                      )
-                    : null,
-              ),
-              SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: KarisColors.ink,
-                        letterSpacing: 0,
-                      ),
-                    ),
-                    SizedBox(height: 4),
-                    Text(
-                      meta,
-                      style: karisMono(fontSize: 10, color: KarisColors.stone),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
