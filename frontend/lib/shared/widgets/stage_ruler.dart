@@ -19,12 +19,13 @@ class StageRuler extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.karisColors;
     final values = distribution ?? List.filled(9, 0);
     final maxValue = values.fold<int>(
       1,
       (max, value) => value > max ? value : max,
     );
-    final color = currentColor ?? KarisColors.jade;
+    final color = currentColor ?? colors.jade;
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.end,
@@ -42,14 +43,13 @@ class StageRuler extends StatelessWidget {
             ? color
             : hasValue
             ? Color.lerp(
-                KarisColors.jadeSoft,
-                KarisColors.jade,
+                colors.jadeSoft,
+                colors.jade,
                 ratio.clamp(0.0, 1.0),
               )!
-            : KarisColors.hairline;
-        final labelColor = highlight || hasValue
-            ? KarisColors.ink
-            : KarisColors.stone;
+            : colors.hairline;
+        final labelColor =
+            highlight || hasValue ? colors.ink : colors.stone;
         final labelWeight = highlight || hasValue
             ? FontWeight.w600
             : FontWeight.w400;
@@ -98,6 +98,7 @@ class MiniStageRuler extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.karisColors;
     return Row(
       children: List.generate(9, (index) {
         final active = index < distribution.length && distribution[index] > 0;
@@ -106,7 +107,7 @@ class MiniStageRuler extends StatelessWidget {
             height: 4,
             margin: const EdgeInsets.only(right: 3),
             decoration: BoxDecoration(
-              color: active ? KarisColors.jade : KarisColors.hairline,
+              color: active ? colors.jade : colors.hairline,
               borderRadius: BorderRadius.circular(2),
             ),
           ),

@@ -2,16 +2,26 @@ import 'package:flutter/material.dart';
 
 import '../../app/theme.dart';
 
-enum KarisFeedbackTone {
-  success(KarisColors.jade, KarisColors.jadeSoft, Icons.check),
-  warning(KarisColors.amber, KarisColors.amberSoft, Icons.cloud_off_outlined),
-  error(KarisColors.cinnabar, KarisColors.cinnabarSoft, Icons.error_outline);
+enum KarisFeedbackTone { success, warning, error }
 
-  const KarisFeedbackTone(this.color, this.softColor, this.icon);
+extension KarisFeedbackToneStyle on KarisFeedbackTone {
+  Color color(KarisColors c) => switch (this) {
+        KarisFeedbackTone.success => c.jade,
+        KarisFeedbackTone.warning => c.amber,
+        KarisFeedbackTone.error => c.cinnabar,
+      };
 
-  final Color color;
-  final Color softColor;
-  final IconData icon;
+  Color softColor(KarisColors c) => switch (this) {
+        KarisFeedbackTone.success => c.jadeSoft,
+        KarisFeedbackTone.warning => c.amberSoft,
+        KarisFeedbackTone.error => c.cinnabarSoft,
+      };
+
+  IconData get icon => switch (this) {
+        KarisFeedbackTone.success => Icons.check,
+        KarisFeedbackTone.warning => Icons.cloud_off_outlined,
+        KarisFeedbackTone.error => Icons.error_outline,
+      };
 }
 
 class KarisFeedbackBar extends StatelessWidget {
@@ -28,16 +38,17 @@ class KarisFeedbackBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.karisColors;
     return Row(
       children: [
         Container(
           width: 30,
           height: 30,
           decoration: BoxDecoration(
-            color: tone.softColor,
+            color: tone.softColor(colors),
             borderRadius: BorderRadius.circular(6),
           ),
-          child: Icon(tone.icon, size: 16, color: tone.color),
+          child: Icon(tone.icon, size: 16, color: tone.color(colors)),
         ),
         const SizedBox(width: 10),
         Expanded(
@@ -47,8 +58,8 @@ class KarisFeedbackBar extends StatelessWidget {
             children: [
               Text(
                 title,
-                style: const TextStyle(
-                  color: KarisColors.ink,
+                style: TextStyle(
+                  color: colors.ink,
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
                   letterSpacing: 0,
@@ -58,7 +69,7 @@ class KarisFeedbackBar extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   detail!,
-                  style: karisMono(fontSize: 10, color: KarisColors.stone),
+                  style: karisMono(fontSize: 10, color: colors.stone),
                 ),
               ],
             ],
@@ -69,15 +80,17 @@ class KarisFeedbackBar extends StatelessWidget {
   }
 }
 
-SnackBar karisFeedbackSnackBar({
+SnackBar karisFeedbackSnackBar(
+  BuildContext context, {
   required KarisFeedbackTone tone,
   required String title,
   String? detail,
   Duration duration = const Duration(milliseconds: 1800),
   EdgeInsetsGeometry? margin,
 }) {
+  final colors = context.karisColors;
   return SnackBar(
-    backgroundColor: KarisColors.surface,
+    backgroundColor: colors.surface,
     elevation: 0,
     behavior: SnackBarBehavior.floating,
     duration: duration,
@@ -85,7 +98,7 @@ SnackBar karisFeedbackSnackBar({
     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
     shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(8),
-      side: const BorderSide(color: KarisColors.hairline),
+      side: BorderSide(color: colors.hairline),
     ),
     content: KarisFeedbackBar(tone: tone, title: title, detail: detail),
   );
@@ -103,6 +116,7 @@ void showKarisFeedback(
     ..hideCurrentSnackBar()
     ..showSnackBar(
       karisFeedbackSnackBar(
+        context,
         tone: tone,
         title: title,
         detail: detail,

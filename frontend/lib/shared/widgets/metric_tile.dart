@@ -5,26 +5,28 @@ import '../../app/theme.dart';
 class MetricTile extends StatelessWidget {
   final String label;
   final String value;
-  final Color valueColor;
+  final Color? valueColor;
   final IconData? icon;
 
   const MetricTile({
     super.key,
     required this.label,
     required this.value,
-    this.valueColor = KarisColors.ink,
+    this.valueColor,
     this.icon,
   });
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.karisColors;
+    final color = valueColor ?? colors.ink;
     return SizedBox(
       height: 96,
       child: Container(
         padding: const EdgeInsets.all(15),
         decoration: BoxDecoration(
-          color: KarisColors.surface,
-          border: Border.all(color: KarisColors.hairline),
+          color: colors.surface,
+          border: Border.all(color: colors.hairline),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Column(
@@ -33,7 +35,7 @@ class MetricTile extends StatelessWidget {
             Row(
               children: [
                 if (icon != null) ...[
-                  Icon(icon, size: 15, color: valueColor),
+                  Icon(icon, size: 15, color: color),
                   const SizedBox(width: 6),
                 ],
                 Expanded(
@@ -44,8 +46,8 @@ class MetricTile extends StatelessWidget {
                       label,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: KarisColors.stone,
+                      style: TextStyle(
+                        color: colors.stone,
                         fontSize: 12,
                         letterSpacing: 0,
                       ),
@@ -59,7 +61,7 @@ class MetricTile extends StatelessWidget {
               value,
               style: karisMono(
                 fontSize: 26,
-                color: valueColor,
+                color: color,
                 weight: FontWeight.w500,
               ),
             ),

@@ -65,6 +65,7 @@ class _KarisSkipLinkState extends State<KarisSkipLink> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.karisColors;
     return Focus(
       onFocusChange: (focused) {
         if (_visible != focused) setState(() => _visible = focused);
@@ -78,9 +79,9 @@ class _KarisSkipLinkState extends State<KarisSkipLink> {
             child: TextButton(
               onPressed: () => widget.target.requestFocus(),
               style: TextButton.styleFrom(
-                backgroundColor: KarisColors.surface,
-                foregroundColor: KarisColors.ink,
-                side: const BorderSide(color: KarisColors.jade),
+                backgroundColor: colors.surface,
+                foregroundColor: colors.ink,
+                side: BorderSide(color: colors.jade),
               ),
               child: const Text('跳至主内容'),
             ),

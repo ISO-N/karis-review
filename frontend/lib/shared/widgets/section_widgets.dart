@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../app/theme.dart';
+import '../utils/motion.dart';
 import 'app_semantics.dart';
+import 'entrance.dart';
 
 class SectionHeader extends StatelessWidget {
   final String title;
@@ -17,23 +19,24 @@ class SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.karisColors;
     return Row(
       children: [
         Expanded(
           child: KarisHeading(
             child: Text(
               title,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
-                color: KarisColors.ink,
+                color: colors.ink,
                 letterSpacing: 0,
               ),
             ),
           ),
         ),
         if (trailing case final value?)
-          Text(value, style: karisMono(fontSize: 10, color: KarisColors.stone)),
+          Text(value, style: karisMono(fontSize: 10, color: colors.stone)),
         ?action,
       ],
     );
@@ -51,7 +54,7 @@ class Kicker extends StatelessWidget {
       text,
       style: karisMono(
         fontSize: 11,
-        color: KarisColors.jade,
+        color: context.karisColors.jade,
         weight: FontWeight.w500,
       ),
     );
@@ -74,42 +77,46 @@ class EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.karisColors;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 54,
-              height: 54,
-              decoration: BoxDecoration(
-                color: KarisColors.jadeSoft,
-                borderRadius: BorderRadius.circular(8),
+        child: KarisEntrance(
+          duration: KarisMotion.grow,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 54,
+                height: 54,
+                decoration: BoxDecoration(
+                  color: colors.jadeSoft,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(icon, color: colors.jade, size: 26),
               ),
-              child: Icon(icon, color: KarisColors.jade, size: 26),
-            ),
-            const SizedBox(height: 16),
-            KarisHeading(
-              child: Text(
-                title,
-                style: karisDisplay(fontSize: 20),
+              const SizedBox(height: 16),
+              KarisHeading(
+                child: Text(
+                  title,
+                  style: karisDisplay(fontSize: 20, color: colors.ink),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                message,
+                style: TextStyle(
+                  color: colors.stone,
+                  fontSize: 13,
+                  height: 1.6,
+                  letterSpacing: 0,
+                ),
                 textAlign: TextAlign.center,
               ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              message,
-              style: const TextStyle(
-                color: KarisColors.stone,
-                fontSize: 13,
-                height: 1.6,
-                letterSpacing: 0,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            if (action != null) ...[const SizedBox(height: 20), action!],
-          ],
+              if (action != null) ...[const SizedBox(height: 20), action!],
+            ],
+          ),
         ),
       ),
     );
