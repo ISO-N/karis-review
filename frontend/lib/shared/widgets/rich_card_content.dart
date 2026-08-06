@@ -1,3 +1,4 @@
+import 'dart:collection';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -5,6 +6,27 @@ import 'package:flutter_math_fork/flutter_math.dart';
 import 'package:flutter_quill/flutter_quill.dart' as quill;
 import 'package:flutter_highlight/flutter_highlight.dart';
 import 'package:flutter_highlight/themes/github.dart';
+
+/// 代码围栏分割结果的 LRU 缓存：同一卡片内容在滚动/重复渲染时避免重复正则。
+final LinkedHashMap<String, List<_CodeSegment>> _codeFenceCache =
+    LinkedHashMap();
+const int _codeFenceCacheLimit = 256;
+
+List<_CodeSegment> _cachedSplitCodeFences(String content) {
+  final cached = _codeFenceCache[content];
+  if (cached != null) {
+    // LRU 提升
+    _codeFenceCache.remove(content);
+    _codeFenceCache[content] = cached;
+    return cached;
+  }
+  final result = _splitCodeFences(content);
+  if (_codeFenceCache.length >= _codeFenceCacheLimit) {
+    _codeFenceCache.remove(_codeFenceCache.keys.first);
+  }
+  _codeFenceCache[content] = result;
+  return result;
+}
 
 /// Renders card content as rich text.
 ///
@@ -118,12 +140,74 @@ class _RichCardContentState extends State<RichCardContent> {
         );
       }
     }
+    // 限行预览（列表项场景）：只做轻量纯文本提取，跳过富文本解析，
+    // 避免大列表滚动时每张卡重复跑正则 + 构建富文本树导致拖拽不跟手。
+    if (widget.maxLines != null) {
+      return _PlainTextPreview(
+        content: widget.content,
+        style: widget.style,
+        textAlign: widget.textAlign,
+        maxLines: widget.maxLines,
+      );
+    }
     return _MarkdownContent(
       content: widget.content,
       style: widget.style,
       textAlign: widget.textAlign,
       maxLines: widget.maxLines,
     );
+  }
+}
+
+/// 列表项限行预览：剥离 Markdown/LaTeX/代码标记后按纯文本渲染。
+///
+/// 相比 [_MarkdownContent] 的完整富文本解析，这里只做一次轻量字符串
+/// 替换链 + 单行截断，构建成本低一个数量级，是大列表滚动的关键优化。
+class _PlainTextPreview extends StatelessWidget {
+  final String content;
+  final TextStyle? style;
+  final TextAlign textAlign;
+  final int? maxLines;
+
+  const _PlainTextPreview({
+    required this.content,
+    this.style,
+    this.textAlign = TextAlign.start,
+    this.maxLines,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final effectiveStyle = style ?? DefaultTextStyle.of(context).style;
+    return Text(
+      _stripMarkdown(content),
+      style: effectiveStyle,
+      textAlign: textAlign,
+      maxLines: maxLines,
+      overflow: maxLines != null ? TextOverflow.ellipsis : null,
+    );
+  }
+
+  /// 剥离富文本标记，得到适合单/双行预览的纯文本。
+  String _stripMarkdown(String input) {
+    var text = input;
+    // 代码围栏整体剥掉（预览限行下展开无意义），保留首个换行前的首行提示。
+    text = text.replaceAllMapped(
+      RegExp(r'```[\w+-]*\n?([\s\S]*?)```'),
+      (m) => (m.group(1) ?? '').split('\n').first,
+    );
+    // 行内公式 $$...$$ / $...$ → 保留内容
+    text = text.replaceAll(RegExp(r'\$\$(.+?)\$\$', dotAll: true), r'$1');
+    text = text.replaceAll(RegExp(r'\$([^$\n]+?)\$'), r'$1');
+    // 行内代码 / 粗体 / 斜体 → 保留内容
+    text = text.replaceAll(RegExp(r'`([^`]+)`'), r'$1');
+    text = text.replaceAll(RegExp(r'\*\*(.+?)\*\*'), r'$1');
+    text = text.replaceAll(RegExp(r'\*([^*]+)\*'), r'$1');
+    // 标题符号与列表符 → 移除
+    text = text.replaceAll(RegExp(r'^#{1,6}\s*', multiLine: true), '');
+    text = text.replaceAll(RegExp(r'^[-*]\s+', multiLine: true), '');
+    // 压缩空白
+    return text.replaceAll(RegExp(r'\s+'), ' ').trim();
   }
 }
 
@@ -370,7 +454,7 @@ class _MarkdownContent extends StatelessWidget {
     final effectiveStyle = style ?? DefaultTextStyle.of(context).style;
 
     // Split code fences out first so code is never passed through the inline parser.
-    final segments = _splitCodeFences(content);
+    final segments = _cachedSplitCodeFences(content);
     final children = <Widget>[];
 
     for (final segment in segments) {
