@@ -174,7 +174,7 @@ final colors = context.karisColors; // KarisColorsContext extension
 组件清单（均在 `frontend/lib/` 下）：
 
 - `StageRuler` / `MiniStageRuler`（`shared/widgets/stage_ruler.dart`）：九段记忆刻度；分布模式按占比做青系渐变（`Color.lerp(jadeSoft, jade, ratio)`），无卡为发丝线灰，为有卡阶段提供“新卡 · N 张”无障碍标签。
-- `KarisScrollBehavior`（`shared/widgets/karis_scroll_behavior.dart`）：全局滚动行为，桌面/Web 纵向滚动常驻可拖拽滚动条（`minThumbLength: 48` 兜底），触屏保持默认 overlay。
+- `KarisScrollBehavior`（`shared/widgets/karis_scroll_behavior.dart`）：全局滚动行为，桌面/Web 纵向滚动常驻可拖拽滚动条（`minThumbLength: 48` 兜底）；触屏（含手机浏览器 Web）拖动时叠加显示滚动位置指示，避免 Flutter Web 触屏无原生滚动条导致完全不可见；水平滚动不显示。
 - `ReviewFlipCard` / `ReviewCardFrame`（`review/widgets/review_flip_card.dart`）：3D 翻面，支持从答案面点击回到问题面，reduced-motion 降级。
 - `AdaptiveAppScaffold` / `KarisIconButton` / `KarisPrimaryButton` / `KarisSecondaryButton`（`shared/widgets/adaptive_scaffold.dart`）：断点自适应浮岛药丸导航与统一按钮。
 - `MetricTile`（`shared/widgets/metric_tile.dart`）：统一统计数字样式，固定高度、`tabularFigures()` 防抖动。
