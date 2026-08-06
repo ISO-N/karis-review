@@ -179,7 +179,8 @@ class _CardListPageState extends ConsumerState<CardListPage> {
                       ),
                     ),
                     SliverPadding(
-                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 96),
+                      // 顶部留 12px：避免筛选栏（全部/新卡/待复习/重学）与卡片列表紧贴。
+                      padding: const EdgeInsets.fromLTRB(20, 12, 20, 96),
                       sliver: cardsAsync.when(
                         loading: () => const SliverFillRemaining(
                           hasScrollBody: false,
