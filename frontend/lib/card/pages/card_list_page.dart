@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -157,6 +158,9 @@ class _CardListPageState extends ConsumerState<CardListPage> {
                 },
                 child: CustomScrollView(
                   physics: const AlwaysScrollableScrollPhysics(),
+                  // 5k+ 卡片大列表：缩小预构建范围，避免拖动 thumb 时
+                  // 大量刚预构建的 item 因位置跳变立即失效。
+                  scrollCacheExtent: const ScrollCacheExtent.pixels(150),
                   slivers: [
                     SliverToBoxAdapter(
                       child: Center(

@@ -302,7 +302,8 @@ class _DeltaPreview extends StatelessWidget {
       style: effectiveStyle,
       textAlign: textAlign,
       maxLines: maxLines,
-      overflow: maxLines != null ? TextOverflow.ellipsis : null,
+      // 与行内预览一致：clip 避免全文测量（ellipsis 需完整排版来确定截断）。
+      overflow: maxLines != null ? TextOverflow.clip : null,
     );
   }
 }
@@ -866,7 +867,9 @@ class _InlineRichText extends StatelessWidget {
       style: style,
       textAlign: textAlign,
       maxLines: maxLines,
-      overflow: maxLines != null ? TextOverflow.ellipsis : null,
+      // 限行预览用 clip 而非 ellipsis：省略号需要测量整个文本以确定截断点，
+      // 长文本卡（5k 大列表常见）测量成本高；clip 只排版 maxLines 行即停。
+      overflow: maxLines != null ? TextOverflow.clip : null,
     );
     if (!_hasMath(text)) return richText;
 
