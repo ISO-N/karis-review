@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../l10n/app_localizations.dart';
 import '../shared/providers/data_refresh_provider.dart';
+import '../shared/widgets/karis_scroll_behavior.dart';
 import 'router.dart';
 import 'theme.dart';
 
@@ -50,6 +51,7 @@ class _KarisReviewAppState extends ConsumerState<KarisReviewApp>
     return MaterialApp.router(
       title: 'Karis Review',
       theme: appTheme,
+      scrollBehavior: const KarisScrollBehavior(),
       routerConfig: router,
       debugShowCheckedModeBanner: false,
       localizationsDelegates: const [

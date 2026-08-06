@@ -449,7 +449,7 @@
 | new_count | int | 可学习的新卡数（Stage 0 且非重学） |
 | mastered_count | int | 已掌握卡片数（Stage ≥ 5） |
 | stage_distribution | array<int> | 各阶段卡片数量分布（0-8） |
-| due_stage_distribution | array<int> | 今日到期卡片阶段分布（0-8） |
+| due_stage_distribution | array<int> | 今日到期卡片阶段分布（0-8），仅统计已排期（next_review_date 非空且 ≤ 今日）的卡，不含未学新卡 |
 
 ---
 
@@ -807,7 +807,7 @@
 | 字段 | 类型 | 说明 |
 |------|------|------|
 | imported_cards | int | 本次导入卡片数 |
-| imported_card_ids | array | 本次导入卡片 ID，供前端提供“撤销导入”操作 |
+| imported_card_ids | array | 本次导入卡片 ID，供前端实现“撤销导入”（前端先弹确认对话框，再调用批量删除） |
 
 > 导入接口会重新校验卡组归属和每行内容；有任何无效行则整体拒绝，不做部分导入。导入的卡片均为 Stage 0 新卡，不包含排期状态与复习日志。
 
@@ -1042,7 +1042,7 @@
 | new_cards | int | 可学习的新卡数 |
 | learning_cards | int | 学习中卡片（Stage 0-4） |
 | stage_distribution | array<int> | 全部卡片阶段分布（0-8） |
-| due_stage_distribution | array<int> | 今日到期卡片阶段分布（0-8） |
+| due_stage_distribution | array<int> | 今日到期卡片阶段分布（0-8），仅统计已排期（next_review_date 非空且 ≤ 今日）的卡，不含未学新卡 |
 
 ---
 
@@ -1084,7 +1084,7 @@
 | learning_cards | int | 重学中的卡片数 |
 | mastered_cards | int | 已掌握卡片数 |
 | stage_distribution | array<int> | 各阶段卡片数量分布（0-8） |
-| due_stage_distribution | array<int> | 今日到期卡片阶段分布（0-8） |
+| due_stage_distribution | array<int> | 今日到期卡片阶段分布（0-8），仅统计已排期（next_review_date 非空且 ≤ 今日）的卡，不含未学新卡 |
 
 ---
 

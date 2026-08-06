@@ -29,38 +29,61 @@ class StageRuler extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.end,
       children: List.generate(9, (index) {
-        final active = currentStage == index;
+        final highlight = currentStage == index;
         final value = index < values.length ? values[index] : 0;
+        final hasValue = value > 0;
         final ratio = value / maxValue;
         final height = compact
-            ? (active ? 22.0 : 14.0)
-            : (active ? 38.0 : 24.0 + ratio * 14);
+            ? (highlight ? 22.0 : 14.0)
+            : (highlight ? 38.0 : 24.0 + ratio * 14);
+        // 分布模式（无 currentStage）下按占比在 jade 色系内渐变，
+        // 长度与颜色双通道编码：占比越高颜色越深；无卡阶段保持灰色。
+        final barColor = highlight
+            ? color
+            : hasValue
+            ? Color.lerp(
+                KarisColors.jadeSoft,
+                KarisColors.jade,
+                ratio.clamp(0.0, 1.0),
+              )!
+            : KarisColors.hairline;
+        final labelColor = highlight || hasValue
+            ? KarisColors.ink
+            : KarisColors.stone;
+        final labelWeight = highlight || hasValue
+            ? FontWeight.w600
+            : FontWeight.w400;
+        final label =
+            hasValue ? '${KarisTheme.stageName(index)} · $value 张' : null;
         return Expanded(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              AnimatedContainer(
-                duration: reducedDuration(
-                  context,
-                  const Duration(milliseconds: 350),
+          child: Semantics(
+            label: label,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                AnimatedContainer(
+                  duration: reducedDuration(
+                    context,
+                    const Duration(milliseconds: 350),
+                  ),
+                  width: 2,
+                  height: height,
+                  decoration: BoxDecoration(
+                    color: barColor,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
-                width: 2,
-                height: height,
-                decoration: BoxDecoration(
-                  color: active ? color : KarisColors.hairline,
-                  borderRadius: BorderRadius.circular(2),
+                SizedBox(height: compact ? 5 : 7),
+                Text(
+                  KarisTheme.stageLabels[index],
+                  style: karisMono(
+                    fontSize: compact ? 8 : 9,
+                    color: labelColor,
+                    weight: labelWeight,
+                  ),
                 ),
-              ),
-              SizedBox(height: compact ? 5 : 7),
-              Text(
-                KarisTheme.stageLabels[index],
-                style: karisMono(
-                  fontSize: compact ? 8 : 9,
-                  color: active ? KarisColors.ink : KarisColors.stone,
-                  weight: active ? FontWeight.w600 : FontWeight.w400,
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         );
       }),

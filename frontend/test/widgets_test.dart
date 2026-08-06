@@ -1058,12 +1058,22 @@ void main() {
       await tester.tap(find.text('导入 2 张卡片'));
       await tester.pumpAndSettle();
 
-      expect(find.text('已导入 2 张卡片'), findsOneWidget);
-      expect(find.text('撤销导入'), findsOneWidget);
-      await tester.tap(find.text('撤销导入'));
+      expect(
+        find.text('已导入 2 张卡片，可撤销导入（将删除这批卡片，不可恢复）'),
+        findsOneWidget,
+      );
+      expect(find.text('撤销导入（2 张）'), findsOneWidget);
+      await tester.tap(find.text('撤销导入（2 张）'));
       await tester.pumpAndSettle();
 
-      expect(find.text('已撤销导入'), findsOneWidget);
+      // 撤销是破坏性操作，先弹确认对话框
+      expect(find.text('将删除刚导入的 2 张卡片，此操作不可恢复。确定要撤销吗？'),
+          findsOneWidget);
+      expect(find.text('取消'), findsOneWidget);
+      await tester.tap(find.widgetWithText(FilledButton, '撤销导入'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('已撤销导入，已删除 2 张卡片'), findsOneWidget);
       verify(() => cardRepo.batchDeleteCards(['card-1', 'card-2'])).called(1);
     });
   });

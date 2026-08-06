@@ -571,20 +571,65 @@ class _CardListPageState extends ConsumerState<CardListPage> {
     );
     if (result == null || !mounted) return;
     _refreshAfterChange();
-    final message = '已导入 ${result.importedCards} 张卡片';
-    final snackBar = SnackBar(
-      content: Text(message),
-      action: result.importedCardIds.isEmpty
-          ? null
-          : SnackBarAction(
-              label: '撤销导入',
-              onPressed: () => _undoImport(result.importedCardIds),
-            ),
-    );
-    announceMessage(context, message);
-    ScaffoldMessenger.of(context)
+    final count = result.importedCards;
+    announceMessage(context, '已导入 $count 张卡片');
+    // 用常驻 Banner 替代 4 秒 SnackBar：不自动消失，避免误触；
+    // 文案写明撤销的后果（删除刚导入的卡片，不可恢复）。
+    final messenger = ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(snackBar);
+      ..hideCurrentMaterialBanner();
+    messenger.showMaterialBanner(
+      MaterialBanner(
+        leading: const Icon(Icons.undo, size: 20, color: KarisColors.jade),
+        content: Text('已导入 $count 张卡片，可撤销导入（将删除这批卡片，不可恢复）'),
+        actions: [
+          TextButton(
+            onPressed: messenger.hideCurrentMaterialBanner,
+            child: const Text('知道了'),
+          ),
+          if (result.importedCardIds.isNotEmpty)
+            FilledButton.tonal(
+              style: FilledButton.styleFrom(
+                backgroundColor: KarisColors.jadeSoft,
+                foregroundColor: KarisColors.jade,
+                minimumSize: const Size(0, 40),
+              ),
+              onPressed: () async {
+                messenger.hideCurrentMaterialBanner();
+                final ok = await _confirmUndoImport(count);
+                if (ok == true && mounted) {
+                  await _undoImport(result.importedCardIds);
+                }
+              },
+              child: Text('撤销导入（$count 张）'),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Future<bool?> _confirmUndoImport(int count) {
+    return showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('撤销导入'),
+        content: Text('将删除刚导入的 $count 张卡片，此操作不可恢复。确定要撤销吗？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: KarisColors.cinnabar,
+              foregroundColor: KarisColors.surface,
+            ),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('撤销导入'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _undoImport(List<String> cardIds) async {
@@ -596,7 +641,7 @@ class _CardListPageState extends ConsumerState<CardListPage> {
       return;
     }
     _refreshAfterChange();
-    _showMessage('已撤销导入');
+    _showMessage('已撤销导入，已删除 ${cardIds.length} 张卡片');
   }
 
   void _showMessage(String message) {
