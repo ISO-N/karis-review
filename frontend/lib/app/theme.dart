@@ -236,6 +236,29 @@ ThemeData _buildTheme() {
         side: const BorderSide(color: KarisColors.hairline),
       ),
     ),
+    bannerTheme: MaterialBannerThemeData(
+      backgroundColor: KarisColors.surface,
+      elevation: 0,
+      contentTextStyle: const TextStyle(
+        color: KarisColors.ink,
+        fontSize: 13,
+        fontWeight: FontWeight.w500,
+        letterSpacing: 0,
+      ),
+    ),
+    scrollbarTheme: ScrollbarThemeData(
+      thumbColor: WidgetStatePropertyAll(
+        KarisColors.stone.withValues(alpha: 0.45),
+      ),
+      trackColor: WidgetStatePropertyAll(
+        KarisColors.hairline.withValues(alpha: 0.5),
+      ),
+      thickness: const WidgetStatePropertyAll(6),
+      radius: const Radius.circular(3),
+      // 卡片很多时 thumb 与内容比例成正比，最小长度兜底，保证可拖拽。
+      minThumbLength: 48,
+      interactive: true,
+    ),
     dialogTheme: DialogThemeData(
       backgroundColor: KarisColors.surface,
       surfaceTintColor: Colors.transparent,
