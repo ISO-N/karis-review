@@ -30,14 +30,22 @@ class KarisScrollBehavior extends MaterialScrollBehavior {
       case AxisDirection.up:
       case AxisDirection.down:
         final precise = !_isTouchDevice;
-        return Scrollbar(
-          controller: details.controller,
-          // 桌面与触屏均可拖拽 thumb / 点按 track 滚动；
-          // 仅常驻/进度显示策略区分（触屏 overlay，桌面常驻）。
-          interactive: true,
-          thumbVisibility: precise,
-          trackVisibility: precise,
-          child: child,
+        final base = ScrollbarTheme.of(context);
+        return ScrollbarTheme(
+          data: base.copyWith(
+            // 触屏：thumb 加粗并离屏幕边缘一段距离（crossAxisMargin），
+            // 避免曲面屏/圆角边缘贴边难命中；桌面保持原样。
+            thumbVisibility: WidgetStatePropertyAll(precise),
+            trackVisibility: WidgetStatePropertyAll(precise),
+            thickness: WidgetStatePropertyAll(precise ? 6 : 9),
+            crossAxisMargin: precise ? 0 : 6,
+            radius: Radius.circular(precise ? 3 : 4.5),
+          ),
+          child: Scrollbar(
+            controller: details.controller,
+            interactive: true,
+            child: child,
+          ),
         );
       case AxisDirection.left:
       case AxisDirection.right:
