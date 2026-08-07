@@ -6,7 +6,6 @@ import top.kariscode.karisreview.common.exception.BusinessException;
 import top.kariscode.karisreview.common.util.DateUtils;
 import top.kariscode.karisreview.deck.entity.Deck;
 import top.kariscode.karisreview.deck.repository.DeckRepository;
-import top.kariscode.karisreview.review.entity.ReviewLog;
 import top.kariscode.karisreview.review.repository.ReviewLogRepository;
 import top.kariscode.karisreview.stats.dto.DeckStatsResponse;
 import top.kariscode.karisreview.stats.dto.OverviewStatsResponse;
@@ -120,25 +119,22 @@ public class StatsService {
         LocalDate today = DateUtils.calculateToday(refreshTime);
         LocalDateTime start = today.minusDays(days).atTime(refreshTime);
 
-        List<ReviewLog> logs = reviewLogRepository.findByUserIdAndReviewedAtAfter(userId, start);
         Map<LocalDate, TrendStatsResponse> trendMap = new LinkedHashMap<>();
-
         for (int i = days - 1; i >= 0; i--) {
             LocalDate date = today.minusDays(i);
             trendMap.put(date, new TrendStatsResponse(date, 0, 0));
         }
 
-        for (ReviewLog log : logs) {
-            LocalDate date = DateUtils.calculateToday(refreshTime, log.getReviewedAt());
+        // 数据库内按业务日聚合，仅返回非零日期行（最多 days 行），
+        // 替代原先把 30 天全量 ReviewLog 实体加载进 JVM 逐条累计的写法。
+        for (Object[] row : reviewLogRepository.findDailyTrend(userId, start, refreshTime)) {
+            LocalDate date = ((java.sql.Date) row[0]).toLocalDate();
+            long reviewed = ((Number) row[1]).longValue();
+            long learned = ((Number) row[2]).longValue();
             TrendStatsResponse existing = trendMap.get(date);
             if (existing != null) {
-                if (log.isNewCard()) {
-                    if ("FAMILIAR".equals(log.getRating())) {
-                        existing.setLearned(existing.getLearned() + 1);
-                    }
-                } else {
-                    existing.setReviewed(existing.getReviewed() + 1);
-                }
+                existing.setReviewed(existing.getReviewed() + reviewed);
+                existing.setLearned(existing.getLearned() + learned);
             }
         }
 
