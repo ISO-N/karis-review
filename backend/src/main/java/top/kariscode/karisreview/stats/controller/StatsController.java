@@ -63,9 +63,17 @@ public class StatsController {
     @GetMapping("/trend")
     public ResponseEntity<ApiResponse<List<TrendStatsResponse>>> getTrend(
             @AuthenticationPrincipal UUID userId,
-            @RequestParam(defaultValue = "30") int days) {
+            @RequestParam(defaultValue = "30") int days,
+            @RequestHeader(name = "If-None-Match", required = false) String ifNoneMatch) {
+        String etag = etagService.trendEtag(userId);
+        if (matches(ifNoneMatch, etag)) {
+            return ResponseEntity.status(HttpStatus.NOT_MODIFIED).eTag(etag).build();
+        }
         List<TrendStatsResponse> trend = statsService.getTrend(userId, days);
-        return ResponseEntity.ok(ApiResponse.success(trend));
+        return ResponseEntity.ok()
+                .eTag(etag)
+                .cacheControl(CacheControl.noCache().cachePrivate())
+                .body(ApiResponse.success(trend));
     }
 
     private boolean matches(String ifNoneMatch, String etag) {

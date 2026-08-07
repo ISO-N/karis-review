@@ -31,6 +31,10 @@ public class UserEtagService {
         return etag("deck-stats", userId, deckId);
     }
 
+    public String trendEtag(UUID userId) {
+        return etag("trend", userId, null);
+    }
+
     private String etag(String kind, UUID userId, UUID deckId) {
         long eventSeq = latestEventSeq(userId);
         LocalDate today = todayFor(userId);

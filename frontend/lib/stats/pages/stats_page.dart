@@ -30,9 +30,11 @@ class _StatsPageState extends ConsumerState<StatsPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       // loadOverview 内置 5 分钟新鲜度缓存：命中时返回 false 不触发网络同步，
       // 因此只在真正刷新成功后才联动刷新趋势图，避免每次进入都闪加载。
+      // 用 refresh 而非 invalidate：保留旧图表，新数据就绪后平滑替换。
       ref.read(statsProvider.notifier).loadOverview().then((refreshed) {
         if (refreshed) {
-          ref.invalidate(trendProvider(30));
+          // ignore: unused_result
+          ref.refresh(trendProvider(30));
         }
       });
     });
@@ -51,7 +53,8 @@ class _StatsPageState extends ConsumerState<StatsPage> {
         onRefresh: () async {
           // 下拉刷新是用户主动行为：强制绕过缓存并刷新趋势图。
           await ref.read(statsProvider.notifier).loadOverview(force: true);
-          ref.invalidate(trendProvider(30));
+          // ignore: unused_result
+          ref.refresh(trendProvider(30));
         },
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
@@ -242,13 +245,25 @@ class _TrendPanel extends StatelessWidget {
         const SectionHeader(title: '复习趋势', trailing: '最近 30 天'),
         const SizedBox(height: 12),
         trendAsync.when(
-          // 趋势图被 invalidate 后台刷新时，保留上一次渲染的旧图表，
+          // 趋势图被后台刷新（refresh）时保留上一次渲染的旧图表，
           // 新数据就绪后再平滑替换，避免进入页面闪加载。
+          // loading 分支再用 valueOrNull 兜底一次：即使 provider 状态
+          // 进入 loading（如首次进入或 ETag 命中后的静默刷新），只要
+          // 内存里还有旧数据就继续渲染旧图，不显示加载占位。
           skipLoadingOnRefresh: true,
-          loading: () => const SizedBox(
-            height: 180,
-            child: LoadingWidget(),
-          ),
+          loading: () {
+            final previous = trendAsync.valueOrNull;
+            if (previous != null && previous.isNotEmpty) {
+              return AspectRatio(
+                aspectRatio: 3.2,
+                child: _TrendChart(points: previous),
+              );
+            }
+            return const SizedBox(
+              height: 180,
+              child: LoadingWidget(),
+            );
+          },
           error: (error, _) => SizedBox(
             height: 140,
             child: Center(
