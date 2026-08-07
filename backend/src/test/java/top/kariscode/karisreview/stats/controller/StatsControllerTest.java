@@ -86,6 +86,7 @@ class StatsControllerTest {
     @Test
     void getTrendReturnsTrendRows() throws Exception {
         UUID userId = UUID.randomUUID();
+        when(etagService.trendEtag(userId)).thenReturn("W/\"test-trend-etag\"");
         when(statsService.getTrend(userId, 7))
                 .thenReturn(List.of(new TrendStatsResponse(LocalDate.of(2025, 1, 1), 3, 1)));
 
@@ -93,6 +94,16 @@ class StatsControllerTest {
                         .param("days", "7"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data[0].reviewed").value(3));
+    }
+
+    @Test
+    void getTrendReturns304WhenEtagMatches() throws Exception {
+        UUID userId = UUID.randomUUID();
+        when(etagService.trendEtag(userId)).thenReturn("W/\"test-trend-etag\"");
+
+        mockMvc.perform(get("/api/stats/trend").with(authentication(userId))
+                        .header("If-None-Match", "W/\"test-trend-etag\""))
+                .andExpect(status().isNotModified());
     }
 
     @Test
