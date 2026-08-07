@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 
 import '../../app/theme.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../shared/navigation/tab_navigation.dart';
 import '../../shared/widgets/adaptive_scaffold.dart';
 import '../../shared/widgets/app_semantics.dart';
 import '../../shared/widgets/entrance.dart';
@@ -44,7 +45,8 @@ class _HomePageState extends ConsumerState<HomePage> {
       onSelect: (item) => _go(item, context),
       body: RefreshIndicator(
         onRefresh: () async {
-          await ref.read(statsProvider.notifier).loadOverview();
+          // 下拉刷新是主动行为：强制绕过 5 分钟新鲜度缓存。
+          await ref.read(statsProvider.notifier).loadOverview(force: true);
         },
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
@@ -73,16 +75,7 @@ class _HomePageState extends ConsumerState<HomePage> {
   }
 
   void _go(KarisNavItem item, BuildContext context) {
-    switch (item) {
-      case KarisNavItem.home:
-        context.go('/home');
-      case KarisNavItem.decks:
-        context.go('/decks');
-      case KarisNavItem.stats:
-        context.go('/stats');
-      case KarisNavItem.settings:
-        context.go('/settings');
-    }
+    goToTab(context, ref, item);
   }
 }
 
@@ -91,10 +84,17 @@ class _HomeHeader extends StatelessWidget {
 
   const _HomeHeader({required this.initial});
 
+  /// 首页标题日期格式：DateFormat 构造会初始化 locale 数据，
+  /// 首页随统计刷新会重建，复用同一实例避免重复构造。
+  static final DateFormat _dateFormat = DateFormat(
+    'M月d日 EEEE',
+    'zh_CN',
+  );
+
   @override
   Widget build(BuildContext context) {
     final colors = context.karisColors;
-    final today = DateFormat('M月d日 EEEE', 'zh_CN').format(DateTime.now());
+    final today = _dateFormat.format(DateTime.now());
     return Row(
       children: [
         Expanded(

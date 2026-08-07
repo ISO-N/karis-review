@@ -8,6 +8,7 @@ import '../../app/theme.dart';
 import '../../deck/models/deck.dart';
 import '../../deck/providers/deck_provider.dart';
 import '../../deck/widgets/deck_row.dart';
+import '../../shared/navigation/tab_navigation.dart';
 import '../../shared/widgets/adaptive_scaffold.dart';
 import '../../shared/widgets/app_feedback.dart';
 import '../../shared/widgets/app_semantics.dart';
@@ -249,16 +250,7 @@ class _DeckListPageState extends ConsumerState<DeckListPage> {
   }
 
   void _go(KarisNavItem item, BuildContext context) {
-    switch (item) {
-      case KarisNavItem.home:
-        context.go('/home');
-      case KarisNavItem.decks:
-        context.go('/decks');
-      case KarisNavItem.stats:
-        context.go('/stats');
-      case KarisNavItem.settings:
-        context.go('/settings');
-    }
+    goToTab(context, ref, item);
   }
 
   void _showDeckDialog(WidgetRef ref, {Deck? deck}) {

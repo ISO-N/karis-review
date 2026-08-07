@@ -40,8 +40,9 @@ class CardListPage extends ConsumerStatefulWidget {
 
 class _CardListPageState extends ConsumerState<CardListPage> {
   late String _filter;
-  bool _selecting = false;
-  final Set<String> _selectedIds = {};
+  // 多选状态独立于页面 setState：点选/全选时只重建受影响的 tile 与计数 UI，
+  // 避免 5k 大列表下整页（统计区/筛选区/所有可见 tile）随每次点选重建。
+  final _CardSelectionController _selection = _CardSelectionController();
   late final TextEditingController _searchController;
   final FocusNode _searchFocus = FocusNode();
   Timer? _searchDebounce;
@@ -59,6 +60,7 @@ class _CardListPageState extends ConsumerState<CardListPage> {
     _searchDebounce?.cancel();
     _searchController.dispose();
     _searchFocus.dispose();
+    _selection.dispose();
     super.dispose();
   }
 
@@ -75,7 +77,7 @@ class _CardListPageState extends ConsumerState<CardListPage> {
     if (widget.initialFilter != oldWidget.initialFilter &&
         widget.initialFilter != _filter) {
       _filter = widget.initialFilter;
-      _selectedIds.clear();
+      _selection.clearSilently();
     }
   }
 
@@ -83,8 +85,8 @@ class _CardListPageState extends ConsumerState<CardListPage> {
     if (value == _filter) return;
     setState(() {
       _filter = value;
-      _selectedIds.clear();
     });
+    _selection.clearSilently();
     final notifier = ref.read(
       cardListProvider(CardListArgs(widget.deckId, value)).notifier,
     );
@@ -276,14 +278,12 @@ class _CardListPageState extends ConsumerState<CardListPage> {
                                               key: ValueKey(first.id),
                                               child: _CardTile(
                                                 card: first,
-                                                selecting: _selecting,
-                                                selected: _selectedIds.contains(
-                                                  first.id,
-                                                ),
-                                                onTap: () => _selecting
-                                                    ? _toggleSelection(first.id)
+                                                selection: _selection,
+                                                onTap: () => _selection
+                                                        .selecting
+                                                    ? _selection.toggle(first.id)
                                                     : _openEditor(card: first),
-                                                onDelete: _selecting
+                                                onDelete: _selection.selecting
                                                     ? null
                                                     : () =>
                                                           _confirmDelete(first),
@@ -297,17 +297,16 @@ class _CardListPageState extends ConsumerState<CardListPage> {
                                                 key: ValueKey(second.id),
                                                 child: _CardTile(
                                                   card: second,
-                                                  selecting: _selecting,
-                                                  selected: _selectedIds
-                                                      .contains(second.id),
-                                                  onTap: () => _selecting
-                                                      ? _toggleSelection(
+                                                  selection: _selection,
+                                                  onTap: () => _selection
+                                                          .selecting
+                                                      ? _selection.toggle(
                                                           second.id,
                                                         )
                                                       : _openEditor(
                                                           card: second,
                                                         ),
-                                                  onDelete: _selecting
+                                                  onDelete: _selection.selecting
                                                       ? null
                                                       : () => _confirmDelete(
                                                           second,
@@ -327,14 +326,11 @@ class _CardListPageState extends ConsumerState<CardListPage> {
                                         key: ValueKey(card.id),
                                         child: _CardTile(
                                           card: card,
-                                          selecting: _selecting,
-                                          selected: _selectedIds.contains(
-                                            card.id,
-                                          ),
-                                          onTap: () => _selecting
-                                              ? _toggleSelection(card.id)
+                                          selection: _selection,
+                                          onTap: () => _selection.selecting
+                                              ? _selection.toggle(card.id)
                                               : _openEditor(card: card),
-                                          onDelete: _selecting
+                                          onDelete: _selection.selecting
                                               ? null
                                               : () => _confirmDelete(card),
                                         ),
@@ -377,75 +373,92 @@ class _CardListPageState extends ConsumerState<CardListPage> {
           ],
         ),
       ),
-      bottomNavigationBar: _selecting ? _buildSelectionBar(cardsAsync) : null,
-      floatingActionButton: _selecting
-          ? null
-          : FloatingActionButton.extended(
-              onPressed: () => _openEditor(),
-              backgroundColor: colors.ink,
-              foregroundColor: colors.surface,
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
+      // 底部操作条与 FAB 的显隐依赖多选状态：各自用 ListenableBuilder 隔离，
+      // 进入/退出多选或点选计数变化时只重建这条 UI，列表主体不参与。
+      // 非多选时返回 SizedBox.shrink 保持 builder 返回非空 Widget（Scaffold 渲染零尺寸）。
+      bottomNavigationBar: ListenableBuilder(
+        listenable: _selection,
+        builder: (context, _) => _selection.selecting
+            ? _buildSelectionBar(cardsAsync)
+            : const SizedBox.shrink(),
+      ),
+      floatingActionButton: ListenableBuilder(
+        listenable: _selection,
+        builder: (context, _) => _selection.selecting
+            ? const SizedBox.shrink()
+            : FloatingActionButton.extended(
+                onPressed: () => _openEditor(),
+                backgroundColor: colors.ink,
+                foregroundColor: colors.surface,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                icon: const Icon(Icons.add, size: 17),
+                label: const Text('新卡片'),
               ),
-              icon: const Icon(Icons.add, size: 17),
-              label: const Text('新卡片'),
-            ),
+      ),
     );
   }
 
   Widget _buildHeader(BuildContext context, String deckName) {
     final colors = context.karisColors;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
-      child: Row(
-        children: [
-          KarisIconButton(
-            icon: _selecting ? Icons.close : Icons.arrow_back,
-            tooltip: _selecting ? '退出多选' : '返回',
-            onPressed: _selecting
-                ? () => _toggleSelecting(false)
-                : () => context.pop(),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Kicker('卡组'),
-                const SizedBox(height: 4),
-                KarisHeading(
-                  child: Text(deckName, style: karisDisplay(fontSize: 25)),
+    return ListenableBuilder(
+      listenable: _selection,
+      builder: (context, _) {
+        final selecting = _selection.selecting;
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+          child: Row(
+            children: [
+              KarisIconButton(
+                icon: selecting ? Icons.close : Icons.arrow_back,
+                tooltip: selecting ? '退出多选' : '返回',
+                onPressed: selecting
+                    ? () => _toggleSelecting(false)
+                    : () => context.pop(),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Kicker('卡组'),
+                    const SizedBox(height: 4),
+                    KarisHeading(
+                      child: Text(deckName, style: karisDisplay(fontSize: 25)),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              if (selecting)
+                Text(
+                  '已选 ${_selection.count} 张',
+                  style: karisMono(fontSize: 12, color: colors.jade),
+                )
+              else ...[
+                KarisIconButton(
+                  icon: Icons.checklist,
+                  tooltip: '多选',
+                  onPressed: () => _toggleSelecting(true),
+                ),
+                KarisIconButton(
+                  icon: Icons.upload_file_outlined,
+                  tooltip: '导入卡片',
+                  onPressed: () => _openImport(),
+                ),
+                KarisIconButton(
+                  icon: Icons.replay,
+                  tooltip: '复习当前卡组',
+                  onPressed: () =>
+                      context.go('/review?mode=due&deck_id=${widget.deckId}'),
                 ),
               ],
-            ),
+            ],
           ),
-          const SizedBox(width: 8),
-          if (_selecting)
-            Text(
-              '已选 ${_selectedIds.length} 张',
-              style: karisMono(fontSize: 12, color: colors.jade),
-            )
-          else ...[
-            KarisIconButton(
-              icon: Icons.checklist,
-              tooltip: '多选',
-              onPressed: () => _toggleSelecting(true),
-            ),
-            KarisIconButton(
-              icon: Icons.upload_file_outlined,
-              tooltip: '导入卡片',
-              onPressed: () => _openImport(),
-            ),
-            KarisIconButton(
-              icon: Icons.replay,
-              tooltip: '复习当前卡组',
-              onPressed: () =>
-                  context.go('/review?mode=due&deck_id=${widget.deckId}'),
-            ),
-          ],
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -570,18 +583,7 @@ class _CardListPageState extends ConsumerState<CardListPage> {
   }
 
   void _toggleSelecting(bool value) {
-    setState(() {
-      _selecting = value;
-      if (!value) _selectedIds.clear();
-    });
-  }
-
-  void _toggleSelection(String cardId) {
-    setState(() {
-      if (!_selectedIds.remove(cardId)) {
-        _selectedIds.add(cardId);
-      }
-    });
+    _selection.setSelecting(value);
   }
 
   Future<void> _openImport() async {
@@ -679,7 +681,8 @@ class _CardListPageState extends ConsumerState<CardListPage> {
     final cards = cardsAsync.valueOrNull ?? const <FlashCard>[];
     final allSelected =
         cards.isNotEmpty &&
-        cards.every((card) => _selectedIds.contains(card.id));
+        cards.every((card) => _selection.isSelected(card.id));
+    final selectedCount = _selection.count;
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 10, 20, 10),
       decoration: BoxDecoration(
@@ -698,15 +701,9 @@ class _CardListPageState extends ConsumerState<CardListPage> {
             const SizedBox(width: 10),
             Expanded(
               child: OutlinedButton.icon(
-                onPressed: () {
-                  setState(() {
-                    if (allSelected) {
-                      _selectedIds.clear();
-                    } else {
-                      _selectedIds.addAll(cards.map((card) => card.id));
-                    }
-                  });
-                },
+                onPressed: () => _selection.toggleAll(
+                  cards.map((card) => card.id),
+                ),
                 icon: const Icon(Icons.select_all, size: 17),
                 label: Text(allSelected ? '取消全选' : '全选'),
                 style: OutlinedButton.styleFrom(
@@ -722,9 +719,9 @@ class _CardListPageState extends ConsumerState<CardListPage> {
             const SizedBox(width: 10),
             Expanded(
               child: FilledButton.icon(
-                onPressed: _selectedIds.isEmpty ? null : _deleteSelected,
+                onPressed: selectedCount == 0 ? null : _deleteSelected,
                 icon: const Icon(Icons.delete_outline, size: 17),
-                label: Text('删除所选（${_selectedIds.length}）'),
+                label: Text('删除所选（$selectedCount）'),
                 style: FilledButton.styleFrom(
                   minimumSize: const Size(0, 44),
                   backgroundColor: colors.cinnabar,
@@ -743,7 +740,7 @@ class _CardListPageState extends ConsumerState<CardListPage> {
 
   Future<void> _deleteSelected() async {
     final colors = context.karisColors;
-    final cardIds = _selectedIds.toList();
+    final cardIds = _selection.selectedIds.toList();
     if (cardIds.isEmpty) return;
     final confirmed = await showDialog<bool>(
       context: context,
@@ -774,10 +771,7 @@ class _CardListPageState extends ConsumerState<CardListPage> {
       _showMessage('删除失败，请检查网络后重试', KarisFeedbackTone.error);
       return;
     }
-    setState(() {
-      _selecting = false;
-      _selectedIds.clear();
-    });
+    _selection.setSelecting(false);
     _refreshAfterChange();
     _showMessage('已删除 ${cardIds.length} 张卡片', KarisFeedbackTone.success);
   }
@@ -899,29 +893,127 @@ class _FilterChip extends StatelessWidget {
   }
 }
 
-class _CardTile extends StatelessWidget {
+/// 多选状态控制器：把选择状态从页面级 setState 中剥离。
+///
+/// 列表项各自订阅本控制器，点选/全选时只有「选中态真正变化」的 tile
+/// 才重建自身；统计区、筛选区、搜索框与其他 tile 完全不受影响，
+/// 这是 5k 卡片列表多选交互不卡的关键。
+class _CardSelectionController extends ChangeNotifier {
+  bool _selecting = false;
+  final Set<String> _selectedIds = <String>{};
+
+  bool get selecting => _selecting;
+  int get count => _selectedIds.length;
+  Set<String> get selectedIds => _selectedIds;
+
+  bool isSelected(String id) => _selectedIds.contains(id);
+
+  void toggle(String id) {
+    if (!_selectedIds.remove(id)) {
+      _selectedIds.add(id);
+    }
+    notifyListeners();
+  }
+
+  void setSelecting(bool value) {
+    if (_selecting == value) return;
+    _selecting = value;
+    if (!value) _selectedIds.clear();
+    notifyListeners();
+  }
+
+  void toggleAll(Iterable<String> ids) {
+    final list = ids.toList();
+    final allSelected =
+        list.isNotEmpty && list.every(_selectedIds.contains);
+    if (allSelected) {
+      _selectedIds.removeAll(list);
+    } else {
+      _selectedIds.addAll(list);
+    }
+    notifyListeners();
+  }
+
+  /// 静默清空：用于筛选/卡组切换等伴随列表整体重建的场景，
+  /// 不触发通知（tile 会随重建重新同步状态，避免 build 期间 setState）。
+  void clearSilently() {
+    _selectedIds.clear();
+  }
+}
+
+class _CardTile extends StatefulWidget {
   final FlashCard card;
+  final _CardSelectionController selection;
   final VoidCallback onTap;
   final VoidCallback? onDelete;
-  final bool selecting;
-  final bool selected;
 
   const _CardTile({
     required this.card,
+    required this.selection,
     required this.onTap,
     this.onDelete,
-    this.selecting = false,
-    this.selected = false,
   });
+
+  @override
+  State<_CardTile> createState() => _CardTileState();
+}
+
+class _CardTileState extends State<_CardTile> {
+  late bool _selecting;
+  late bool _selected;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.selection.addListener(_onSelectionChanged);
+    _selecting = widget.selection.selecting;
+    _selected = widget.selection.isSelected(widget.card.id);
+  }
+
+  @override
+  void didUpdateWidget(covariant _CardTile oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.card.id != widget.card.id) {
+      // Sliver 复用同一 element 时 card 可能变化：在 build 前直接同步状态。
+      _selecting = widget.selection.selecting;
+      _selected = widget.selection.isSelected(widget.card.id);
+      return;
+    }
+    if (!identical(oldWidget.selection, widget.selection)) {
+      oldWidget.selection.removeListener(_onSelectionChanged);
+      widget.selection.addListener(_onSelectionChanged);
+      _selecting = widget.selection.selecting;
+      _selected = widget.selection.isSelected(widget.card.id);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.selection.removeListener(_onSelectionChanged);
+    super.dispose();
+  }
+
+  void _onSelectionChanged() {
+    final selected = widget.selection.isSelected(widget.card.id);
+    final selecting = widget.selection.selecting;
+    // 选中态没变的 tile 直接返回：点选一张时只有它自己重建。
+    if (selected == _selected && selecting == _selecting) return;
+    setState(() {
+      _selected = selected;
+      _selecting = selecting;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     final colors = context.karisColors;
     final nextLabel = _nextLabel();
+    final selected = _selected;
+    final selecting = _selecting;
     return KarisInteractive(
       child: InkWell(
-        onTap: onTap,
-        onLongPress: selecting ? onTap : onDelete,
+        onTap: widget.onTap,
+        onLongPress: selecting ? widget.onTap : widget.onDelete,
         borderRadius: BorderRadius.circular(8),
         child: Container(
           width: double.infinity,
@@ -938,7 +1030,10 @@ class _CardTile extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  _StageBadge(stage: card.stage, learning: card.learningMode),
+                  _StageBadge(
+                    stage: widget.card.stage,
+                    learning: widget.card.learningMode,
+                  ),
                   const Spacer(),
                   Text(
                     nextLabel,
@@ -947,7 +1042,7 @@ class _CardTile extends StatelessWidget {
                   if (selecting)
                     Checkbox(
                       value: selected,
-                      onChanged: (_) => onTap(),
+                      onChanged: (_) => widget.onTap(),
                       activeColor: colors.jade,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(4),
@@ -955,7 +1050,7 @@ class _CardTile extends StatelessWidget {
                     )
                   else
                     IconButton(
-                      onPressed: onDelete,
+                      onPressed: widget.onDelete,
                       tooltip: '删除卡片',
                       icon: Icon(
                         Icons.delete_outline,
@@ -970,7 +1065,7 @@ class _CardTile extends StatelessWidget {
               ),
               const SizedBox(height: 11),
               RichCardContent(
-                content: card.front,
+                content: widget.card.front,
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
@@ -981,7 +1076,7 @@ class _CardTile extends StatelessWidget {
               ),
               const SizedBox(height: 4),
               RichCardContent(
-                content: card.back,
+                content: widget.card.back,
                 style: TextStyle(
                   fontSize: 13,
                   color: colors.stone,
@@ -996,20 +1091,24 @@ class _CardTile extends StatelessWidget {
     );
   }
 
+  /// 纯字符串解析 'YYYY-MM-DD'，避免 5k 大列表滚动时每个可见项
+  /// 重复 DateTime.parse + 日期对象比较。
   String _nextLabel() {
+    final card = widget.card;
     if (card.learningMode) {
       final goal = card.learningGoal ?? 5;
       return '重学 ${card.consecutiveFamiliar}/$goal';
     }
     if (card.due) return '今天';
     final date = card.nextReviewDate;
-    if (date == null) return '新卡';
-    final parsed = DateTime.parse(date);
-    final now = DateTime.now();
-    if (parsed.year == now.year) {
-      return '${parsed.month}月${parsed.day}日';
-    }
-    return '${parsed.year}年${parsed.month}月${parsed.day}日';
+    if (date == null || date.isEmpty) return '新卡';
+    final parts = date.split('-');
+    if (parts.length != 3) return '新卡';
+    final year = int.parse(parts[0]);
+    final month = int.parse(parts[1]);
+    final day = int.parse(parts[2]);
+    if (year == DateTime.now().year) return '$month月$day日';
+    return '$year年$month月$day日';
   }
 }
 

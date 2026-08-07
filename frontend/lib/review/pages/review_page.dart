@@ -42,31 +42,39 @@ class _ReviewPageState extends ConsumerState<ReviewPage> {
 
   @override
   Widget build(BuildContext context) {
-    final state = ref.watch(reviewProvider);
+    // 只监听低频分支字段：isLoading / error / ratingFailed / cards 是否为空 / 是否完成。
+    // 高频状态（isFlipped、isRating、lastResult、pendingSyncCount 等）由下方
+    // 独立 ConsumerWidget 各自 select 监听，避免评分/翻面时整页重建。
+    final mode = ref.watch(reviewProvider.select((s) => s.mode));
+    final isLoading = ref.watch(reviewProvider.select((s) => s.isLoading));
+    final error = ref.watch(reviewProvider.select((s) => s.error));
+    final ratingFailed = ref.watch(reviewProvider.select((s) => s.ratingFailed));
+    final cardsEmpty = ref.watch(reviewProvider.select((s) => s.cards.isEmpty));
+    final isComplete = ref.watch(reviewProvider.select((s) => s.isComplete));
     final isTablet = MediaQuery.sizeOf(context).width >= 600;
-    final title = state.mode == 'new' ? '学习模式' : '复习模式';
+    final title = mode == 'new' ? '学习模式' : '复习模式';
 
     return Scaffold(
       backgroundColor: context.karisColors.paper,
       body: SafeArea(
-        child: state.isLoading
+        child: isLoading
             ? const LoadingWidget()
-            : state.error != null && !state.ratingFailed
+            : error != null && !ratingFailed
             ? EmptyState(
                 icon: Icons.error_outline,
                 title: '队列加载失败',
-                message: state.error!,
+                message: error,
                 action: FilledButton.icon(
-                  onPressed: () => _reload(state),
+                  onPressed: _reload,
                   icon: const Icon(Icons.refresh, size: 17),
                   label: const Text('重试'),
                 ),
               )
-            : state.cards.isEmpty
+            : cardsEmpty
             ? EmptyState(
                 icon: Icons.check_circle_outline,
-                title: state.mode == 'new' ? '暂时没有新卡' : '暂无待复习的卡片',
-                message: state.mode == 'new'
+                title: mode == 'new' ? '暂时没有新卡' : '暂无待复习的卡片',
+                message: mode == 'new'
                     ? '所有新卡都已经进入复习队列'
                     : '当前范围没有到期卡片，先休息一下',
                 action: FilledButton.icon(
@@ -75,42 +83,20 @@ class _ReviewPageState extends ConsumerState<ReviewPage> {
                   label: const Text('返回今日'),
                 ),
               )
-            : state.isComplete
-            ? _CompleteView(state: state)
-            : _buildSession(context, state, isTablet, title),
+            : isComplete
+            ? const _CompleteView()
+            : isTablet
+            ? Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const _QueuePanel(),
+                  Expanded(
+                    child: _ReviewStage(title: title, onRate: _rate),
+                  ),
+                ],
+              )
+            : _ReviewStage(title: title, onRate: _rate),
       ),
-    );
-  }
-
-  Widget _buildSession(
-    BuildContext context,
-    ReviewSessionState state,
-    bool isTablet,
-    String title,
-  ) {
-    final card = state.currentCard!;
-    if (isTablet) {
-      return Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _QueuePanel(state: state),
-          const SizedBox(width: 0),
-          Expanded(
-            child: _ReviewStage(
-              state: state,
-              card: card,
-              title: title,
-              onRate: (rating) => _rate(rating),
-            ),
-          ),
-        ],
-      );
-    }
-    return _ReviewStage(
-      state: state,
-      card: card,
-      title: title,
-      onRate: (rating) => _rate(rating),
     );
   }
 
@@ -133,7 +119,8 @@ class _ReviewPageState extends ConsumerState<ReviewPage> {
     announceMessage(context, '已评分：$label · 下次 $interval');
   }
 
-  void _reload(ReviewSessionState state) {
+  void _reload() {
+    final state = ref.read(reviewProvider);
     ref
         .read(reviewProvider.notifier)
         .loadQueue(mode: state.mode, deckId: state.deckId);
@@ -141,14 +128,10 @@ class _ReviewPageState extends ConsumerState<ReviewPage> {
 }
 
 class _ReviewStage extends ConsumerWidget {
-  final ReviewSessionState state;
-  final ReviewCard card;
   final String title;
   final ValueChanged<String> onRate;
 
   const _ReviewStage({
-    required this.state,
-    required this.card,
     required this.title,
     required this.onRate,
   });
@@ -157,8 +140,9 @@ class _ReviewStage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final colors = context.karisColors;
     final isTablet = MediaQuery.sizeOf(context).width >= 600;
-    final current = state.currentIndex + 1;
-    final total = state.sessionTotal;
+    // 进度条只依赖 currentIndex / sessionTotal：评分换卡时才重建本层骨架。
+    final current = ref.watch(reviewProvider.select((s) => s.currentIndex + 1));
+    final total = ref.watch(reviewProvider.select((s) => s.sessionTotal));
     final progress = total == 0 ? 0.0 : current / total;
 
     // 键盘快捷键：空格翻面、1/2/3 评分（仅翻面后可评）。
@@ -179,7 +163,15 @@ class _ReviewStage extends ConsumerWidget {
           _ => null,
         };
         if (rating != null) {
-          if (state.isFlipped && !state.isRating) onRate(rating);
+          // 事件回调中读取最新状态，避免为快捷键监听 isFlipped/isRating
+          // 而让整个舞台随翻面重建。
+          final isFlipped = ref.read(
+            reviewProvider.select((s) => s.isFlipped),
+          );
+          final isRating = ref.read(
+            reviewProvider.select((s) => s.isRating),
+          );
+          if (isFlipped && !isRating) onRate(rating);
           return KeyEventResult.handled;
         }
         return KeyEventResult.ignored;
@@ -189,156 +181,180 @@ class _ReviewStage extends ConsumerWidget {
           Expanded(
             child: Padding(
               padding: EdgeInsets.fromLTRB(20, 12, 20, isTablet ? 18 : 12),
-            child: Center(
-              child: SizedBox(
-                width: double.infinity,
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 620),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Row(
-                        children: [
-                          KarisIconButton(
-                            icon: Icons.arrow_back,
-                            tooltip: '返回',
-                            onPressed: () => context.go('/home'),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Kicker('队列'),
-                                const SizedBox(height: 4),
-                                KarisHeading(
-                                  child: Text(
-                                    title,
-                                    style: karisDisplay(fontSize: 25),
-                                  ),
-                                ),
-                              ],
+              child: Center(
+                child: SizedBox(
+                  width: double.infinity,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 620),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Row(
+                          children: [
+                            KarisIconButton(
+                              icon: Icons.arrow_back,
+                              tooltip: '返回',
+                              onPressed: () => context.go('/home'),
                             ),
-                          ),
-                          _StatusChip(state: state),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(3),
-                              child: LinearProgressIndicator(
-                                value: progress,
-                                minHeight: 5,
-                                backgroundColor: colors.hairline,
-                                valueColor: AlwaysStoppedAnimation(
-                                  colors.jade,
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Kicker('队列'),
+                                  const SizedBox(height: 4),
+                                  KarisHeading(
+                                    child: Text(
+                                      title,
+                                      style: karisDisplay(fontSize: 25),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const _StatusChip(),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(3),
+                                child: LinearProgressIndicator(
+                                  value: progress,
+                                  minHeight: 5,
+                                  backgroundColor: colors.hairline,
+                                  valueColor: AlwaysStoppedAnimation(
+                                    colors.jade,
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                          const SizedBox(width: 12),
-                          Text(
-                            '$current / $total',
-                            style: karisMono(
-                              fontSize: 10,
-                              color: colors.stone,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 18),
-                      Expanded(
-                        child: Center(
-                          child: ConstrainedBox(
-                            constraints: BoxConstraints(
-                              maxWidth: isTablet ? 560 : 520,
-                            ),
-                            child: AnimatedSwitcher(
-                              duration: reducedDuration(
-                                context,
-                                const Duration(milliseconds: 240),
+                            const SizedBox(width: 12),
+                            Text(
+                              '$current / $total',
+                              style: karisMono(
+                                fontSize: 10,
+                                color: colors.stone,
                               ),
-                              switchInCurve: Curves.easeOutCubic,
-                              switchOutCurve: Curves.easeIn,
-                              transitionBuilder: (child, animation) {
-                                return FadeTransition(
-                                  opacity: animation,
-                                  child: SlideTransition(
-                                    position: Tween<Offset>(
-                                      begin: const Offset(0, 0.025),
-                                      end: Offset.zero,
-                                    ).animate(animation),
-                                    child: child,
-                                  ),
-                                );
-                              },
-                              child: ReviewFlipCard(
-                                key: ValueKey(
-                                  '${state.currentIndex}-${card.id}',
-                                ),
-                                flipped: state.isFlipped,
-                                semanticsLabel: state.isFlipped
-                                    ? '闪卡，点击回到问题面'
-                                    : '闪卡，点击翻面',
-                                onTap: () {
-                                  ref.read(reviewProvider.notifier).flip();
-                                },
-                                front: _CardFace(
-                                  key: const ValueKey('front'),
-                                  child: _FrontFace(
-                                    card: card,
-                                    current: current,
-                                    total: total,
-                                  ),
-                                ),
-                                back: _CardFace(
-                                  key: const ValueKey('back'),
-                                  child: _BackFace(card: card),
-                                ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 18),
+                        Expanded(
+                          child: Center(
+                            child: ConstrainedBox(
+                              constraints: BoxConstraints(
+                                maxWidth: isTablet ? 560 : 520,
                               ),
+                              child: const _FlipCardArea(),
                             ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
             ),
           ),
-        ),
-        if (isTablet)
-          _RatingArea(
-            state: state,
-            card: card,
-            onRate: onRate,
-            maxWidth: 620,
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-          )
-        else
-          _RatingArea(
-            state: state,
-            card: card,
-            onRate: onRate,
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 18),
-          ),
+          if (isTablet)
+            _RatingArea(
+              onRate: onRate,
+              maxWidth: 620,
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+            )
+          else
+            _RatingArea(
+              onRate: onRate,
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 18),
+            ),
         ],
       ),
     );
   }
 }
 
-class _StatusChip extends ConsumerWidget {
-  final ReviewSessionState state;
-
-  const _StatusChip({required this.state});
+/// 翻面卡片区：只监听 currentCard / currentIndex / isFlipped。
+/// 翻面（isFlipped）变化时仅重建此子树，不波及进度条、评分区与队列面板。
+class _FlipCardArea extends ConsumerWidget {
+  const _FlipCardArea();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final spec = _specFor(context, state);
+    final card = ref.watch(reviewProvider.select((s) => s.currentCard));
+    if (card == null) return const SizedBox.shrink();
+    final current = ref.watch(reviewProvider.select((s) => s.currentIndex + 1));
+    final total = ref.watch(reviewProvider.select((s) => s.sessionTotal));
+    final isFlipped = ref.watch(reviewProvider.select((s) => s.isFlipped));
+    return AnimatedSwitcher(
+      duration: reducedDuration(
+        context,
+        const Duration(milliseconds: 240),
+      ),
+      switchInCurve: Curves.easeOutCubic,
+      switchOutCurve: Curves.easeIn,
+      transitionBuilder: (child, animation) {
+        return FadeTransition(
+          opacity: animation,
+          child: SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(0, 0.025),
+              end: Offset.zero,
+            ).animate(animation),
+            child: child,
+          ),
+        );
+      },
+      child: ReviewFlipCard(
+        key: ValueKey('${current - 1}-${card.id}'),
+        flipped: isFlipped,
+        semanticsLabel: isFlipped ? '闪卡，点击回到问题面' : '闪卡，点击翻面',
+        onTap: () {
+          ref.read(reviewProvider.notifier).flip();
+        },
+        front: _CardFace(
+          key: const ValueKey('front'),
+          child: _FrontFace(
+            card: card,
+            current: current,
+            total: total,
+          ),
+        ),
+        back: _CardFace(
+          key: const ValueKey('back'),
+          child: _BackFace(card: card),
+        ),
+      ),
+    );
+  }
+}
+
+class _StatusChip extends ConsumerWidget {
+  const _StatusChip();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    // 只监听状态徽标相关字段：评分失败 / 上次评分结果 / 后台预加载 / 待同步数。
+    // 其余状态变化（如翻面、进度）不会引发此处重建。
+    final ratingFailed = ref.watch(
+      reviewProvider.select((s) => s.ratingFailed),
+    );
+    final lastResult = ref.watch(reviewProvider.select((s) => s.lastResult));
+    final loadingMore = ref.watch(
+      reviewProvider.select((s) => s.loadingMore),
+    );
+    final pendingSyncCount = ref.watch(
+      reviewProvider.select((s) => s.pendingSyncCount),
+    );
+    final spec = _specFor(
+      context,
+      ratingFailed: ratingFailed,
+      lastResult: lastResult,
+      loadingMore: loadingMore,
+      pendingSyncCount: pendingSyncCount,
+    );
     if (spec == null) {
       // 固定占位，防止信息出现时布局跳动。
       return const SizedBox(width: 20, height: 24);
@@ -379,16 +395,22 @@ class _StatusChip extends ConsumerWidget {
     );
   }
 
-  _StatusSpec? _specFor(BuildContext context, ReviewSessionState state) {
+  _StatusSpec? _specFor(
+    BuildContext context, {
+    required bool ratingFailed,
+    required ReviewResult? lastResult,
+    required bool loadingMore,
+    required int pendingSyncCount,
+  }) {
     final colors = context.karisColors;
-    if (state.ratingFailed) {
+    if (ratingFailed) {
       return _StatusSpec(
         icon: Icons.error_outline,
         text: '评分失败',
         color: colors.cinnabar,
       );
     }
-    final result = state.lastResult;
+    final result = lastResult;
     if (result != null) {
       final label = switch (result.rating) {
         'FORGET' => '忘记',
@@ -405,17 +427,17 @@ class _StatusChip extends ConsumerWidget {
         color: colors.jade,
       );
     }
-    if (state.loadingMore) {
+    if (loadingMore) {
       return _StatusSpec(
         icon: Icons.sync,
         text: '加载更多队列',
         color: colors.amber,
       );
     }
-    if (state.pendingSyncCount > 0) {
+    if (pendingSyncCount > 0) {
       return _StatusSpec(
         icon: Icons.cloud_off_outlined,
-        text: '离线 · ${state.pendingSyncCount} 条待同步',
+        text: '离线 · $pendingSyncCount 条待同步',
         color: colors.amber,
       );
     }
@@ -435,28 +457,29 @@ class _StatusSpec {
   });
 }
 
-class _RatingArea extends StatelessWidget {
-  final ReviewSessionState state;
-  final ReviewCard card;
+class _RatingArea extends ConsumerWidget {
   final ValueChanged<String> onRate;
   final double? maxWidth;
   final EdgeInsetsGeometry padding;
 
   const _RatingArea({
-    required this.state,
-    required this.card,
     required this.onRate,
     this.maxWidth,
     required this.padding,
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // 只监听翻面 / 评分中 / 当前卡片：评分按钮可用性变化时才重建此区域。
+    final card = ref.watch(reviewProvider.select((s) => s.currentCard));
+    final enabled = ref.watch(
+      reviewProvider.select((s) => s.isFlipped && !s.isRating),
+    );
+    if (card == null) return const SizedBox.shrink();
     // 翻面后立即解锁评分按钮；loadingMore 只是后台队列预加载，
     // 与评分可用性无关（loadMore 仅向队尾追加，不移动 currentIndex）。
     final colors = context.karisColors;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final enabled = state.isFlipped && !state.isRating;
     return Padding(
       padding: padding,
       child: Center(
@@ -575,14 +598,21 @@ class _RatingRow extends StatelessWidget {
   }
 }
 
-class _QueuePanel extends StatelessWidget {
-  final ReviewSessionState state;
+class _QueuePanel extends ConsumerWidget {
+  const _QueuePanel();
 
-  const _QueuePanel({required this.state});
+  static final RegExp _spaceRegExp = RegExp(r'\s+');
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final colors = context.karisColors;
+    // 只监听队列本身：loadMore 追加卡片 / currentIndex 移动时重建面板，
+    // 评分过程中的其他状态变化（isFlipped、lastResult、pendingSyncCount 等）
+    // 不再导致整个队列面板重建。
+    final cards = ref.watch(reviewProvider.select((s) => s.cards));
+    final currentIndex = ref.watch(
+      reviewProvider.select((s) => s.currentIndex),
+    );
     return Container(
       width: 246,
       height: double.infinity,
@@ -607,11 +637,11 @@ class _QueuePanel extends StatelessWidget {
           const SizedBox(height: 14),
           Expanded(
             child: ListView.separated(
-              itemCount: state.cards.length,
+              itemCount: cards.length,
               separatorBuilder: (_, _) => const Divider(height: 1),
               itemBuilder: (context, index) {
-                final card = state.cards[index];
-                final active = index == state.currentIndex;
+                final card = cards[index];
+                final active = index == currentIndex;
                 return Container(
                   margin: active
                       ? const EdgeInsets.symmetric(horizontal: 8)
@@ -661,7 +691,7 @@ class _QueuePanel extends StatelessWidget {
   }
 
   String _plainFront(String content) {
-    final line = content.replaceAll(RegExp(r'\s+'), ' ').trim();
+    final line = content.replaceAll(_spaceRegExp, ' ').trim();
     return line.isEmpty ? '卡片' : line;
   }
 }
@@ -957,13 +987,18 @@ class _RatingButton extends StatelessWidget {
 }
 
 class _CompleteView extends ConsumerWidget {
-  final ReviewSessionState state;
-
-  const _CompleteView({required this.state});
+  const _CompleteView();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colors = context.karisColors;
+    final mode = ref.watch(reviewProvider.select((s) => s.mode));
+    final sessionTotal = ref.watch(
+      reviewProvider.select((s) => s.sessionTotal),
+    );
+    final reviewedCount = ref.watch(
+      reviewProvider.select((s) => s.reviewedCount),
+    );
     return Center(
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
@@ -996,47 +1031,48 @@ class _CompleteView extends ConsumerWidget {
               const SizedBox(height: 16),
               KarisHeading(
                 child: Text(
-                  state.mode == 'new' ? '本轮学习完成' : '今日复习完成',
+                  mode == 'new' ? '本轮学习完成' : '今日复习完成',
                   style: karisDisplay(fontSize: 28, color: colors.ink),
                   textAlign: TextAlign.center,
                 ),
               ),
               const SizedBox(height: 8),
               Text(
-                state.mode == 'new'
-                    ? '本次 ${state.sessionTotal} 张 · 已学习 ${state.reviewedCount}'
-                    : '本次 ${state.sessionTotal} 张 · 已复习 ${state.reviewedCount}',
+                mode == 'new'
+                    ? '本次 $sessionTotal 张 · 已学习 $reviewedCount'
+                    : '本次 $sessionTotal 张 · 已复习 $reviewedCount',
                 style: TextStyle(
                   color: colors.stone,
                   fontSize: 13,
                   letterSpacing: 0,
                 ),
               ),
-            const SizedBox(height: 22),
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              alignment: WrapAlignment.center,
-              children: [
-                FilledButton.icon(
-                  onPressed: () {
-                    ref
-                        .read(reviewProvider.notifier)
-                        .loadQueue(mode: state.mode, deckId: state.deckId);
-                  },
-                  icon: const Icon(Icons.refresh, size: 17),
-                  label: const Text('再来一轮'),
-                ),
-                OutlinedButton.icon(
-                  onPressed: () => context.go('/home'),
-                  icon: const Icon(Icons.home_outlined, size: 17),
-                  label: const Text('返回今日'),
-                ),
-              ],
-            ),
-          ],
+              const SizedBox(height: 22),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                alignment: WrapAlignment.center,
+                children: [
+                  FilledButton.icon(
+                    onPressed: () {
+                      final state = ref.read(reviewProvider);
+                      ref
+                          .read(reviewProvider.notifier)
+                          .loadQueue(mode: state.mode, deckId: state.deckId);
+                    },
+                    icon: const Icon(Icons.refresh, size: 17),
+                    label: const Text('再来一轮'),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: () => context.go('/home'),
+                    icon: const Icon(Icons.home_outlined, size: 17),
+                    label: const Text('返回今日'),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
-      ),
       ),
     );
   }

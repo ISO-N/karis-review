@@ -457,7 +457,10 @@ class ReviewNotifier extends StateNotifier<ReviewSessionState> {
     final userId = await _activeUserId();
     if (userId == null) return;
     final pending = await _offline!.getPendingRatings(userId);
-    state = state.copyWith(pendingSyncCount: pending.length);
+    // 数量未变化时保持原 state，避免无意义的通知引发整页重建。
+    if (pending.length != state.pendingSyncCount) {
+      state = state.copyWith(pendingSyncCount: pending.length);
+    }
   }
 
   Future<String?> _activeUserId() async {

@@ -795,6 +795,14 @@ void _parseItalicTokens(String text, List<_InlineToken> out) {
 }
 
 /// 将缓存的 token 映射为带 style 的 InlineSpan（轻量，无正则）。
+///
+/// 公式始终用 [Math.tex] 渲染为真实排版：公式是卡片的核心内容，预览
+/// （maxLines 限行）也不降级为源码文本。
+///
+/// 注意：不要在这里对 `SyntaxTree`/解析产物做跨实例缓存——flutter_math_fork
+/// 的 [GreenNode] 上带有 `_oldOptions`/`_oldBuildResult` 可变缓存，共享解析
+/// 产物会让多个挂载点命中同一个 BuildResult widget 实例，触发 Element 冲突
+/// 与语义收集断言（长公式场景实测整屏崩溃）。解析成本是该库的已知边界。
 List<InlineSpan> _tokensToSpans(
   List<_InlineToken> tokens,
   TextStyle baseStyle,
@@ -861,7 +869,10 @@ class _InlineRichText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final spans = _tokensToSpans(_cachedInlineTokens(text), style);
+    // token 列表是缓存的中间表示；是否含公式直接扫描 token 判定，
+    // 不再对全文跑两遍正则（旧实现 _hasMath 每次 build 都做 hasMatch）。
+    final tokens = _cachedInlineTokens(text);
+    final spans = _tokensToSpans(tokens, style);
     final richText = Text.rich(
       TextSpan(children: spans),
       style: style,
@@ -871,7 +882,7 @@ class _InlineRichText extends StatelessWidget {
       // 长文本卡（5k 大列表常见）测量成本高；clip 只排版 maxLines 行即停。
       overflow: maxLines != null ? TextOverflow.clip : null,
     );
-    if (!_hasMath(text)) return richText;
+    if (!_tokensContainMath(tokens)) return richText;
 
     // 公式行按固有宽度排版并横向滚动，避免长公式被卡片容器裁切。
     return LayoutBuilder(
@@ -888,10 +899,12 @@ class _InlineRichText extends StatelessWidget {
       },
     );
   }
+}
 
-  static bool _hasMath(String text) {
-    final displayMath = RegExp(r'\$\$(.+?)\$\$', dotAll: true);
-    if (displayMath.hasMatch(text)) return true;
-    return RegExp(r'\$([^$\n]+?)\$').hasMatch(text);
+/// token 列表中是否含数学公式（遍历中间表示，无正则开销）。
+bool _tokensContainMath(List<_InlineToken> tokens) {
+  for (final token in tokens) {
+    if (token is _TokenMath) return true;
   }
+  return false;
 }

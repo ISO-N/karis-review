@@ -3,10 +3,10 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../app/theme.dart';
+import '../../shared/navigation/tab_navigation.dart';
 import '../../shared/utils/motion.dart';
 import '../../shared/widgets/adaptive_scaffold.dart';
 import '../../shared/widgets/app_semantics.dart';
@@ -28,8 +28,12 @@ class _StatsPageState extends ConsumerState<StatsPage> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(statsProvider.notifier).loadOverview().then((_) {
-        ref.invalidate(trendProvider(30));
+      // loadOverview 内置 5 分钟新鲜度缓存：命中时返回 false 不触发网络同步，
+      // 因此只在真正刷新成功后才联动刷新趋势图，避免每次进入都闪加载。
+      ref.read(statsProvider.notifier).loadOverview().then((refreshed) {
+        if (refreshed) {
+          ref.invalidate(trendProvider(30));
+        }
       });
     });
   }
@@ -45,7 +49,8 @@ class _StatsPageState extends ConsumerState<StatsPage> {
       onSelect: (item) => _go(item, context),
       body: RefreshIndicator(
         onRefresh: () async {
-          await Future.wait([ref.read(statsProvider.notifier).loadOverview()]);
+          // 下拉刷新是用户主动行为：强制绕过缓存并刷新趋势图。
+          await ref.read(statsProvider.notifier).loadOverview(force: true);
           ref.invalidate(trendProvider(30));
         },
         child: SingleChildScrollView(
@@ -122,16 +127,7 @@ class _StatsPageState extends ConsumerState<StatsPage> {
   }
 
   void _go(KarisNavItem item, BuildContext context) {
-    switch (item) {
-      case KarisNavItem.home:
-        context.go('/home');
-      case KarisNavItem.decks:
-        context.go('/decks');
-      case KarisNavItem.stats:
-        context.go('/stats');
-      case KarisNavItem.settings:
-        context.go('/settings');
-    }
+    goToTab(context, ref, item);
   }
 }
 
@@ -246,6 +242,9 @@ class _TrendPanel extends StatelessWidget {
         const SectionHeader(title: '复习趋势', trailing: '最近 30 天'),
         const SizedBox(height: 12),
         trendAsync.when(
+          // 趋势图被 invalidate 后台刷新时，保留上一次渲染的旧图表，
+          // 新数据就绪后再平滑替换，避免进入页面闪加载。
+          skipLoadingOnRefresh: true,
           loading: () => const SizedBox(
             height: 180,
             child: LoadingWidget(),
@@ -349,6 +348,11 @@ class _DistributionPanel extends StatelessWidget {
   }
 }
 
+/// 趋势图轴标签 / tooltip 共用的日期格式。
+/// DateFormat 构造会初始化 locale 数据，painter 每次 paint 新建成本高，
+/// 提为顶层 final 复用（同一格式单线程使用，无并发问题）。
+final DateFormat _trendDateFormat = DateFormat('M/d');
+
 /// 趋势图：600ms 从左到右生长 + 点击数据点显示 tooltip。
 class _TrendChart extends StatefulWidget {
   final List<TrendPoint> points;
@@ -412,7 +416,7 @@ class _TrendChartState extends State<_TrendChart> {
     final colors = context.karisColors;
     final point = widget.points[index];
     final parsed = DateTime.tryParse(point.date);
-    final label = parsed != null ? DateFormat('M/d').format(parsed) : point.date;
+    final label = parsed != null ? _trendDateFormat.format(parsed) : point.date;
     const tooltipWidth = 76.0;
     final x = _indexX(index, chartWidth);
     return Positioned(
@@ -565,11 +569,10 @@ class TrendChartPainter extends CustomPainter {
     canvas.restore();
 
     final labelStyle = karisMono(fontSize: 9, color: colors.stone);
-    final dateFormat = DateFormat('M/d');
     for (var i = 0; i < points.length; i += step) {
       final offset = pointAt(i);
       final parsed = DateTime.tryParse(points[i].date);
-      final text = parsed != null ? dateFormat.format(parsed) : points[i].date;
+      final text = parsed != null ? _trendDateFormat.format(parsed) : points[i].date;
       final textPainter = TextPainter(
         text: TextSpan(text: text, style: labelStyle),
         textDirection: ui.TextDirection.ltr,

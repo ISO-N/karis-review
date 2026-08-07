@@ -9,6 +9,7 @@ import 'package:go_router/go_router.dart';
 import '../../app/theme.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../offline/providers.dart';
+import '../../shared/navigation/tab_navigation.dart';
 import '../../shared/providers/data_refresh_provider.dart';
 import '../../shared/widgets/adaptive_scaffold.dart';
 import '../../shared/widgets/app_feedback.dart';
@@ -31,7 +32,7 @@ class SettingsPage extends ConsumerWidget {
 
     return AdaptiveAppScaffold(
       current: KarisNavItem.settings,
-      onSelect: (item) => _go(item, context),
+      onSelect: (item) => goToTab(context, ref, item),
       body: RefreshIndicator(
         onRefresh: () => ref.read(settingsProvider.notifier).loadSettings(),
         child: SingleChildScrollView(
@@ -91,19 +92,6 @@ class SettingsPage extends ConsumerWidget {
         ),
       ),
     );
-  }
-
-  void _go(KarisNavItem item, BuildContext context) {
-    switch (item) {
-      case KarisNavItem.home:
-        context.go('/home');
-      case KarisNavItem.decks:
-        context.go('/decks');
-      case KarisNavItem.stats:
-        context.go('/stats');
-      case KarisNavItem.settings:
-        context.go('/settings');
-    }
   }
 }
 
