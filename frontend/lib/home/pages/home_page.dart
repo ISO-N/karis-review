@@ -9,6 +9,7 @@ import '../../shared/navigation/tab_navigation.dart';
 import '../../shared/widgets/adaptive_scaffold.dart';
 import '../../shared/widgets/app_semantics.dart';
 import '../../shared/widgets/entrance.dart';
+import '../../shared/widgets/memory_ring.dart';
 import '../../shared/widgets/section_widgets.dart';
 import '../../shared/widgets/stage_ruler.dart';
 import '../../stats/models/stats.dart';
@@ -149,6 +150,7 @@ class _HomeMainColumn extends StatelessWidget {
     final due = stats?.dueToday ?? 0;
     final reviewed = stats?.reviewedToday ?? 0;
     final newCards = stats?.newCards ?? 0;
+    final total = reviewed + due;
     final isLoading = statsAsync.isLoading;
     // 今日任务刻度 = 今日到期分布 + 待学新卡（并入 stage 0，与「待复习/待学习」文案口径一致）。
     // dueStageDistribution 不含未学新卡（next_review_date 为空），直接使用会让 stage 0 恒为 0。
@@ -239,6 +241,19 @@ class _HomeMainColumn extends StatelessWidget {
                     ],
                   ),
                 ),
+                // 记忆刻度环：以年轮进度表达今日完成度，是"记忆刻度"主题的签名落点。
+                if (!isLoading)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 16),
+                    child: MemoryRing(
+                      progress: total == 0
+                          ? 0
+                          : reviewed / total,
+                      size: 58,
+                      strokeWidth: 3.5,
+                      tickLength: 3,
+                    ),
+                  ),
                 FilledButton.icon(
                   onPressed: () => context.push('/start'),
                   icon: const Icon(Icons.play_arrow_rounded, size: 17),
