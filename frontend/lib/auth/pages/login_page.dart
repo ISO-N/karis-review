@@ -3,8 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../app/theme.dart';
-import '../../shared/widgets/section_widgets.dart';
 import '../../shared/widgets/app_semantics.dart';
+import '../../shared/widgets/karis_glyph.dart';
+import '../../shared/widgets/section_widgets.dart';
 import '../providers/auth_provider.dart';
 
 import '../../l10n/app_localizations.dart';
@@ -65,24 +66,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Container(
-                      width: 54,
-                      height: 26,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: colors.ink,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        'K',
-                        style: TextStyle(
-                          color: colors.surface,
-                          fontFamily: KarisTheme.displayFamily,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
+                    // 品牌签名：Karis 章 + 记忆刻度环，呼应下方"回到记忆刻度"。
+                    const KarisGlyph(showRing: true),
                     const SizedBox(height: 24),
                     const Kicker('KARIS REVIEW'),
                     const SizedBox(height: 8),
