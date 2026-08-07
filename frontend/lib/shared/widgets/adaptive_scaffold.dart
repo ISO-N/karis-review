@@ -270,10 +270,12 @@ class KarisPrimaryButton extends StatelessWidget {
       icon: Icon(icon, size: 17),
       label: Text(label),
       style: FilledButton.styleFrom(
-        backgroundColor: backgroundColor ?? colors.ink,
+        backgroundColor: backgroundColor ?? colors.jade,
         foregroundColor: colors.surface,
         minimumSize: Size(expanded ? double.infinity : 0, 46),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(KarisTheme.radiusSm),
+        ),
       ),
     );
   }
@@ -301,7 +303,9 @@ class KarisSecondaryButton extends StatelessWidget {
       label: Text(label),
       style: OutlinedButton.styleFrom(
         minimumSize: Size(expanded ? double.infinity : 0, 46),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(KarisTheme.radiusSm),
+        ),
       ),
     );
   }
