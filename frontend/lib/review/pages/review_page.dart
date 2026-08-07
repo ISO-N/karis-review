@@ -9,6 +9,7 @@ import '../../shared/utils/motion.dart';
 import '../../shared/widgets/app_semantics.dart';
 import '../../shared/widgets/entrance.dart';
 import '../../shared/widgets/loading_widget.dart';
+import '../../shared/widgets/memory_ring.dart';
 import '../../shared/widgets/rich_card_content.dart';
 import '../../shared/widgets/section_widgets.dart';
 import '../../shared/widgets/stage_ruler.dart';
@@ -1007,22 +1008,41 @@ class _CompleteView extends ConsumerWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // 完成图标：弹性放大收尾，克制不浮夸。
+              // 完成图标：记忆刻度环收满 + 弹性放大收尾，克制不浮夸。
+              // 环与首页"今日完成度环"呼应——此处 progress 到顶表示本轮记忆刻度闭合。
               TweenAnimationBuilder<double>(
                 tween: Tween(begin: 0.6, end: 1),
                 duration: reducedDuration(context, KarisMotion.grow),
                 curve: KarisMotion.springy,
-                child: Container(
-                  width: 54,
-                  height: 54,
-                  decoration: BoxDecoration(
-                    color: colors.jade,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(
-                    Icons.check,
-                    color: colors.surface,
-                    size: 26,
+                child: SizedBox(
+                  width: 78,
+                  height: 78,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Positioned.fill(
+                        child: MemoryRing(
+                          progress: 1,
+                          strokeWidth: 2.5,
+                          tickLength: 3,
+                          tickCount: 28,
+                          duration: KarisMotion.grow,
+                        ),
+                      ),
+                      Container(
+                        width: 54,
+                        height: 54,
+                        decoration: BoxDecoration(
+                          color: colors.jade,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(
+                          Icons.check,
+                          color: colors.surface,
+                          size: 26,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 builder: (context, scale, child) =>
