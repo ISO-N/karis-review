@@ -204,10 +204,20 @@ class OfflineRepository {
   Future<OverviewStats> getOverviewStats(String userId) async {
     final decks = await getDecks(userId);
     final cards = await getCards(userId);
-    final logs = await _getLogs(userId);
     final meta = await getSyncMeta(userId);
     final refreshTime = meta?.refreshTime ?? '04:00:00';
-    final today = _formatDate(_today(meta));
+    final todayDate = _today(meta);
+    final today = _formatDate(todayDate);
+    // 今日概览只需“今天”的日志；since 留 1 天余量覆盖刷新点偏移（业务日从
+    // 刷新点开始，UTC 上可能跨前一天），SQL 层过滤避免全量加载。
+    final logs = await _getLogs(
+      userId,
+      since: DateTime.utc(
+        todayDate.year,
+        todayDate.month,
+        todayDate.day,
+      ).subtract(const Duration(days: 1)),
+    );
     final dueToday = cards
         .where(
           (c) =>
@@ -259,8 +269,17 @@ class OfflineRepository {
     final deck = decks.where((d) => d.id == deckId).firstOrNull;
     final meta = await getSyncMeta(userId);
     final refreshTime = meta?.refreshTime ?? '04:00:00';
-    final today = _formatDate(_today(meta));
-    final logs = await _getLogs(userId);
+    final todayDate = _today(meta);
+    final today = _formatDate(todayDate);
+    // 同 getOverviewStats：只需“今天”的日志，SQL 层过滤。
+    final logs = await _getLogs(
+      userId,
+      since: DateTime.utc(
+        todayDate.year,
+        todayDate.month,
+        todayDate.day,
+      ).subtract(const Duration(days: 1)),
+    );
     final stages = cards.map((c) => c.stage).toList();
     final cardIds = cards.map((c) => c.id).toSet();
     final reviewedToday = logs
@@ -301,24 +320,39 @@ class OfflineRepository {
   }
 
   Future<List<TrendPoint>> getTrend(String userId, {int days = 30}) async {
-    final logs = await _getLogs(userId);
     final meta = await getSyncMeta(userId);
     final refreshTime = meta?.refreshTime ?? '04:00:00';
     final today = _today(meta);
+    // 只拉窗口内日志（留 1 天余量覆盖刷新点偏移），SQL 层过滤。
+    final since = DateTime.utc(
+      today.year,
+      today.month,
+      today.day,
+    ).subtract(Duration(days: days + 1));
+    final logs = await _getLogs(userId, since: since);
+    // 单趟按业务日分组累加，替代原来的 30 次全量 where 扫描。
+    final reviewedByDay = <String, int>{};
+    final learnedByDay = <String, int>{};
+    for (final log in logs) {
+      final day = _formatDate(
+        LocalSchedulingEngine.calculateToday(log.reviewedAt, refreshTime),
+      );
+      if (log.isNewCard) {
+        if (log.rating == 'FAMILIAR') {
+          learnedByDay[day] = (learnedByDay[day] ?? 0) + 1;
+        }
+      } else {
+        reviewedByDay[day] = (reviewedByDay[day] ?? 0) + 1;
+      }
+    }
     final points = <TrendPoint>[];
     for (var i = days - 1; i >= 0; i--) {
-      final date = today.subtract(Duration(days: i));
-      final dateKey = _formatDate(date);
-      final dayLogs = logs.where(
-        (l) => _onRefreshDay(l.reviewedAt, refreshTime, dateKey),
-      );
+      final dateKey = _formatDate(today.subtract(Duration(days: i)));
       points.add(
         TrendPoint(
           date: dateKey,
-          reviewed: dayLogs.where((l) => !l.isNewCard).length,
-          learned: dayLogs
-              .where((l) => l.isNewCard && l.rating == 'FAMILIAR')
-              .length,
+          reviewed: reviewedByDay[dateKey] ?? 0,
+          learned: learnedByDay[dateKey] ?? 0,
         ),
       );
     }
@@ -810,10 +844,15 @@ class OfflineRepository {
         );
   }
 
-  Future<List<LocalReviewLog>> _getLogs(String userId) async {
-    final rows = await (db.select(
-      db.localReviewLogs,
-    )..where((t) => t.userId.equals(userId))).get();
+  Future<List<LocalReviewLog>> _getLogs(String userId, {DateTime? since}) async {
+    final query = db.select(db.localReviewLogs)
+      ..where((t) => t.userId.equals(userId));
+    // 统计只需要窗口内的日志：在 SQL 层按 reviewedAt(UTC) 过滤，
+    // 避免把该用户全量历史日志拉进内存（几万条时差距明显）。
+    if (since != null) {
+      query.where((t) => t.reviewedAt.isBiggerOrEqualValue(since));
+    }
+    final rows = await query.get();
 
     final clientDeduped = <LocalReviewLog>[];
     final byClientId = <String, LocalReviewLog>{};
