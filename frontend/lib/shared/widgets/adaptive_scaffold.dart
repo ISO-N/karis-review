@@ -1,5 +1,3 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 
 import '../../app/theme.dart';
@@ -75,9 +73,7 @@ class _AdaptiveAppScaffoldState extends State<AdaptiveAppScaffold> {
           child: DecoratedBox(
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                begin: isTablet
-                    ? Alignment.topCenter
-                    : Alignment.bottomCenter,
+                begin: isTablet ? Alignment.topCenter : Alignment.bottomCenter,
                 end: isTablet ? Alignment.bottomCenter : Alignment.topCenter,
                 colors: [
                   context.karisColors.paper.withValues(alpha: 0.92),
@@ -122,98 +118,95 @@ class _AdaptiveAppScaffoldState extends State<AdaptiveAppScaffold> {
             borderRadius: BorderRadius.circular(32),
             boxShadow: [
               BoxShadow(
-                color: (isDark ? const Color(0xFF000000) : const Color(0xFF161F1B))
-                    .withValues(alpha: isDark ? 0.45 : 0.10),
+                color:
+                    (isDark ? const Color(0xFF000000) : const Color(0xFF161F1B))
+                        .withValues(alpha: isDark ? 0.45 : 0.10),
                 blurRadius: 24,
                 offset: const Offset(0, 8),
               ),
             ],
           ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(32),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                decoration: BoxDecoration(
-                  color: colors.surface.withValues(alpha: 0.82),
-                  borderRadius: BorderRadius.circular(32),
-                  border: Border.all(
-                    color: isDark
-                        ? Colors.white.withValues(alpha: 0.08)
-                        : Colors.white.withValues(alpha: 0.78),
-                  ),
-                ),
-                foregroundDecoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(32),
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: const Alignment(0, 0.12),
-                    colors: [
-                      Colors.white.withValues(alpha: isDark ? 0.06 : 0.30),
-                      Colors.white.withValues(alpha: 0),
-                    ],
-                  ),
-                ),
-                child: Row(
-                  children: items.map((item) {
-                    final active = item.$1 == widget.current;
-                    final color = active ? colors.ink : colors.stone;
-                    return Expanded(
-                      child: Semantics(
-                        selected: active,
-                        button: true,
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(8),
-                          onTap: widget.onSelect == null
-                              ? null
-                              : () => widget.onSelect!(item.$1),
-                          child: Container(
-                            decoration: isTablet && active
-                                ? BoxDecoration(
-                                    color: colors.jade.withValues(
-                                      alpha: 0.08,
-                                    ),
-                                    borderRadius: BorderRadius.circular(8),
-                                  )
-                                : null,
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                if (!isTablet && active)
-                                  Container(
-                                    width: 24,
-                                    height: 2,
-                                    margin: const EdgeInsets.only(bottom: 4),
-                                    decoration: BoxDecoration(
-                                      color: colors.jade,
-                                      borderRadius: BorderRadius.circular(2),
-                                    ),
-                                  ),
-                                Icon(
-                                  active ? item.$3 : item.$2,
-                                  size: 20,
-                                  color: active ? colors.jade : color,
+          // 注意：此处刻意不用 BackdropFilter——桌面端（尤其 Windows Impeller）
+          // 对背景模糊每帧重采样的开销极大，且导航栏下方是整页内容，
+          // 转场/滚动/数据刷新时每帧触发重算，是切页卡顿的主要渲染根因。
+          // 用高不透明度纯色 + 顶部渐变高光模拟毛玻璃观感，零模糊成本。
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            decoration: BoxDecoration(
+              color: colors.surface.withValues(alpha: 0.96),
+              borderRadius: BorderRadius.circular(32),
+              border: Border.all(
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.08)
+                    : Colors.white.withValues(alpha: 0.78),
+              ),
+            ),
+            foregroundDecoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(32),
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: const Alignment(0, 0.12),
+                colors: [
+                  Colors.white.withValues(alpha: isDark ? 0.06 : 0.30),
+                  Colors.white.withValues(alpha: 0),
+                ],
+              ),
+            ),
+            child: Row(
+              children: items.map((item) {
+                final active = item.$1 == widget.current;
+                final color = active ? colors.ink : colors.stone;
+                return Expanded(
+                  child: Semantics(
+                    selected: active,
+                    button: true,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(8),
+                      onTap: widget.onSelect == null
+                          ? null
+                          : () => widget.onSelect!(item.$1),
+                      child: Container(
+                        decoration: isTablet && active
+                            ? BoxDecoration(
+                                color: colors.jade.withValues(alpha: 0.08),
+                                borderRadius: BorderRadius.circular(8),
+                              )
+                            : null,
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            if (!isTablet && active)
+                              Container(
+                                width: 24,
+                                height: 2,
+                                margin: const EdgeInsets.only(bottom: 4),
+                                decoration: BoxDecoration(
+                                  color: colors.jade,
+                                  borderRadius: BorderRadius.circular(2),
                                 ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  item.$4,
-                                  style: TextStyle(
-                                    color: color,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w500,
-                                    letterSpacing: 0,
-                                  ),
-                                ),
-                              ],
+                              ),
+                            Icon(
+                              active ? item.$3 : item.$2,
+                              size: 20,
+                              color: active ? colors.jade : color,
                             ),
-                          ),
+                            const SizedBox(height: 4),
+                            Text(
+                              item.$4,
+                              style: TextStyle(
+                                color: color,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
+                                letterSpacing: 0,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    );
-                  }).toList(),
-                ),
-              ),
+                    ),
+                  ),
+                );
+              }).toList(),
             ),
           ),
         ),

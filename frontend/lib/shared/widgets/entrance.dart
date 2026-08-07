@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:shimmer/shimmer.dart';
 
 import '../../app/theme.dart';
 import '../utils/motion.dart';
@@ -41,8 +40,9 @@ class KarisEntrance extends StatelessWidget {
       curve: KarisMotion.easeOut,
       child: child,
       builder: (context, t, child) {
-        final eased = Curves.easeOut
-            .transform(((t - begin) / (1 - begin)).clamp(0.0, 1.0));
+        final eased = Curves.easeOut.transform(
+          ((t - begin) / (1 - begin)).clamp(0.0, 1.0),
+        );
         return Opacity(
           opacity: eased,
           child: Transform.translate(
@@ -101,7 +101,7 @@ class _KarisPressableState extends State<KarisPressable> {
   }
 }
 
-/// 通用骨架屏单元：shimmer 流光扫过的圆角块。
+/// 通用骨架屏单元：静态圆角块，无流光动画（避免桌面端持续重绘）。
 ///
 /// 用于加载态替代内联 spinner，减少首屏跳动。
 class KarisSkeleton extends StatelessWidget {
@@ -130,21 +130,15 @@ class KarisSkeleton extends StatelessWidget {
   }
 }
 
-/// 骨架屏容器：把一组 [KarisSkeleton] 包起来并施加 shimmer 流光。
+/// 骨架屏容器：包一组 [KarisSkeleton]。
+///
+/// 刻意不做 shimmer 流光循环——无限循环动画在桌面端持续触发重绘，
+/// 切页加载期间与转场动画叠加会掉帧；静态骨架视觉清晰、零动画成本。
 class KarisSkeletonGroup extends StatelessWidget {
   final Widget child;
 
   const KarisSkeletonGroup({super.key, required this.child});
 
   @override
-  Widget build(BuildContext context) {
-    if (MediaQuery.disableAnimationsOf(context)) return child;
-    final colors = context.karisColors;
-    return Shimmer.fromColors(
-      baseColor: colors.hairline.withValues(alpha: 0.35),
-      highlightColor: colors.surface,
-      period: KarisMotion.shimmer,
-      child: child,
-    );
-  }
+  Widget build(BuildContext context) => child;
 }

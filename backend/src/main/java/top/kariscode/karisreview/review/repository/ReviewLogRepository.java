@@ -10,6 +10,7 @@ import top.kariscode.karisreview.card.entity.Card;
 import top.kariscode.karisreview.review.entity.ReviewLog;
 
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -41,21 +42,24 @@ public interface ReviewLogRepository extends JpaRepository<ReviewLog, UUID> {
                            @Param("startOfDay") LocalDateTime startOfDay,
                            @Param("endOfDay") LocalDateTime endOfDay);
 
-    @Query("SELECT r FROM ReviewLog r WHERE r.userId = :userId " +
-           "AND r.reviewedAt >= :start " +
-           "ORDER BY r.reviewedAt ASC")
-    List<ReviewLog> findByUserIdAndReviewedAtAfter(@Param("userId") UUID userId,
-                                                    @Param("start") LocalDateTime start);
-
-    @Query("SELECT FUNCTION('DATE', r.reviewedAt) as reviewDate, " +
-           "SUM(CASE WHEN r.newCard = false THEN 1 ELSE 0 END) as cnt, " +
-           "SUM(CASE WHEN r.newCard = true AND r.rating = 'FAMILIAR' THEN 1 ELSE 0 END) as learned " +
-           "FROM ReviewLog r WHERE r.userId = :userId " +
-           "AND r.reviewedAt >= :start " +
-           "GROUP BY FUNCTION('DATE', r.reviewedAt) " +
-           "ORDER BY FUNCTION('DATE', r.reviewedAt) ASC")
+    /**
+     * 趋势聚合：按“业务日”分组（reviewed_at 减去用户刷新点后取日期，与
+     * DateUtils.calculateToday 口径一致——刷新点之前的日志归到前一天），
+     * 聚合下推到数据库，避免把全量 ReviewLog 实体加载进 JVM 内存逐条统计。
+     * 返回行：[业务日, 复习次数(非新卡), 新学次数(新卡且 FAMILIAR)]。
+     */
+    @Query(value = """
+            SELECT (reviewed_at - CAST(:refreshTime AS time))::date AS review_date,
+                   SUM(CASE WHEN is_new_card = FALSE THEN 1 ELSE 0 END) AS reviewed_cnt,
+                   SUM(CASE WHEN is_new_card = TRUE AND rating = 'FAMILIAR' THEN 1 ELSE 0 END) AS learned_cnt
+            FROM review_logs
+            WHERE user_id = :userId AND reviewed_at >= :start
+            GROUP BY 1
+            ORDER BY 1
+            """, nativeQuery = true)
     List<Object[]> findDailyTrend(@Param("userId") UUID userId,
-                                  @Param("start") LocalDateTime start);
+                                  @Param("start") LocalDateTime start,
+                                  @Param("refreshTime") LocalTime refreshTime);
 
     @Query("SELECT COUNT(r) FROM ReviewLog r WHERE r.userId = :userId " +
            "AND r.reviewedAt >= :startOfDay AND r.reviewedAt < :endOfDay " +

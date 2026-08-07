@@ -399,6 +399,11 @@ class ReviewNotifier extends StateNotifier<ReviewSessionState> {
         lastResult: outcome.result,
         isRating: false,
       );
+      // 进入学习模式（FORGET / VAGUE 重学、FAMILIAR 未达标）的卡片
+      // 按 2^n 位置实时插回当前队列，避免依赖退出重进复习/学习页面才出现。
+      if (outcome.result.learningMode) {
+        _reinsertRelearningCard(_toReviewCard(outcome.card));
+      }
       _ratingInFlight = false;
       if (state.isComplete) {
         unawaited(_flushSync(userId));
@@ -419,6 +424,7 @@ class ReviewNotifier extends StateNotifier<ReviewSessionState> {
   }
 
   Future<ReviewResult?> _rateRemote(String cardId, String rating) async {
+    final before = state.currentCard;
     try {
       final result = await _repository.rateCard(cardId, rating);
       state = state.copyWith(
@@ -429,6 +435,23 @@ class ReviewNotifier extends StateNotifier<ReviewSessionState> {
         lastResult: result,
         isRating: false,
       );
+      // 远程评分响应不携带 learning_step，重学卡按 step 0（紧邻位置）插回。
+      if (result.learningMode && before != null) {
+        _reinsertRelearningCard(
+          ReviewCard(
+            id: before.id,
+            deckId: before.deckId,
+            front: before.front,
+            back: before.back,
+            stage: result.stageAfter,
+            learningMode: true,
+            consecutiveFamiliar: result.consecutiveFamiliar,
+            learningStep: 0,
+            nextReviewDate: result.nextReviewDate,
+            reviewVersion: result.reviewVersion,
+          ),
+        );
+      }
       _onDataChanged?.call();
       return result;
     } catch (e) {
@@ -466,6 +489,36 @@ class ReviewNotifier extends StateNotifier<ReviewSessionState> {
   Future<String?> _activeUserId() async {
     final meta = await _offline!.getActiveSyncMeta();
     return meta?.userId;
+  }
+
+  /// 将进入学习模式（重学）的卡片按 2^n 位置实时插回当前队列。
+  ///
+  /// 位置语义与 [OfflineRepository.getDueQueue] 一致：offset = 1 << learningStep，
+  /// 但以已消费的 [ReviewSessionState.currentIndex] 为基准，只插入到待评卡之后，
+  /// 避免把卡插回自己前面造成重复评分。
+  void _reinsertRelearningCard(ReviewCard relearnCard) {
+    final current = state.currentIndex;
+    final remaining = state.cards.length - current;
+    final offset = (1 << relearnCard.learningStep).clamp(0, remaining);
+    final insertAt = current + offset;
+    final cards = [...state.cards]..insert(insertAt, relearnCard);
+    state = state.copyWith(cards: cards);
+  }
+
+  ReviewCard _toReviewCard(FlashCard card) {
+    return ReviewCard(
+      id: card.id,
+      deckId: card.deckId,
+      front: card.front,
+      back: card.back,
+      stage: card.stage,
+      learningMode: card.learningMode,
+      consecutiveFamiliar: card.consecutiveFamiliar,
+      learningStep: card.learningStep,
+      reentryStage: card.reentryStage,
+      nextReviewDate: card.nextReviewDate,
+      reviewVersion: card.reviewVersion,
+    );
   }
 
   Future<void> removeStaleCard(String cardId) async {

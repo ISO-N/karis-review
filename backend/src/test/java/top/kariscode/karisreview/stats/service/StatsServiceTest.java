@@ -12,7 +12,6 @@ import top.kariscode.karisreview.common.exception.BusinessException;
 import top.kariscode.karisreview.common.util.DateUtils;
 import top.kariscode.karisreview.deck.entity.Deck;
 import top.kariscode.karisreview.deck.repository.DeckRepository;
-import top.kariscode.karisreview.review.entity.ReviewLog;
 import top.kariscode.karisreview.review.repository.ReviewLogRepository;
 import top.kariscode.karisreview.stats.dto.DeckStatsResponse;
 import top.kariscode.karisreview.stats.dto.OverviewStatsResponse;
@@ -145,14 +144,12 @@ class StatsServiceTest {
         LocalTime refreshTime = LocalTime.of(4, 0);
         LocalDate today = DateUtils.calculateToday(refreshTime);
         LocalDateTime start = today.minusDays(5).atTime(refreshTime);
-        LocalDateTime logTime = today.minusDays(2).atTime(6, 0);
+        // 聚合行: [业务日, 复习次数(非新卡), 新学次数(新卡且 FAMILIAR)]
+        LocalDate logDay = today.minusDays(2);
         when(userRepository.findById(userId)).thenReturn(Optional.of(user()));
-        when(reviewLogRepository.findByUserIdAndReviewedAtAfter(userId, start))
-                .thenReturn(List.of(
-                        log(userId, "FAMILIAR", 0, logTime, true),
-                        log(userId, "FAMILIAR", 1, logTime, false),
-                        log(userId, "VAGUE", 2, logTime, false),
-                        log(userId, "FORGET", 3, logTime, false)));
+        when(reviewLogRepository.findDailyTrend(userId, start, refreshTime))
+                .thenReturn(List.<Object[]>of(
+                        new Object[]{java.sql.Date.valueOf(logDay), 3L, 1L}));
 
         List<TrendStatsResponse> trend = service.getTrend(userId, 5);
 
@@ -161,17 +158,6 @@ class StatsServiceTest {
         assertEquals(1, trend.get(2).getLearned());
         assertEquals(0, trend.get(0).getReviewed());
         assertEquals(today, trend.get(4).getDate());
-    }
-
-    private ReviewLog log(UUID userId, String rating, int stageBefore, LocalDateTime time,
-                          boolean newCard) {
-        ReviewLog log = new ReviewLog();
-        log.setUserId(userId);
-        log.setRating(rating);
-        log.setStageBefore(stageBefore);
-        log.setNewCard(newCard);
-        log.setReviewedAt(time);
-        return log;
     }
 
     @Test

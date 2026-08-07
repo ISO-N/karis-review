@@ -12,7 +12,10 @@ class SyncOutcome {
 }
 
 class SyncService {
-  static const Duration _refreshCooldown = Duration(seconds: 15);
+  /// 自动刷新冷却：Tab 切换 / 路由往返触发的静默同步在此窗口内直接跳过，
+  /// 避免短时间内连续同步造成 UI 抖动与全局数据失效。
+  /// 显式动作（下拉刷新、评分同步）走各自独立路径，不受此冷却限制。
+  static const Duration _refreshCooldown = Duration(seconds: 60);
 
   final SyncRepository _repository;
   final OfflineRepository _offline;

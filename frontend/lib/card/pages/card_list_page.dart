@@ -156,7 +156,8 @@ class _CardListPageState extends ConsumerState<CardListPage> {
                   ref.invalidate(deckStatsProvider(widget.deckId));
                   ref.invalidate(deckListProvider);
                   ref.invalidate(statsProvider);
-                  ref.invalidate(trendProvider(30));
+                  // ignore: unused_result
+                  ref.refresh(trendProvider(30));
                 },
                 child: CustomScrollView(
                   physics: const AlwaysScrollableScrollPhysics(),
@@ -781,7 +782,8 @@ class _CardListPageState extends ConsumerState<CardListPage> {
     ref.invalidate(deckStatsProvider(widget.deckId));
     ref.invalidate(deckListProvider);
     ref.invalidate(statsProvider);
-    ref.invalidate(trendProvider(30));
+    // ignore: unused_result
+    ref.refresh(trendProvider(30));
     if (_query.isNotEmpty) {
       unawaited(
         ref
@@ -822,7 +824,8 @@ class _CardListPageState extends ConsumerState<CardListPage> {
                 ref.invalidate(deckStatsProvider(widget.deckId));
                 ref.invalidate(deckListProvider);
                 ref.invalidate(statsProvider);
-                ref.invalidate(trendProvider(30));
+                // ignore: unused_result
+                ref.refresh(trendProvider(30));
                 if (dialogContext.mounted) Navigator.pop(dialogContext);
               },
               child: const Text('删除'),

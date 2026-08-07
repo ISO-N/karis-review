@@ -1871,7 +1871,7 @@ void main() {
     });
 
     testWidgets(
-      'adaptive scaffold respects system insets and keeps nav pill blur',
+      'adaptive scaffold respects system insets and renders nav pill without backdrop blur',
       (tester) async {
         await tester.binding.setSurfaceSize(const Size(390, 844));
         addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -1903,8 +1903,9 @@ void main() {
         );
         await tester.pump();
 
-        // 全宽条带改为渐变遮罩（无模糊），仅药丸导航保留 BackdropFilter。
-        expect(find.byType(BackdropFilter), findsOneWidget);
+        // 性能约定：导航药丸禁用 BackdropFilter（桌面端模糊每帧重采样成本高），
+        // 用高不透明度纯色 + 渐变高光替代，这里断言模糊已移除，防止回归。
+        expect(find.byType(BackdropFilter), findsNothing);
         expect(
           tester.getTopLeft(find.byKey(const Key('scaffold-body'))).dy,
           greaterThanOrEqualTo(24),

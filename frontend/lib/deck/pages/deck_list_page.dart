@@ -305,7 +305,8 @@ class _DeckDialogState extends ConsumerState<_DeckDialog> {
       return;
     }
     ref.invalidate(statsProvider);
-    ref.invalidate(trendProvider(30));
+    // ignore: unused_result
+    ref.refresh(trendProvider(30));
     Navigator.pop(context);
   }
 
@@ -366,7 +367,8 @@ void _confirmDeleteDeck(BuildContext context, WidgetRef ref, Deck deck) {
             onPressed: () async {
               await ref.read(deckListProvider.notifier).deleteDeck(deck.id);
               ref.invalidate(statsProvider);
-              ref.invalidate(trendProvider(30));
+              // ignore: unused_result
+              ref.refresh(trendProvider(30));
               if (dialogContext.mounted) Navigator.pop(dialogContext);
             },
             child: Text(l10n.deckDeleteLabel),
@@ -377,7 +379,7 @@ void _confirmDeleteDeck(BuildContext context, WidgetRef ref, Deck deck) {
   );
 }
 
-/// 卡组列表加载骨架：模拟三行卡组项，shimmer 流光扫过。
+/// 卡组列表加载骨架：模拟三行卡组项（静态骨架，无流光动画）。
 class _DeckListSkeleton extends StatelessWidget {
   const _DeckListSkeleton();
 
