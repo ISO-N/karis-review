@@ -21,8 +21,10 @@ void goToTab(
   if (item == KarisNavItem.stats) {
     ref.read(statsProvider.notifier).loadOverview().then((refreshed) {
       // 仅在实际刷新成功后才联动刷新趋势图；页面若已离开则放弃。
+      // 用 refresh 而非 invalidate：旧图表保留，新数据就绪后平滑替换。
       if (refreshed && context.mounted) {
-        ref.invalidate(trendProvider(30));
+        // ignore: unused_result
+        ref.refresh(trendProvider(30));
       }
     });
   }

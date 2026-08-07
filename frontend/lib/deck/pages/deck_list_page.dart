@@ -305,7 +305,8 @@ class _DeckDialogState extends ConsumerState<_DeckDialog> {
       return;
     }
     ref.invalidate(statsProvider);
-    ref.invalidate(trendProvider(30));
+    // ignore: unused_result
+    ref.refresh(trendProvider(30));
     Navigator.pop(context);
   }
 
@@ -366,7 +367,8 @@ void _confirmDeleteDeck(BuildContext context, WidgetRef ref, Deck deck) {
             onPressed: () async {
               await ref.read(deckListProvider.notifier).deleteDeck(deck.id);
               ref.invalidate(statsProvider);
-              ref.invalidate(trendProvider(30));
+              // ignore: unused_result
+              ref.refresh(trendProvider(30));
               if (dialogContext.mounted) Navigator.pop(dialogContext);
             },
             child: Text(l10n.deckDeleteLabel),
