@@ -86,14 +86,17 @@ class EmptyState extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                width: 54,
-                height: 54,
-                decoration: BoxDecoration(
-                  color: colors.jadeSoft,
-                  borderRadius: BorderRadius.circular(8),
+              // 装饰性图标：排除语义，避免屏幕阅读器重复朗读图形本身。
+              ExcludeSemantics(
+                child: Container(
+                  width: 54,
+                  height: 54,
+                  decoration: BoxDecoration(
+                    color: colors.jadeSoft,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(icon, color: colors.jade, size: 26),
                 ),
-                child: Icon(icon, color: colors.jade, size: 26),
               ),
               const SizedBox(height: 16),
               KarisHeading(
