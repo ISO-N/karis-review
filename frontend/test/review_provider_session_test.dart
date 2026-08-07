@@ -25,6 +25,26 @@ class _StaticReviewNotifier extends ReviewNotifier {
   }) async {}
 }
 
+/// 带离线仓库与同步服务的评分测试桩：初始队列直接注入，不走 loadQueue。
+class _RelearnNotifier extends ReviewNotifier {
+  _RelearnNotifier(
+    super.repository, {
+    super.offline,
+    super.sync,
+    super.syncService,
+    required ReviewSessionState initial,
+  }) {
+    state = initial;
+  }
+
+  @override
+  Future<void> loadQueue({
+    required String mode,
+    String? deckId,
+    int limit = 10,
+  }) async {}
+}
+
 proto.ReviewCard _reviewCard(String id) {
   return proto.ReviewCard(
     id: id,
@@ -194,5 +214,122 @@ void main() {
 
     expect(notifier.state.cards.map((c) => c.id), ['card-0', 'card-2']);
     expect(notifier.state.currentIndex, 1);
+  });
+
+  test('FORGET 后重学卡实时插回队列，无需退出重进', () async {
+    await _seedMeta(offline);
+    final api = FakeApiClient();
+    final notifier = _RelearnNotifier(
+      ReviewRepository(),
+      offline: offline,
+      sync: SyncRepository(client: api),
+      syncService: SyncService(SyncRepository(client: api), offline),
+      initial: ReviewSessionState(
+        mode: 'due',
+        cards: [
+          ReviewCard.fromJson(reviewCardJson(id: 'card-a', front: 'A')),
+        ],
+        currentIndex: 0,
+      ),
+    );
+
+    final result = await notifier.rate('FORGET');
+
+    expect(result, isNotNull);
+    expect(result!.learningMode, isTrue);
+    // 队列评完原卡后重学卡立即就位，不进入完成态。
+    expect(notifier.state.cards, hasLength(2));
+    expect(notifier.state.cards[1].id, 'card-a');
+    expect(notifier.state.cards[1].learningMode, isTrue);
+    expect(notifier.state.cards[1].learningStep, 0);
+    expect(notifier.state.currentIndex, 1);
+    expect(notifier.state.isComplete, isFalse);
+    notifier.dispose();
+  });
+
+  test('重学卡按 2^n 位置插入，步长越大间隔越远', () async {
+    await _seedMeta(offline);
+    final api = FakeApiClient();
+    final notifier = _RelearnNotifier(
+      ReviewRepository(),
+      offline: offline,
+      sync: SyncRepository(client: api),
+      syncService: SyncService(SyncRepository(client: api), offline),
+      initial: ReviewSessionState(
+        mode: 'due',
+        cards: [
+          ReviewCard.fromJson(reviewCardJson(id: 'card-a', front: 'A')),
+          ReviewCard.fromJson(reviewCardJson(id: 'card-b', front: 'B')),
+          ReviewCard.fromJson(reviewCardJson(id: 'card-c', front: 'C')),
+        ],
+        currentIndex: 0,
+      ),
+    );
+
+    // 评 A FORGET：learningStep=0 → 插到 currentIndex+1（紧邻）。
+    await notifier.rate('FORGET');
+    expect(
+      notifier.state.cards.map((c) => c.id),
+      ['card-a', 'card-b', 'card-a', 'card-c'],
+    );
+    expect(notifier.state.currentIndex, 1);
+
+    // 评 B FORGET：同样紧邻插回。
+    await notifier.rate('FORGET');
+    expect(
+      notifier.state.cards.map((c) => c.id),
+      ['card-a', 'card-b', 'card-a', 'card-b', 'card-c'],
+    );
+    expect(notifier.state.currentIndex, 2);
+
+    // 当前卡是重学 A（learningStep=0），FAMILIAR 未达标 → learningStep=1。
+    await notifier.rate('FAMILIAR');
+    expect(
+      notifier.state.cards.map((c) => c.id),
+      ['card-a', 'card-b', 'card-a', 'card-b', 'card-c', 'card-a'],
+    );
+    expect(notifier.state.cards[5].learningStep, 1);
+    expect(notifier.state.currentIndex, 3);
+    notifier.dispose();
+  });
+
+  test('FAMILIAR 达标脱离学习后不再插回', () async {
+    await _seedMeta(offline);
+    final api = FakeApiClient();
+    final notifier = _RelearnNotifier(
+      ReviewRepository(),
+      offline: offline,
+      sync: SyncRepository(client: api),
+      syncService: SyncService(SyncRepository(client: api), offline),
+      initial: ReviewSessionState(
+        mode: 'due',
+        cards: [
+          ReviewCard(
+            id: 'card-a',
+            deckId: 'deck-1',
+            front: 'A',
+            back: 'b',
+            stage: 0,
+            learningMode: true,
+            consecutiveFamiliar: 4,
+            learningStep: 4,
+            nextReviewDate: '2026-08-07',
+            reviewVersion: 5,
+          ),
+        ],
+        currentIndex: 0,
+      ),
+    );
+
+    final result = await notifier.rate('FAMILIAR');
+
+    expect(result, isNotNull);
+    expect(result!.learningMode, isFalse);
+    expect(notifier.state.cards, hasLength(1));
+    expect(notifier.state.currentIndex, 1);
+    expect(notifier.state.isComplete, isTrue);
+    // 等待 isComplete 触发的后台同步完成，避免其访问已关闭的数据库。
+    await pumpEventQueue();
+    notifier.dispose();
   });
 }
