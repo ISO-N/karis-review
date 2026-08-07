@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -27,10 +29,7 @@ CustomTransitionPage<Object?> _fadeSlidePage(
 ) {
   return CustomTransitionPage<Object?>(
     key: state.pageKey,
-    transitionDuration: reducedDuration(
-      context,
-      KarisMotion.page,
-    ),
+    transitionDuration: reducedDuration(context, KarisMotion.page),
     reverseTransitionDuration: reducedDuration(
       context,
       const Duration(milliseconds: 220),
@@ -54,6 +53,12 @@ CustomTransitionPage<Object?> _fadeSlidePage(
     },
     child: child,
   );
+}
+
+/// Tab 页使用无转场页面：四个 Tab 由 IndexedStack 保活，
+/// 切换时零重建、零转场动画，避免桌面端整页重建导致的卡顿。
+Page<Object?> _tabPage(GoRouterState state, Widget child) {
+  return NoTransitionPage<Object?>(key: state.pageKey, child: child);
 }
 
 /// 未登录即可访问的公开路由（登录/注册/找回密码）。
@@ -102,16 +107,51 @@ final routerProvider = Provider<GoRouter>((ref) {
         pageBuilder: (context, state) =>
             _fadeSlidePage(context, state, const ForgotPasswordPage()),
       ),
-      GoRoute(
-        path: '/home',
-        pageBuilder: (context, state) =>
-            _fadeSlidePage(context, state, const HomePage()),
+      // 主壳：四个 Tab 用 StatefulShellRoute.indexedStack 保活，
+      // 切换只改可见 index，页面 State 全部保留，不再销毁重建。
+      StatefulShellRoute.indexedStack(
+        builder: (context, state, navigationShell) =>
+            _MainShell(navigationShell: navigationShell),
+        branches: [
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/home',
+                pageBuilder: (context, state) =>
+                    _tabPage(state, const HomePage()),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/decks',
+                pageBuilder: (context, state) =>
+                    _tabPage(state, const DeckListPage()),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/stats',
+                pageBuilder: (context, state) =>
+                    _tabPage(state, const StatsPage()),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/settings',
+                pageBuilder: (context, state) =>
+                    _tabPage(state, const SettingsPage()),
+              ),
+            ],
+          ),
+        ],
       ),
-      GoRoute(
-        path: '/decks',
-        pageBuilder: (context, state) =>
-            _fadeSlidePage(context, state, const DeckListPage()),
-      ),
+      // 全屏子页面：在 shell 之上 push，保留返回路径与转场。
       GoRoute(
         path: '/decks/:deckId/cards',
         pageBuilder: (context, state) {
@@ -175,16 +215,6 @@ final routerProvider = Provider<GoRouter>((ref) {
             _fadeSlidePage(context, state, const ReviewPage()),
       ),
       GoRoute(
-        path: '/stats',
-        pageBuilder: (context, state) =>
-            _fadeSlidePage(context, state, const StatsPage()),
-      ),
-      GoRoute(
-        path: '/settings',
-        pageBuilder: (context, state) =>
-            _fadeSlidePage(context, state, const SettingsPage()),
-      ),
-      GoRoute(
         path: '/settings/logs',
         pageBuilder: (context, state) =>
             _fadeSlidePage(context, state, const LogsPage()),
@@ -198,3 +228,41 @@ final routerProvider = Provider<GoRouter>((ref) {
   });
   return router;
 });
+
+/// 主壳：渲染 IndexedStack 并在 Tab 切换时做一次静默同步，保证数据新鲜。
+///
+/// 切换 Tab 不再触发页面重建与转场动画；同步频率由 SyncService 的
+/// 冷却与 in-flight 单飞兜底，不会产生重复请求。
+class _MainShell extends ConsumerStatefulWidget {
+  final StatefulNavigationShell navigationShell;
+
+  const _MainShell({required this.navigationShell});
+
+  @override
+  ConsumerState<_MainShell> createState() => _MainShellState();
+}
+
+class _MainShellState extends ConsumerState<_MainShell> {
+  int _lastIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _lastIndex = widget.navigationShell.currentIndex;
+  }
+
+  @override
+  void didUpdateWidget(_MainShell oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final index = widget.navigationShell.currentIndex;
+    if (index != _lastIndex) {
+      _lastIndex = index;
+      // 静默同步：数据变化会递增 dataVersion，各页 Provider 自行重算；
+      // 失败静默保留旧数据，由下拉刷新兜底。
+      unawaited(ref.read(dataRefreshControllerProvider).refreshFromServer());
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.navigationShell;
+}

@@ -379,7 +379,7 @@ void _confirmDeleteDeck(BuildContext context, WidgetRef ref, Deck deck) {
   );
 }
 
-/// 卡组列表加载骨架：模拟三行卡组项，shimmer 流光扫过。
+/// 卡组列表加载骨架：模拟三行卡组项（静态骨架，无流光动画）。
 class _DeckListSkeleton extends StatelessWidget {
   const _DeckListSkeleton();
 
