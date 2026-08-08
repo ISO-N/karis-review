@@ -928,7 +928,9 @@
     "next_review_date": "2025-08-08",
     "learning_mode": false,
     "consecutive_familiar": 0,
-    "next_interval_days": 7
+    "next_interval_days": 7,
+    "reentry_stage": null,
+    "learning_origin": null
   }
 }
 ```
@@ -941,6 +943,8 @@
 | learning_mode | bool | 是否仍在重学模式 |
 | consecutive_familiar | int | 当前连续 Familiar 计数 |
 | next_interval_days | int | 本次评分后的下次复习间隔天数（重学中为 0） |
+| reentry_stage | int/null | 重学回归目标阶段（VAGUE 重学有效；FORGET 重学为 null） |
+| learning_origin | string/null | 评分后卡片来源：`NEW`（学新阶段重学）/ `REVIEW`（复习阶段重学）/ null（非重学） |
 
 **可能的业务逻辑返回：**
 
@@ -955,22 +959,26 @@
   "next_review_date": "2025-08-08",
   "learning_mode": false,
   "consecutive_familiar": 0,
-  "next_interval_days": 7
+  "next_interval_days": 7,
+  "reentry_stage": null,
+  "learning_origin": null
 }
 ```
 
-**场景 2：** 点 FORGET → 进入重学模式
+**场景 2：** 新卡点 FORGET → 进入重学模式（来源 NEW）
 
 ```json
 {
   "card_id": "uuid",
   "rating": "FORGET",
-  "stage_before": 4,
+  "stage_before": 0,
   "stage_after": 0,
   "next_review_date": null,
   "learning_mode": true,
   "consecutive_familiar": 0,
-  "next_interval_days": 0
+  "next_interval_days": 0,
+  "reentry_stage": null,
+  "learning_origin": "NEW"
 }
 ```
 
