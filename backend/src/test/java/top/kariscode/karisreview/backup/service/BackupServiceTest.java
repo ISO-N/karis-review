@@ -239,6 +239,102 @@ class BackupServiceTest {
     }
 
     @Test
+    void exportDataIncludesFullSchedulingState() {
+        UUID userId = UUID.randomUUID();
+        UUID deckId = UUID.randomUUID();
+        User user = new User();
+        user.setId(userId);
+        user.setEmail("user@example.com");
+        user.setRefreshTime(LocalTime.of(4, 0));
+        Deck deck = new Deck();
+        deck.setId(deckId);
+        deck.setUserId(userId);
+        deck.setName("日语");
+        Card card = new Card();
+        card.setDeckId(deckId);
+        card.setFront("正面");
+        card.setBack("反面");
+        card.setStage(3);
+        card.setConsecutiveFamiliar(2);
+        card.setNextReviewDate(java.time.LocalDate.of(2026, 8, 9));
+        card.setLearningMode(true);
+        card.setReentryStage(1);
+        card.setLearningStep(2);
+        card.setLearningOrigin("NEW");
+        card.setReviewVersion(7);
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(deckRepository.findByUserIdOrderByCreatedAtAsc(userId)).thenReturn(List.of(deck));
+        when(cardRepository.findByDeckIdOrderByCreatedAtAsc(deckId)).thenReturn(List.of(card));
+        when(reviewLogRepository.findByUserIdOrderByReviewedAtDesc(userId)).thenReturn(List.of());
+        when(backupRepository.save(any(BackupSnapshot.class))).thenAnswer(invocation -> {
+            BackupSnapshot snapshot = invocation.getArgument(0);
+            snapshot.setId(UUID.randomUUID());
+            ReflectionTestUtils.setField(snapshot, "createdAt", LocalDateTime.of(2026, 8, 8, 11, 0));
+            return snapshot;
+        });
+
+        service.exportData(userId);
+
+        ArgumentCaptor<BackupSnapshot> snapshotCaptor =
+                ArgumentCaptor.forClass(BackupSnapshot.class);
+        verify(backupRepository).save(snapshotCaptor.capture());
+        String data = snapshotCaptor.getValue().getData();
+        // 回归：曾漏导出 learning_step/learning_origin/review_version，
+        // 恢复后队列归属退化与重学插位丢失（架构评审候选 2）。
+        assertTrue(data.contains("\"learning_step\":2"), data);
+        assertTrue(data.contains("\"learning_origin\":\"NEW\""), data);
+        assertTrue(data.contains("\"review_version\":7"), data);
+        assertTrue(data.contains("\"learning_mode\":true"), data);
+        assertTrue(data.contains("\"reentry_stage\":1"), data);
+    }
+
+    @Test
+    void importDataRestoresSchedulingState() {
+        UUID userId = UUID.randomUUID();
+        when(deckRepository.save(any(Deck.class))).thenAnswer(invocation -> {
+            Deck deck = invocation.getArgument(0);
+            deck.setId(UUID.randomUUID());
+            return deck;
+        });
+        when(cardRepository.saveAll(any())).thenAnswer(invocation -> {
+            List<Card> cards = invocation.getArgument(0);
+            cards.forEach(c -> c.setId(UUID.randomUUID()));
+            return cards;
+        });
+
+        Map<String, Object> data = Map.of(
+                "decks", List.of(Map.of(
+                        "name", "恢复牌组",
+                        "cards", List.of(Map.of(
+                                "front", "正面",
+                                "back", "反面",
+                                "stage", 3,
+                                "consecutive_familiar", 2,
+                                "next_review_date", "2026-08-09",
+                                "learning_mode", true,
+                                "reentry_stage", 1,
+                                "learning_step", 2,
+                                "learning_origin", "NEW",
+                                "review_version", 7)))));
+
+        service.importData(userId, data);
+
+        ArgumentCaptor<List<Card>> cardCaptor = ArgumentCaptor.forClass(List.class);
+        verify(cardRepository).saveAll(cardCaptor.capture());
+        Card restored = cardCaptor.getValue().get(0);
+        // 排期状态整体恢复（架构评审候选 2）
+        assertEquals(3, restored.getStage());
+        assertEquals(2, restored.getConsecutiveFamiliar());
+        assertEquals(java.time.LocalDate.of(2026, 8, 9), restored.getNextReviewDate());
+        assertEquals(true, restored.isLearningMode());
+        assertEquals(1, restored.getReentryStage());
+        assertEquals(2, restored.getLearningStep());
+        assertEquals("NEW", restored.getLearningOrigin());
+        assertEquals(7, restored.getReviewVersion());
+    }
+
+    @Test
     void cleanupOldSnapshotsKeepsLatestPerUser() {
         when(backupRepository.deleteExcessSnapshots(7)).thenReturn(4);
 

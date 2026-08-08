@@ -79,12 +79,12 @@ Android release 包名为 `top.kariscode.karisreview`，debug 包名为 `top.kar
 - **重学插入**：重学中的卡片按 `learning_step`（2^n 间距）插入所属队列（第 1 次隔 1 张、第 2 次隔 2 张、第 3 次隔 4 张……），`ReviewService.interleaveLearningCards` / 前端 `OfflineRepository.getNewQueue`、`getDueQueue` 实现。**重学卡按 `learning_origin` 归属队列**：学新阶段忘记（`NEW`）归学新队列，复习阶段忘记/模糊（`REVIEW`）归复习队列；重学中再忘记/模糊保持原来源，脱离重学（连续 Familiar 达标）清除来源。前端会话内 `_reinsertRelearningCard` 按同规则把重学卡实时插回当前队列，退出重进后仍由队列按来源重建，两处行为一致。
 - **到期队列排序**：逾期优先——按逾期天数（`calculateToday` − `next_review_date`）降序，同逾期天数内按 `next_review_date` 升序；服务端 `CardRepository.findDueCards` 与前端离线 `OfflineRepository.getDueQueue` 保持一致。重学卡不参与逾期排序。
 
-`Card` 实体新增了 `learning_step`（V6）与 `learning_origin`（V15）字段，`review_logs` 也新增了 `learning_origin` 快照（V15）；数据库文档中的表结构需同步。
+`Card` 实体新增了 `learning_step`（V6）与 `learning_origin`（V15）字段，`review_logs` 也新增了 `learning_origin` 快照（V15）；数据库文档中的表结构需同步。**排期状态统一经 `card/entity/SchedulingState` 值对象投影**（2026-08 架构评审候选 2）：`Card.getSchedulingState()`/`applySchedulingState()`，CardResponse/ReviewCardResponse/BootstrapCard/备份 JSON 四类出口都从它取排期字段，禁止逐字段散落读取。
 
 #### 备份（backup/）
 
-- `BackupService.exportData`：导出用户全量数据（decks/cards/review_logs）为 JSON，同时存一份 `backup_snapshots` 快照。
-- `BackupService.importData`：**先删光该用户现有数据再导入**（不可逆）。导入的卡片获得新 ID，复习日志靠 `card_front`（front+back 组合键，front 可能重复时取首个匹配）重新关联。
+- `BackupService.exportData`：导出用户全量数据（decks/cards/review_logs）为 JSON，同时存一份 `backup_snapshots` 快照。卡片排期状态经 `card/entity/SchedulingState` 值对象**全字段导出**（stage/consecutive_familiar/next_review_date/learning_mode/reentry_stage/learning_step/learning_origin，另带 review_version）——2026-08 架构评审候选 2 修复了曾漏导出 learning_step/learning_origin/review_version 导致恢复后队列归属退化与重学插位丢失的问题。
+- `BackupService.importData`：**先删光该用户现有数据再导入**（不可逆）。导入的卡片获得新 ID，复习日志靠 `card_front`（front+back 组合键，front 可能重复时取首个匹配）重新关联；排期状态整体恢复（`SchedulingState.fromJson`，旧备份缺键自动回退默认）。
 - `BackupScheduler`：`@Scheduled(cron = "0 10 4 * * *")` 每天 04:10 为所有用户做应用级备份（`SchedulingConfig` 开启调度）。
 
 ### 前端（frontend/lib/）

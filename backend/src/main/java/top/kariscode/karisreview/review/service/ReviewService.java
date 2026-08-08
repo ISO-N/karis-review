@@ -7,6 +7,7 @@ import org.springframework.transaction.annotation.Transactional;
 import top.kariscode.karisreview.auth.entity.User;
 import top.kariscode.karisreview.auth.repository.UserRepository;
 import top.kariscode.karisreview.card.entity.Card;
+import top.kariscode.karisreview.card.entity.SchedulingState;
 import top.kariscode.karisreview.card.repository.CardRepository;
 import top.kariscode.karisreview.common.exception.BusinessException;
 import top.kariscode.karisreview.common.util.DateUtils;
@@ -451,16 +452,17 @@ public class ReviewService {
     }
 
     private ReviewCardResponse toReviewCardResponse(Card card) {
+        SchedulingState s = card.getSchedulingState();
         return new ReviewCardResponse(
                 card.getId(), card.getDeckId(),
                 card.getFront(), card.getBack(),
-                card.getStage(), card.isLearningMode(),
-                card.getConsecutiveFamiliar(),
-                card.getReentryStage(),
-                card.getNextReviewDate(),
-                card.getLearningStep(),
+                s.getStage(), s.isLearningMode(),
+                s.getConsecutiveFamiliar(),
+                s.getReentryStage(),
+                s.getNextReviewDate(),
+                s.getLearningStep(),
                 card.getReviewVersion(),
-                card.getLearningOrigin());
+                s.getLearningOrigin());
     }
 
     private LocalTime getRefreshTime(UUID userId) {

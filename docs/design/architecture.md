@@ -409,6 +409,8 @@ log ───────► common
 
 `learning_origin` 经同步载荷（Bootstrap/复习会话 protobuf 与 JSON）与备份导出导入全链路传递。
 
+> **2026-08-08 架构评审候选 2 落地**：排期状态统一经 `card/entity/SchedulingState` 值对象投影——`Card.getSchedulingState()`/`applySchedulingState()`，`CardResponse`/`ReviewCardResponse`/`BootstrapCard`/备份 JSON 四类出口都从它取排期字段，禁止逐字段散落读取。修复备份缺口：`BackupService.exportData` 曾漏导出 `learning_step`/`learning_origin`/`review_version`（导入却读取 `learning_origin`），恢复后 NEW 重学卡队列归属退化为 REVIEW 兜底、重学插位间距全丢；现导出/导入均经 `SchedulingState` 全字段 round-trip（旧备份缺键自动回退默认）。`CardResponse` 随之补充 `review_version`/`learning_origin`（JSON 卡片列表通道字段补齐，`new` 筛选仍由服务端 `filter=new` 计算）。
+
 ## 7.1.2 统计一致性问题复盘（2026-08 生产故障）
 
 ### 现象
