@@ -426,6 +426,8 @@ log ───────► common
 > - **F3 内容协商统一**：`ApiClient` 新增 `getData`/`postData` 统一 proto/JSON 协商（proto 优先、401/406/415 自动回退 JSON 取 `data['data']`），`sync_repository` 4 方法 + `review_repository` 2 方法 6 份回退骨架收敛为声明式调用。
 > - **B4 备份直连恢复**：`BackupService.exportData` 卡片与日志携带原 `card_id`（日志另保留 `card_front` 兼容旧版），`importData` 按备份 card_id → 新 id 直连恢复，旧备份回退 front 文本匹配兜底——同 front 多卡不再错挂第一张；`exported_at` 改用 `DateUtils.now()`（业务时区，原 `LocalDateTime.now()` 用 JVM 时区）。
 > - **B1 评分管道单一化**：`ReviewService` 抽共享评分管道 `rateSingle`（幂等判定 → 版本冲突判定 → `computeRating`），`rateCard`/`syncRatings` 变同一管道的两个出口；幂等判定收敛 `checkIdempotency`（REPLAY/CONFLICT/NEW）、版本判定收敛 `isVersionConflict` 单函数；`applyRating` 删除。
+> - **F4 同步编排收敛（保守版）**：Deck/Stats/Card 三个 notifier 的 `reloadAfterDataChange` 统一委托 `shared/providers/data_refresh_provider.dart` 的 `reloadDataAfterChange`（离线已登录 → 本地重算；无离线或未登录 → 在线重载），provider 定义处 `ref.listen(dataVersionProvider)` 样板收敛为 `listenDataVersion`。**刻意不合并**：`SyncService` 的 cooldown/inflight（服务级并发去重）与 `StatsNotifier` 的 TTL/inFlight（页面级缓存新鲜度）语义不同层，硬合并破坏隔离（评审标注"防过度抽象"的边界）。
+> - **F5 OfflineRepository 减负**：`offline/offline_stats.dart` 下沉统计纯计算（`stageDistribution`/`isReviewedTodayLog`/`isLearnedTodayLog`/`isOnRefreshDay`/`dedupeReviewLogs`，口径同后端 ReviewLogQueryPredicates，`offline_stats_test.dart` 直接断言——接口即测试面）；`offline/offline_mappers.dart` 收敛卡片映射（`reviewCardFromLocal`/`flashCardFromLocal`/`reviewCardFromFlash`，原 offline 与 review_provider 两处 `_toReviewCard` 字段逐一重复）；日期格式化 4 份副本统一 `AppDateUtils.formatDate`。`OfflineRepository` 1078 → 962 行，回归数据访问。
 
 ## 7.1.2 统计一致性问题复盘（2026-08 生产故障）
 
