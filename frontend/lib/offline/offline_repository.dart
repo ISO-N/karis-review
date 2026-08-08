@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../card/models/card.dart';
 import '../../deck/models/deck.dart';
@@ -140,6 +141,11 @@ class OfflineRepository {
       final position = offset.clamp(0, queue.length).toInt();
       queue.insert(position, card);
     }
+    debugPrint(
+      '[KARIS-DBG] getDueQueue userId=$userId deckId=$deckId '
+      'due=${due.length} learning=${learning.length} '
+      'learningOrigins=${learning.map((c) => c.learningOrigin).toList()}',
+    );
     return queue.map(_toReviewCard).toList();
   }
 
@@ -179,6 +185,11 @@ class OfflineRepository {
       final position = offset.clamp(0, queue.length).toInt();
       queue.insert(position, card);
     }
+    debugPrint(
+      '[KARIS-DBG] getNewQueue userId=$userId deckId=$deckId '
+      'new=${newCards.length} learningNew=${learningNew.length} '
+      'learningOrigins=${learningNew.map((c) => c.learningOrigin).toList()}',
+    );
     return queue.take(limit).map(_toReviewCard).toList();
   }
 
@@ -275,6 +286,20 @@ class OfflineRepository {
               _onRefreshDay(l.reviewedAt, refreshTime, today),
         )
         .length;
+    for (final l in logs) {
+      debugPrint(
+        '[KARIS-DBG]   log card=${l.cardId} rating=${l.rating} '
+        'isNew=${l.isNewCard} origin=${l.learningOrigin} '
+        'status=${l.syncStatus} at=${l.reviewedAt.toIso8601String()} '
+        'inReviewedDay=${_onRefreshDay(l.reviewedAt, refreshTime, today)}',
+      );
+    }
+    debugPrint(
+      '[KARIS-DBG] getOverviewStats userId=$userId refreshTime=$refreshTime '
+      'today=$today logs=${logs.length} '
+      'reviewedToday=$reviewedToday learnedToday=$learnedToday '
+      'dueToday=$dueToday newCards=${cards.where((c) => (c.stage == 0 && !c.learningMode) || (c.learningMode && c.learningOrigin == 'NEW')).length}',
+    );
     final stages = cards.map((c) => c.stage).toList();
     return OverviewStats(
       totalCards: cards.length,
@@ -760,6 +785,12 @@ class OfflineRepository {
             ),
           );
     });
+    debugPrint(
+      '[KARIS-DBG] applyLocalRating card=${card.id} rating=${result.rating} '
+      'isNewCard=$isNewCard learningOrigin=$learningOrigin '
+      'stageBefore=${result.stageBefore} stageAfter=${result.stageAfter} '
+      'reviewVersionBefore=$reviewVersionBefore',
+    );
   }
 
   Future<List<LocalReviewLog>> getPendingRatings(String userId) async {
@@ -952,6 +983,10 @@ class OfflineRepository {
       byEvent[eventKey] = log;
       result.add(log);
     }
+    debugPrint(
+      '[KARIS-DBG] _getLogs userId=$userId since=$since '
+      'rows=${rows.length} deduped=${result.length}',
+    );
     return result;
   }
 

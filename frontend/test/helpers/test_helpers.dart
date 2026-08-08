@@ -191,6 +191,8 @@ Map<String, dynamic> reviewCardJson({
 Map<String, dynamic> reviewResultJson({
   String cardId = 'card-1',
   String rating = 'FAMILIAR',
+  int? reentryStage,
+  String? learningOrigin,
 }) {
   return {
     'card_id': cardId,
@@ -201,6 +203,8 @@ Map<String, dynamic> reviewResultJson({
     'learning_mode': false,
     'consecutive_familiar': 0,
     'next_interval_days': 1,
+    'reentry_stage': reentryStage,
+    'learning_origin': learningOrigin,
   };
 }
 

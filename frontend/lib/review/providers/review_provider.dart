@@ -1,6 +1,7 @@
 // ignore_for_file: prefer_initializing_formals
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
@@ -376,6 +377,11 @@ class ReviewNotifier extends StateNotifier<ReviewSessionState> {
       // 评分时刻的学习来源快照（排程算法会返回变更后的卡，必须先取值）：
       // 学新阶段产生的重学（NEW）评分不计入「今日复习」。
       final originAtRating = flash.learningOrigin;
+      debugPrint(
+        '[KARIS-DBG] rate() card=${card.id} rating=$rating '
+        'stage=${card.stage} learningMode=${card.learningMode} '
+        'learningOrigin=${card.learningOrigin} queueSource=${state.queueSource}',
+      );
       final outcome = LocalSchedulingEngine().rate(
         flash,
         rating,
@@ -383,6 +389,12 @@ class ReviewNotifier extends StateNotifier<ReviewSessionState> {
         refreshTime: meta?.refreshTime ?? '04:00:00',
       );
       final clientRequestId = const Uuid().v4();
+      debugPrint(
+        '[KARIS-DBG] rate() outcome wasNewCard=${outcome.wasNewCard} '
+        'originAtRating=$originAtRating '
+        'stageAfter=${outcome.result.stageAfter} '
+        'learningModeAfter=${outcome.result.learningMode}',
+      );
       await _offline.applyLocalRating(
         userId: userId,
         card: outcome.card,
@@ -439,7 +451,9 @@ class ReviewNotifier extends StateNotifier<ReviewSessionState> {
         lastResult: result,
         isRating: false,
       );
-      // 远程评分响应不携带 learning_step，重学卡按 step 0（紧邻位置）插回。
+      // 远程评分响应携带 reentry_stage / learning_origin，
+      // 重学卡按 step 0（紧邻位置）插回并保留来源与回归目标，
+      // 避免会话内再次评分时来源快照丢失（本地统计误计）或重学类型判定错误。
       if (result.learningMode && before != null) {
         _reinsertRelearningCard(
           ReviewCard(
@@ -451,8 +465,10 @@ class ReviewNotifier extends StateNotifier<ReviewSessionState> {
             learningMode: true,
             consecutiveFamiliar: result.consecutiveFamiliar,
             learningStep: 0,
+            reentryStage: result.reentryStage ?? before.reentryStage,
             nextReviewDate: result.nextReviewDate,
             reviewVersion: result.reviewVersion,
+            learningOrigin: result.learningOrigin ?? before.learningOrigin,
           ),
         );
       }
