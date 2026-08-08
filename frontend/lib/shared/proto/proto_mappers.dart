@@ -1,116 +1,187 @@
+import 'package:protobuf/protobuf.dart' as $pb;
+
 import 'karis_review.pb.dart';
 
-Map<String, dynamic> syncResponseToMap(SyncResponse proto) {
-  return {
-    'server_time': proto.serverTime,
-    'user': {
-      'id': proto.user.id,
-      'email': proto.user.email,
-      'refresh_time': proto.user.refreshTime,
-    },
-    'decks': proto.decks.map(deckToMap).toList(),
-    'review_logs': proto.reviewLogs.map(reviewLogToMap).toList(),
-    'changed_cards': proto.changedCards.map(cardToMap).toList(),
-    'deleted_deck_ids': proto.deletedDeckIds.toList(),
-    'deleted_card_ids': proto.deletedCardIds.toList(),
-    'deleted_review_log_ids': proto.deletedReviewLogIds.toList(),
-    'event_cursor': proto.eventCursor.toInt(),
-    'has_more': proto.hasMore,
-    'reset_required': proto.resetRequired,
-  };
+// 声明式字段映射（架构评审候选 1，2026-08）。
+//
+// 键集合单一数据源：由 protobuf 生成代码的 BuilderInfo（info_.byIndex）推导——
+// 每新增 proto 字段自动进入映射，无需手写键清单，杜绝手写字面量键漏映射。
+// 值获取必须显式书写（Dart Web 无运行时反射）；值函数未处理的字段会抛
+// UnsupportedError，字段对账测试（test/proto_mappers_test.dart）立刻红，
+// 防止 learning_origin 类漏映射生产故障复发。
+// 目标键为 snake_case：与 Drift 列名 / 后端 JSON 通道一致。
+
+/// camelCase → snake_case（proto dart 字段名 → 映射键）。
+String camelToSnake(String name) {
+  final buf = StringBuffer();
+  for (var i = 0; i < name.length; i++) {
+    final ch = name[i];
+    if (ch.toUpperCase() == ch && ch.toLowerCase() != ch) {
+      if (i > 0) buf.write('_');
+      buf.write(ch.toLowerCase());
+    } else {
+      buf.write(ch);
+    }
+  }
+  return buf.toString();
 }
 
-Map<String, dynamic> deckToMap(Deck deck) {
-  return {
-    'id': deck.id,
-    'name': deck.name,
-    'created_at': deck.createdAt,
-    'updated_at': deck.updatedAt,
-    'cards': deck.cards.map(cardToMap).toList(),
-  };
+/// 通用投影器：遍历生成代码注册的全部字段，键 = snake_case(字段名)，值 = valueOf。
+///
+/// 值函数对未知字段抛 [UnsupportedError]——漏映射在测试期暴露。
+Map<String, dynamic> _project<T extends $pb.GeneratedMessage>(
+  T msg,
+  dynamic Function(T msg, String field) valueOf,
+) {
+  final map = <String, dynamic>{};
+  for (final info in msg.info_.byIndex) {
+    map[camelToSnake(info.name)] = valueOf(msg, info.name);
+  }
+  return map;
 }
 
-Map<String, dynamic> cardToMap(Card card) {
-  return {
-    'id': card.id,
-    'deck_id': card.deckId,
-    'front': card.front,
-    'back': card.back,
-    'stage': card.stage,
-    'consecutive_familiar': card.consecutiveFamiliar,
-    'next_review_date': card.hasNextReviewDate() ? card.nextReviewDate : null,
-    'learning_mode': card.learningMode,
-    'reentry_stage': card.hasReentryStage() ? card.reentryStage : null,
-    'learning_step': card.learningStep,
-    'review_version': card.reviewVersion.toInt(),
-    'created_at': card.createdAt,
-    'updated_at': card.updatedAt,
-    'learning_origin': card.hasLearningOrigin() ? card.learningOrigin : null,
-  };
-}
+// ---------------------------------------------------------------- 值函数
 
-Map<String, dynamic> reviewLogToMap(ReviewLog log) {
-  return {
-    'id': log.id,
-    'card_id': log.cardId,
-    'rating': log.rating,
-    'stage_before': log.stageBefore,
-    'stage_after': log.stageAfter,
-    'reviewed_at': log.reviewedAt,
-    'is_new_card': log.isNewCard,
-    'learning_origin': log.hasLearningOrigin() ? log.learningOrigin : null,
-    'client_request_id':
-        log.hasClientRequestId() ? log.clientRequestId : null,
-  };
-}
+dynamic _userValue(User msg, String f) => switch (f) {
+      'id' => msg.id,
+      'email' => msg.email,
+      'refreshTime' => msg.refreshTime,
+      _ => throw UnsupportedError('User 字段未映射: $f'),
+    };
 
-Map<String, dynamic> reviewCardToMap(ReviewCard card) {
-  return {
-    'id': card.id,
-    'deck_id': card.deckId,
-    'front': card.front,
-    'back': card.back,
-    'stage': card.stage,
-    'learning_mode': card.learningMode,
-    'consecutive_familiar': card.consecutiveFamiliar,
-    'learning_step': card.learningStep,
-    'reentry_stage': card.hasReentryStage() ? card.reentryStage : null,
-    'next_review_date': card.hasNextReviewDate() ? card.nextReviewDate : null,
-    'review_version': card.reviewVersion.toInt(),
-    'learning_origin': card.hasLearningOrigin() ? card.learningOrigin : null,
-  };
-}
+dynamic _cardValue(Card msg, String f) => switch (f) {
+      'id' => msg.id,
+      'deckId' => msg.deckId,
+      'front' => msg.front,
+      'back' => msg.back,
+      'stage' => msg.stage,
+      'consecutiveFamiliar' => msg.consecutiveFamiliar,
+      'nextReviewDate' => msg.hasNextReviewDate() ? msg.nextReviewDate : null,
+      'learningMode' => msg.learningMode,
+      'reentryStage' => msg.hasReentryStage() ? msg.reentryStage : null,
+      'learningStep' => msg.learningStep,
+      'reviewVersion' => msg.reviewVersion.toInt(),
+      'createdAt' => msg.createdAt,
+      'updatedAt' => msg.updatedAt,
+      'learningOrigin' => msg.hasLearningOrigin() ? msg.learningOrigin : null,
+      _ => throw UnsupportedError('Card 字段未映射: $f'),
+    };
 
-List<Map<String, dynamic>> reviewCardListToMaps(ReviewCardListResponse proto) {
-  return proto.cards.map(reviewCardToMap).toList();
-}
+dynamic _deckValue(Deck msg, String f) => switch (f) {
+      'id' => msg.id,
+      'name' => msg.name,
+      'createdAt' => msg.createdAt,
+      'updatedAt' => msg.updatedAt,
+      'cards' => msg.cards.map(cardToMap).toList(),
+      _ => throw UnsupportedError('Deck 字段未映射: $f'),
+    };
 
-Map<String, dynamic> reviewSessionPageToMap(ReviewSessionPageResponse proto) {
-  return {
-    'session_id': proto.sessionId,
-    'mode': proto.mode,
-    'deck_id': proto.hasDeckId() ? proto.deckId : null,
-    'batch_size': proto.batchSize,
-    'total': proto.total,
-    'cursor': proto.cursor,
-    'has_more': proto.hasMore,
-    'cards': proto.cards.map(reviewCardToMap).toList(),
-  };
-}
+dynamic _reviewLogValue(ReviewLog msg, String f) => switch (f) {
+      'id' => msg.id,
+      'cardId' => msg.cardId,
+      'rating' => msg.rating,
+      'stageBefore' => msg.stageBefore,
+      'stageAfter' => msg.stageAfter,
+      'reviewedAt' => msg.reviewedAt,
+      'isNewCard' => msg.isNewCard,
+      'clientRequestId' =>
+        msg.hasClientRequestId() ? msg.clientRequestId : null,
+      'learningOrigin' => msg.hasLearningOrigin() ? msg.learningOrigin : null,
+      _ => throw UnsupportedError('ReviewLog 字段未映射: $f'),
+    };
 
-Map<String, dynamic> reviewSyncResponseToMap(ReviewSyncResponse proto) {
-  return {
-    'synced': proto.synced,
-    'conflicts': proto.conflicts,
-    'missing': proto.missing,
-    'items': proto.items.map((item) {
-      return {
-        'client_request_id': item.clientRequestId,
-        'status': item.status,
-        'current_card': item.hasCurrentCard()
-            ? reviewCardToMap(item.currentCard)
-            : null,
-      };
-    }).toList(),
-  };
-}
+dynamic _reviewCardValue(ReviewCard msg, String f) => switch (f) {
+      'id' => msg.id,
+      'deckId' => msg.deckId,
+      'front' => msg.front,
+      'back' => msg.back,
+      'stage' => msg.stage,
+      'learningMode' => msg.learningMode,
+      'consecutiveFamiliar' => msg.consecutiveFamiliar,
+      'learningStep' => msg.learningStep,
+      'reentryStage' => msg.hasReentryStage() ? msg.reentryStage : null,
+      'nextReviewDate' => msg.hasNextReviewDate() ? msg.nextReviewDate : null,
+      'reviewVersion' => msg.reviewVersion.toInt(),
+      'learningOrigin' => msg.hasLearningOrigin() ? msg.learningOrigin : null,
+      _ => throw UnsupportedError('ReviewCard 字段未映射: $f'),
+    };
+
+dynamic _reviewCardListValue(ReviewCardListResponse msg, String f) =>
+    switch (f) {
+      'cards' => msg.cards.map(reviewCardToMap).toList(),
+      _ => throw UnsupportedError('ReviewCardListResponse 字段未映射: $f'),
+    };
+
+dynamic _sessionPageValue(ReviewSessionPageResponse msg, String f) =>
+    switch (f) {
+      'sessionId' => msg.sessionId,
+      'mode' => msg.mode,
+      'deckId' => msg.hasDeckId() ? msg.deckId : null,
+      'batchSize' => msg.batchSize,
+      'total' => msg.total,
+      'cursor' => msg.cursor,
+      'hasMore' => msg.hasMore,
+      'cards' => msg.cards.map(reviewCardToMap).toList(),
+      _ => throw UnsupportedError('ReviewSessionPageResponse 字段未映射: $f'),
+    };
+
+dynamic _syncItemResultValue(ReviewSyncItemResult msg, String f) => switch (f) {
+      'clientRequestId' => msg.clientRequestId,
+      'status' => msg.status,
+      'currentCard' => msg.hasCurrentCard() ? reviewCardToMap(msg.currentCard) : null,
+      'cardId' => msg.cardId,
+      _ => throw UnsupportedError('ReviewSyncItemResult 字段未映射: $f'),
+    };
+
+dynamic _syncResponseValue(SyncResponse msg, String f) => switch (f) {
+      'serverTime' => msg.serverTime,
+      'user' => userToMap(msg.user),
+      'decks' => msg.decks.map(deckToMap).toList(),
+      'reviewLogs' => msg.reviewLogs.map(reviewLogToMap).toList(),
+      'changedCards' => msg.changedCards.map(cardToMap).toList(),
+      'deletedDeckIds' => msg.deletedDeckIds.toList(),
+      'deletedCardIds' => msg.deletedCardIds.toList(),
+      'deletedReviewLogIds' => msg.deletedReviewLogIds.toList(),
+      'eventCursor' => msg.eventCursor.toInt(),
+      'hasMore' => msg.hasMore,
+      'resetRequired' => msg.resetRequired,
+      _ => throw UnsupportedError('SyncResponse 字段未映射: $f'),
+    };
+
+dynamic _reviewSyncResponseValue(ReviewSyncResponse msg, String f) =>
+    switch (f) {
+      'synced' => msg.synced,
+      'conflicts' => msg.conflicts,
+      'missing' => msg.missing,
+      'items' => msg.items.map(reviewSyncItemResultToMap).toList(),
+      _ => throw UnsupportedError('ReviewSyncResponse 字段未映射: $f'),
+    };
+
+// ------------------------------------------------------------ 公开映射函数
+
+Map<String, dynamic> syncResponseToMap(SyncResponse proto) =>
+    _project(proto, _syncResponseValue);
+
+Map<String, dynamic> userToMap(User user) => _project(user, _userValue);
+
+Map<String, dynamic> deckToMap(Deck deck) => _project(deck, _deckValue);
+
+Map<String, dynamic> cardToMap(Card card) => _project(card, _cardValue);
+
+Map<String, dynamic> reviewLogToMap(ReviewLog log) =>
+    _project(log, _reviewLogValue);
+
+Map<String, dynamic> reviewCardToMap(ReviewCard card) =>
+    _project(card, _reviewCardValue);
+
+List<Map<String, dynamic>> reviewCardListToMaps(ReviewCardListResponse proto) =>
+    _project(proto, _reviewCardListValue)['cards'] as List<Map<String, dynamic>>;
+
+Map<String, dynamic> reviewSessionPageToMap(ReviewSessionPageResponse proto) =>
+    _project(proto, _sessionPageValue);
+
+Map<String, dynamic> reviewSyncResponseToMap(ReviewSyncResponse proto) =>
+    _project(proto, _reviewSyncResponseValue);
+
+Map<String, dynamic> reviewSyncItemResultToMap(ReviewSyncItemResult item) =>
+    _project(item, _syncItemResultValue);

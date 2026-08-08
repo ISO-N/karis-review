@@ -20,7 +20,7 @@ class SyncRepository {
       );
       return syncResponseToMap(message);
     } on DioException catch (e) {
-      if (_unsupported(e)) {
+      if (isProtoUnsupported(e)) {
         final response = await _client.get(
           ApiEndpoints.syncBootstrap,
           queryParameters: {'event_cursor': eventCursor},
@@ -49,7 +49,7 @@ class SyncRepository {
       );
       return reviewSessionPageToMap(message);
     } on DioException catch (e) {
-      if (_unsupported(e)) {
+      if (isProtoUnsupported(e)) {
         final response = await _client.post(
           ApiEndpoints.reviewSessions,
           data: {
@@ -77,7 +77,7 @@ class SyncRepository {
       );
       return reviewSessionPageToMap(message);
     } on DioException catch (e) {
-      if (_unsupported(e)) {
+      if (isProtoUnsupported(e)) {
         final response = await _client.get(
           ApiEndpoints.reviewSession(sessionId),
           queryParameters: {'cursor': cursor, 'limit': limit},
@@ -113,7 +113,7 @@ class SyncRepository {
       );
       return reviewSyncResponseToMap(message);
     } on DioException catch (e) {
-      if (_unsupported(e)) {
+      if (isProtoUnsupported(e)) {
         final response = await _client.post(
           ApiEndpoints.reviewSync,
           data: {'items': items},
@@ -122,11 +122,5 @@ class SyncRepository {
       }
       rethrow;
     }
-  }
-
-  bool _unsupported(DioException e) {
-    return e.response?.statusCode == 401 ||
-        e.response?.statusCode == 406 ||
-        e.response?.statusCode == 415;
   }
 }

@@ -437,6 +437,7 @@ log ───────► common
 
 - `reviewLogToMap` 补充 `'learning_origin': log.hasLearningOrigin() ? log.learningOrigin : null`；新增回归测试 `frontend/test/proto_mappers_test.dart`。
 - **防回归红线**：新增同步字段时，protobuf 路径（`proto_mappers.dart` 与重新生成的 `*.pb.dart`）与 JSON 路径必须同步覆盖；统计口径的 NULL 兜底会把"字段缺失"静默翻译成"复习"，宁可少算不可错算。
+- **2026-08-08 架构评审候选 1 落地（机制化防回归）**：`proto_mappers.dart` 重构为声明式投影——映射键集合由生成代码 `BuilderInfo.info_.byIndex` 推导（新增 proto 字段自动进入映射，不再手写字面量键），值函数对未处理字段抛 `UnsupportedError`，`test/proto_mappers_test.dart` 的字段对账用例保证"加字段漏映射"在测试期直接红；同时收敛 `review_repository`/`sync_repository` 两份重复的 `_unsupported()` 为 `ApiClient.isProtoUnsupported`，并修复 `reviewSyncItemResultToMap` 内联映射遗漏 `card_id` 的问题。此后本红线的执行不再依赖人工对照。
 - **存量用户处置**：修复只影响之后同步的数据；存量本地日志需触发「设置 → 以服务器数据为准」（`forceServerAuthoritative` → 全量 bootstrap 重灌）修正，发布 release 时应在更新说明引导。
 
 ### 已知限制
@@ -448,6 +449,7 @@ log ───────► common
 
 - `reviewLogToMap` 漏映射 `learning_origin`（本小节「根因」）。
 - `_rateRemote` 在线评分插回重学卡丢失 `learningOrigin`/`reentryStage`：`RateResponse` 新增 `reentry_stage`/`learning_origin`（`ReviewService.toRateResponse` 与幂等分支填充），前端 `ReviewResult` 解析并用于插回（`review_provider.dart`），避免会话内再次评分时来源快照丢失与重学类型判定错误。配套：`frontend/test/models_test.dart` 重学字段解析断言；`docs/design/api.md` 评分接口响应补充字段。
+- `proto_mappers.dart` 声明式投影重构（本小节「防回归」机制化）：消灭手写字面量键，漏映射由测试期 `UnsupportedError` 拦截；`reviewSyncItemResultToMap` 补上内联映射遗漏的 `card_id`；`review_repository`/`sync_repository` 的 `_unsupported()` 收敛为 `ApiClient.isProtoUnsupported`。
 
 ## 7.2 自动刷新与关键时机同步
 

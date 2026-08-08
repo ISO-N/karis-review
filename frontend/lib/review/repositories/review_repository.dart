@@ -24,7 +24,7 @@ class ReviewRepository {
           .map(ReviewCard.fromJson)
           .toList();
     } on DioException catch (e) {
-      if (_unsupported(e)) {
+      if (isProtoUnsupported(e)) {
         final response = await _client.get(
           ApiEndpoints.reviewDue,
           queryParameters: params,
@@ -51,7 +51,7 @@ class ReviewRepository {
           .map(ReviewCard.fromJson)
           .toList();
     } on DioException catch (e) {
-      if (_unsupported(e)) {
+      if (isProtoUnsupported(e)) {
         final response = await _client.get(
           ApiEndpoints.reviewNew,
           queryParameters: params,
@@ -71,11 +71,5 @@ class ReviewRepository {
       data: {'rating': rating},
     );
     return ReviewResult.fromJson(response.data['data'] as Map<String, dynamic>);
-  }
-
-  bool _unsupported(DioException e) {
-    return e.response?.statusCode == 401 ||
-        e.response?.statusCode == 406 ||
-        e.response?.statusCode == 415;
   }
 }

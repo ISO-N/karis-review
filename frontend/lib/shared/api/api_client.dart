@@ -194,3 +194,12 @@ class ApiClient {
     await prefs.remove(_tokenKey);
   }
 }
+
+/// proto 内容协商失败判定：401/406/415 → 服务端不支持 protobuf，回退 JSON 通道。
+///
+/// 收敛自 review/sync 两个 repository 各自的 `_unsupported()`（架构评审候选 1）。
+bool isProtoUnsupported(DioException e) {
+  return e.response?.statusCode == 401 ||
+      e.response?.statusCode == 406 ||
+      e.response?.statusCode == 415;
+}
