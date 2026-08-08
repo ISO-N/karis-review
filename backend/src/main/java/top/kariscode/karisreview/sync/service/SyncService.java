@@ -24,6 +24,7 @@ import top.kariscode.karisreview.sync.dto.BootstrapReviewLog;
 import top.kariscode.karisreview.sync.dto.BootstrapUser;
 import top.kariscode.karisreview.sync.repository.SyncEventRepository;
 
+import top.kariscode.karisreview.common.util.DateUtils;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -88,7 +89,7 @@ public class SyncService {
     @Scheduled(cron = "0 30 3 * * *")
     @Transactional
     public void cleanupOldSyncEvents() {
-        LocalDateTime cutoff = LocalDateTime.now().minusDays(SYNC_EVENT_RETENTION_DAYS);
+        LocalDateTime cutoff = DateUtils.now().minusDays(SYNC_EVENT_RETENTION_DAYS);
         int deleted = syncEventRepository.deleteOlderThan(cutoff);
         if (deleted > 0) {
             log.info("Cleaned up {} sync_events older than {}", deleted, cutoff);

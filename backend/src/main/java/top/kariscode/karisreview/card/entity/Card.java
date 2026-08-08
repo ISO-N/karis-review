@@ -2,6 +2,7 @@ package top.kariscode.karisreview.card.entity;
 
 import jakarta.persistence.*;
 import java.time.LocalDate;
+import top.kariscode.karisreview.common.util.DateUtils;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -63,13 +64,13 @@ public class Card {
 
     @PrePersist
     protected void onCreate() {
-        createdAt = LocalDateTime.now();
-        updatedAt = LocalDateTime.now();
+        createdAt = DateUtils.now();
+        updatedAt = DateUtils.now();
     }
 
     @PreUpdate
     protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
+        updatedAt = DateUtils.now();
     }
 
     public UUID getId() { return id; }
