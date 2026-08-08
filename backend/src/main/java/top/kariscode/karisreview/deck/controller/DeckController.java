@@ -8,6 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import top.kariscode.karisreview.common.dto.ApiResponse;
+import top.kariscode.karisreview.common.etag.EtagSupport;
 import top.kariscode.karisreview.common.etag.UserEtagService;
 import top.kariscode.karisreview.deck.dto.DeckCreateRequest;
 import top.kariscode.karisreview.deck.dto.DeckResponse;
@@ -35,7 +36,7 @@ public class DeckController {
             @AuthenticationPrincipal UUID userId,
             @RequestHeader(name = "If-None-Match", required = false) String ifNoneMatch) {
         String etag = etagService.decksEtag(userId);
-        if (matches(ifNoneMatch, etag)) {
+        if (EtagSupport.matches(ifNoneMatch, etag)) {
             return ResponseEntity.status(HttpStatus.NOT_MODIFIED).eTag(etag).build();
         }
         List<DeckResponse> decks = deckService.getUserDecks(userId);
@@ -43,10 +44,6 @@ public class DeckController {
                 .eTag(etag)
                 .cacheControl(CacheControl.noCache().cachePrivate())
                 .body(ApiResponse.success(decks));
-    }
-
-    private boolean matches(String ifNoneMatch, String etag) {
-        return ifNoneMatch != null && ("*".equals(ifNoneMatch) || ifNoneMatch.equals(etag));
     }
 
     @PostMapping

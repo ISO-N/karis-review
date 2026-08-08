@@ -7,7 +7,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Pageable;
 import top.kariscode.karisreview.auth.entity.User;
-import top.kariscode.karisreview.auth.repository.UserRepository;
+import top.kariscode.karisreview.common.etag.UserRefreshTimeQuery;
 import top.kariscode.karisreview.card.entity.Card;
 import top.kariscode.karisreview.card.repository.CardRepository;
 import top.kariscode.karisreview.common.exception.BusinessException;
@@ -45,7 +45,7 @@ class ReviewSessionServiceTest {
     private ReviewLogRepository reviewLogRepository;
 
     @Mock
-    private UserRepository userRepository;
+    private UserRefreshTimeQuery userRefreshTimeQuery;
 
     @Mock
     private SchedulingEngine schedulingEngine;
@@ -64,7 +64,7 @@ class ReviewSessionServiceTest {
     @BeforeEach
     void setUp() {
         service = new ReviewService(
-                cardRepository, reviewLogRepository, userRepository, schedulingEngine,
+                cardRepository, reviewLogRepository, userRefreshTimeQuery, schedulingEngine,
                 reviewSessionRepository, reviewQueueItemRepository, userLogService);
     }
 
@@ -73,7 +73,7 @@ class ReviewSessionServiceTest {
         UUID userId = UUID.randomUUID();
         UUID deckId = UUID.randomUUID();
         UUID sessionId = UUID.randomUUID();
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user()));
+        when(userRefreshTimeQuery.resolve(userId)).thenReturn(LocalTime.of(4, 0));
         when(cardRepository.findDueCards(eq(userId), any(LocalDate.class), eq(deckId)))
                 .thenReturn(List.of());
         when(cardRepository.findLearningModeCardsForReview(eq(userId), any(LocalDate.class), eq(deckId)))

@@ -1,5 +1,6 @@
 package top.kariscode.karisreview.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.context.MessageSource;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -9,6 +10,7 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import top.kariscode.karisreview.common.dto.ApiResponse;
 import top.kariscode.karisreview.config.ProtobufHttpMessageConverter;
 import top.kariscode.karisreview.proto.KarisReviewProto.ApiError;
 import org.springframework.security.web.SecurityFilterChain;
@@ -22,10 +24,14 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final MessageSource messageSource;
+    private final ObjectMapper objectMapper;
 
-    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter, MessageSource messageSource) {
+    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter,
+                          MessageSource messageSource,
+                          ObjectMapper objectMapper) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
         this.messageSource = messageSource;
+        this.objectMapper = objectMapper;
     }
 
     @Bean
@@ -61,9 +67,11 @@ public class SecurityConfig {
                             .build()
                             .writeTo(response.getOutputStream());
                 } else {
+                    // 与 GlobalExceptionHandler 同一格式：经 ObjectMapper 序列化 ApiResponse
+                    // （架构评审 B4：原手拼字符串不转义，i18n 文案含引号/反斜杠即产生非法 JSON）。
                     response.setContentType(MediaType.APPLICATION_JSON_VALUE);
                     response.setCharacterEncoding("UTF-8");
-                    response.getWriter().write("{\"code\":401,\"message\":\"" + message + "\",\"data\":null}");
+                    objectMapper.writeValue(response.getWriter(), ApiResponse.error(401, message));
                 }
             }))
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
