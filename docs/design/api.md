@@ -1167,6 +1167,8 @@
 
 > 前端可将 `data` 字段保存为 JSON 文件供用户下载。
 
+> **备份格式（2026-08-08 架构评审 B4 起）**：`decks[].cards[]` 携带 `id`（备份时的原 card_id），`review_logs[]` 携带 `card_id` + `card_front`（`card_front` 保留兼容旧版工具）。导入时优先按 `card_id` 直连恢复日志归属（同 front 多卡不再错挂第一张），旧备份（无 `card_id`）回退 `card_front` 文本匹配兜底。`exported_at` 为业务时区（AppTimeZone）时间。
+
 ---
 
 ### POST /api/backup/import
