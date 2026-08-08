@@ -219,6 +219,115 @@ void main() {
     expect(byId['reviewed-future']!.due, isFalse);
   });
 
+  test('list filters follow queue predicates (NEW relearning -> new, REVIEW -> due)', () async {
+    // 固定"今天"为 2025-08-02；验证卡列表筛选口径与队列/计数一致：
+    // 学新重学卡（origin=NEW）归学新筛选、不进复习筛选；
+    // 复习重学卡（origin=REVIEW）归复习筛选、不进学新筛选。
+    await offline.saveBootstrap(
+      userId: 'user-1',
+      email: 'a@b.c',
+      refreshTime: '04:00:00',
+      serverTime: DateTime.utc(2025, 8, 2, 12),
+      decks: [
+        {
+          'id': 'deck-1',
+          'name': '日语',
+          'created_at': '2025-08-01T00:00:00Z',
+          'updated_at': '2025-08-01T00:00:00Z',
+          'cards': [
+            {
+              'id': 'new-waiting',
+              'deck_id': 'deck-1',
+              'front': '待学新卡',
+              'back': '反面',
+              'stage': 0,
+              'consecutive_familiar': 0,
+              'next_review_date': null,
+              'learning_mode': false,
+              'reentry_stage': null,
+              'learning_step': 0,
+              'review_version': 0,
+              'learning_origin': null,
+              'created_at': '2025-08-01T00:00:00Z',
+              'updated_at': '2025-08-01T00:00:00Z',
+            },
+            {
+              'id': 'new-relearning',
+              'deck_id': 'deck-1',
+              'front': '学新阶段忘记重学',
+              'back': '反面',
+              'stage': 0,
+              'consecutive_familiar': 1,
+              'next_review_date': '2025-08-02',
+              'learning_mode': true,
+              'reentry_stage': null,
+              'learning_step': 1,
+              'review_version': 0,
+              'learning_origin': 'NEW',
+              'created_at': '2025-08-01T00:00:00Z',
+              'updated_at': '2025-08-01T00:00:00Z',
+            },
+            {
+              'id': 'review-relearning',
+              'deck_id': 'deck-1',
+              'front': '复习阶段忘记重学',
+              'back': '反面',
+              'stage': 3,
+              'consecutive_familiar': 0,
+              'next_review_date': '2025-08-02',
+              'learning_mode': true,
+              'reentry_stage': 3,
+              'learning_step': 2,
+              'review_version': 0,
+              'learning_origin': 'REVIEW',
+              'created_at': '2025-08-01T00:00:00Z',
+              'updated_at': '2025-08-01T00:00:00Z',
+            },
+            {
+              'id': 'review-due',
+              'deck_id': 'deck-1',
+              'front': '到期复习卡',
+              'back': '反面',
+              'stage': 2,
+              'consecutive_familiar': 0,
+              'next_review_date': '2025-08-02',
+              'learning_mode': false,
+              'reentry_stage': null,
+              'learning_step': 0,
+              'review_version': 0,
+              'learning_origin': null,
+              'created_at': '2025-08-01T00:00:00Z',
+              'updated_at': '2025-08-01T00:00:00Z',
+            },
+          ],
+        },
+      ],
+      reviewLogs: [],
+    );
+
+    final newCards = await offline.getFilteredFlashCards(
+      'user-1',
+      deckId: 'deck-1',
+      filter: 'new',
+    );
+    final dueCards = await offline.getFilteredFlashCards(
+      'user-1',
+      deckId: 'deck-1',
+      filter: 'due',
+    );
+
+    expect(
+      newCards.map((c) => c.id).toSet(),
+      {'new-waiting', 'new-relearning'},
+      reason: '学新筛选应含待学新卡与学新重学卡，不含复习重学/到期复习卡',
+    );
+    expect(
+      dueCards.map((c) => c.id).toSet(),
+      {'review-relearning', 'review-due'},
+      reason: '复习筛选应含到期卡与复习重学卡，不含学新重学卡',
+    );
+  });
+
   test('due queue orders by overdue days first, then next review date', () async {
     // 固定"今天"为 2025-08-02（业务日）
     await offline.saveBootstrap(
@@ -1022,6 +1131,70 @@ void main() {
       expect(trend[3].learned, 0);
     },
   );
+
+  test('trend excludes new-origin relearning ratings from reviewed (A3 口径)', () async {
+    await offline.saveBootstrap(
+      userId: 'user-1',
+      email: 'a@b.c',
+      refreshTime: '04:00:00',
+      serverTime: DateTime.utc(2025, 8, 10, 12),
+      decks: [
+        {
+          'id': 'deck-1',
+          'name': '日语',
+          'created_at': '2025-08-01T00:00:00Z',
+          'updated_at': '2025-08-01T00:00:00Z',
+          'cards': [
+            {
+              'id': 'card-1',
+              'deck_id': 'deck-1',
+              'front': '单词',
+              'back': '释义',
+              'stage': 1,
+              'consecutive_familiar': 0,
+              'next_review_date': '2025-08-11',
+              'learning_mode': false,
+              'reentry_stage': null,
+              'learning_step': 0,
+              'review_version': 1,
+              'created_at': '2025-08-01T00:00:00Z',
+              'updated_at': '2025-08-10T12:00:00Z',
+            },
+          ],
+        },
+      ],
+      reviewLogs: [
+        {
+          'id': 'log-review',
+          'card_id': 'card-1',
+          'rating': 'FAMILIAR',
+          'stage_before': 2,
+          'stage_after': 3,
+          'is_new_card': false,
+          'reviewed_at': '2025-08-09T12:00:00',
+        },
+        {
+          // 学新阶段重学（origin=NEW）：is_new_card=false 但必须从 reviewed 剔除。
+          'id': 'log-new-relearn',
+          'card_id': 'card-1',
+          'rating': 'VAGUE',
+          'stage_before': 0,
+          'stage_after': 0,
+          'is_new_card': false,
+          'learning_origin': 'NEW',
+          'reviewed_at': '2025-08-09T13:00:00',
+        },
+      ],
+    );
+
+    final trend = await offline.getTrend('user-1', days: 2);
+
+    expect(trend[0].date, '2025-08-09');
+    expect(trend[0].reviewed, 1); // 只有普通复习，NEW 来源重学被剔除
+    expect(trend[0].learned, 0);
+    expect(trend[1].date, '2025-08-10');
+    expect(trend[1].reviewed, 0);
+  });
 
   test('sync bootstrap restores is_new_card into local stats', () async {
     final api = FakeApiClient();

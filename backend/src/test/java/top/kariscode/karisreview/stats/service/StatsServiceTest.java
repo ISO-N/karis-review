@@ -6,13 +6,14 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import top.kariscode.karisreview.auth.entity.User;
-import top.kariscode.karisreview.auth.repository.UserRepository;
+import top.kariscode.karisreview.common.etag.UserRefreshTimeQuery;
 import top.kariscode.karisreview.card.repository.CardRepository;
 import top.kariscode.karisreview.common.exception.BusinessException;
 import top.kariscode.karisreview.common.util.DateUtils;
 import top.kariscode.karisreview.deck.entity.Deck;
 import top.kariscode.karisreview.deck.repository.DeckRepository;
 import top.kariscode.karisreview.review.repository.ReviewLogRepository;
+import top.kariscode.karisreview.stats.dto.DeckCounters;
 import top.kariscode.karisreview.stats.dto.DeckStatsResponse;
 import top.kariscode.karisreview.stats.dto.OverviewStatsResponse;
 import top.kariscode.karisreview.stats.dto.TrendStatsResponse;
@@ -41,14 +42,14 @@ class StatsServiceTest {
     private ReviewLogRepository reviewLogRepository;
 
     @Mock
-    private UserRepository userRepository;
+    private UserRefreshTimeQuery userRefreshTimeQuery;
 
     private StatsService service;
 
     @BeforeEach
     void setUp() {
         service = new StatsService(
-                cardRepository, deckRepository, reviewLogRepository, userRepository);
+                cardRepository, deckRepository, reviewLogRepository, userRefreshTimeQuery);
     }
 
     @Test
@@ -56,7 +57,7 @@ class StatsServiceTest {
         UUID userId = UUID.randomUUID();
         LocalTime refreshTime = LocalTime.of(4, 0);
         LocalDate today = DateUtils.calculateToday(refreshTime);
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user()));
+        when(userRefreshTimeQuery.resolve(userId)).thenReturn(LocalTime.of(4, 0));
         when(deckRepository.countByUserId(userId)).thenReturn(2L);
         when(reviewLogRepository.countReviewedToday(
                 userId, today.atTime(refreshTime), today.plusDays(1).atTime(refreshTime)))
@@ -97,7 +98,7 @@ class StatsServiceTest {
         LocalTime refreshTime = LocalTime.of(4, 0);
         LocalDate today = DateUtils.calculateToday(refreshTime);
         when(deckRepository.findByIdAndUserId(deckId, userId)).thenReturn(Optional.of(deck));
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user()));
+        when(userRefreshTimeQuery.resolve(userId)).thenReturn(LocalTime.of(4, 0));
         when(cardRepository.countByDeckId(deckId)).thenReturn(5L);
         when(cardRepository.countDueByDeckId(deckId, today)).thenReturn(2);
         when(reviewLogRepository.countReviewedTodayForDeck(
@@ -146,7 +147,7 @@ class StatsServiceTest {
         LocalDateTime start = today.minusDays(5).atTime(refreshTime);
         // 聚合行: [业务日, 复习次数(非新卡), 新学次数(新卡且 FAMILIAR)]
         LocalDate logDay = today.minusDays(2);
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user()));
+        when(userRefreshTimeQuery.resolve(userId)).thenReturn(LocalTime.of(4, 0));
         when(reviewLogRepository.findDailyTrend(userId, start, refreshTime))
                 .thenReturn(List.<Object[]>of(
                         new Object[]{java.sql.Date.valueOf(logDay), 3L, 1L}));
@@ -165,7 +166,9 @@ class StatsServiceTest {
         UUID userId = UUID.randomUUID();
         LocalTime refreshTime = LocalTime.of(4, 0);
         LocalDate today = DateUtils.calculateToday(refreshTime);
-        when(userRepository.findById(userId)).thenReturn(Optional.empty());
+        // 兜底语义由 UserRefreshTimeService 保证（UserRefreshTime.DEFAULT_REFRESH_TIME）；
+        // service 层只消费 UserRefreshTimeQuery.resolve 的返回值。
+        when(userRefreshTimeQuery.resolve(userId)).thenReturn(refreshTime);
         when(deckRepository.countByUserId(userId)).thenReturn(0L);
         when(reviewLogRepository.countReviewedToday(
                 userId, today.atTime(refreshTime), today.plusDays(1).atTime(refreshTime)))
@@ -178,6 +181,33 @@ class StatsServiceTest {
         OverviewStatsResponse stats = service.getOverview(userId);
 
         assertEquals(0, stats.getTotalCards());
+    }
+
+    @Test
+    void getDeckCountersBuildsSixCounters() {
+        UUID userId = UUID.randomUUID();
+        UUID deckId = UUID.randomUUID();
+        LocalTime refreshTime = LocalTime.of(4, 0);
+        LocalDate today = DateUtils.calculateToday(refreshTime);
+        when(userRefreshTimeQuery.resolve(userId)).thenReturn(LocalTime.of(4, 0));
+        when(cardRepository.countByDeckId(deckId)).thenReturn(5L);
+        when(cardRepository.countDueByDeckId(deckId, today)).thenReturn(2);
+        when(cardRepository.countNewByDeckId(deckId)).thenReturn(1L);
+        when(cardRepository.countByDeckIdAndStageGreaterThanEqual(deckId, 5)).thenReturn(1L);
+        when(cardRepository.countByStageGroupedByDeck(deckId)).thenReturn(
+                List.<Object[]>of(new Object[]{3, 4L}, new Object[]{5, 1L}));
+        when(cardRepository.countDueByStageGroupedByDeck(deckId, today)).thenReturn(
+                List.<Object[]>of(new Object[]{0, 2L}));
+
+        DeckCounters counters = service.getDeckCounters(userId, deckId);
+
+        assertEquals(5, counters.getCardCount());
+        assertEquals(2, counters.getDueCount());
+        assertEquals(1, counters.getNewCount());
+        assertEquals(1, counters.getMasteredCount());
+        assertEquals(4L, counters.getStageDistribution().get(3));
+        assertEquals(1L, counters.getStageDistribution().get(5));
+        assertEquals(2L, counters.getDueStageDistribution().get(0));
     }
 
     private User user() {

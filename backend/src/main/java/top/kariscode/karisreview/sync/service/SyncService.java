@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 import top.kariscode.karisreview.auth.entity.User;
 import top.kariscode.karisreview.auth.repository.UserRepository;
 import top.kariscode.karisreview.card.entity.Card;
+import top.kariscode.karisreview.card.entity.SchedulingState;
 import top.kariscode.karisreview.card.repository.CardRepository;
 import top.kariscode.karisreview.common.exception.BusinessException;
 import top.kariscode.karisreview.deck.entity.Deck;
@@ -23,6 +24,7 @@ import top.kariscode.karisreview.sync.dto.BootstrapReviewLog;
 import top.kariscode.karisreview.sync.dto.BootstrapUser;
 import top.kariscode.karisreview.sync.repository.SyncEventRepository;
 
+import top.kariscode.karisreview.common.util.DateUtils;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -87,7 +89,7 @@ public class SyncService {
     @Scheduled(cron = "0 30 3 * * *")
     @Transactional
     public void cleanupOldSyncEvents() {
-        LocalDateTime cutoff = LocalDateTime.now().minusDays(SYNC_EVENT_RETENTION_DAYS);
+        LocalDateTime cutoff = DateUtils.now().minusDays(SYNC_EVENT_RETENTION_DAYS);
         int deleted = syncEventRepository.deleteOlderThan(cutoff);
         if (deleted > 0) {
             log.info("Cleaned up {} sync_events older than {}", deleted, cutoff);
@@ -239,11 +241,12 @@ public class SyncService {
     }
 
     private BootstrapCard toBootstrapCard(Card card) {
+        SchedulingState s = card.getSchedulingState();
         return new BootstrapCard(
                 card.getId(), card.getDeckId(), card.getFront(), card.getBack(),
-                card.getStage(), card.getConsecutiveFamiliar(), card.getNextReviewDate(),
-                card.isLearningMode(), card.getReentryStage(), card.getLearningStep(),
-                card.getReviewVersion(), card.getLearningOrigin(),
+                s.getStage(), s.getConsecutiveFamiliar(), s.getNextReviewDate(),
+                s.isLearningMode(), s.getReentryStage(), s.getLearningStep(),
+                card.getReviewVersion(), s.getLearningOrigin(),
                 card.getCreatedAt(), card.getUpdatedAt());
     }
 

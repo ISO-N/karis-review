@@ -42,7 +42,7 @@ class GlobalExceptionHandlerTest {
 
     @BeforeEach
     void setUp() {
-        handler = new GlobalExceptionHandler(messageSource, userLogService);
+        handler = new GlobalExceptionHandler(messageSource, Optional.of(userLogService));
         when(messageSource.getMessage(anyString(), any(), any(), any(Locale.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
     }
@@ -93,7 +93,7 @@ class GlobalExceptionHandlerTest {
 
         handler.handleException(new RuntimeException("boom"), request);
 
-        verify(userLogService).log(
-                eq(userId), eq("ERROR"), eq("SYSTEM"), eq("log.operation.server.error"), any(Map.class));
+        verify(userLogService).report(
+                eq(userId), eq("log.operation.server.error"), any(Map.class));
     }
 }

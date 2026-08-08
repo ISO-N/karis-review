@@ -29,6 +29,7 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -201,6 +202,48 @@ class BackupServiceTest {
     }
 
     @Test
+    void importDataDirectlyReattachesLogByCardIdEvenWithDuplicateFront() {
+        // 架构评审 B4：导出携带 card_id 后，同 front 多卡也能直连恢复，
+        // 不再依赖 front 文本猜测（此前会错挂第一张匹配卡）。
+        UUID userId = UUID.randomUUID();
+        String backupCardIdA = UUID.randomUUID().toString();
+        String backupCardIdB = UUID.randomUUID().toString();
+        when(deckRepository.save(any(Deck.class))).thenAnswer(invocation -> {
+            Deck deck = invocation.getArgument(0);
+            deck.setId(UUID.randomUUID());
+            return deck;
+        });
+        when(cardRepository.saveAll(any())).thenAnswer(invocation -> {
+            List<Card> cards = invocation.getArgument(0);
+            cards.forEach(c -> c.setId(UUID.randomUUID()));
+            return cards;
+        });
+
+        // 两张卡 front 完全相同（重复 front 场景），日志只挂卡 B。
+        Map<String, Object> data = Map.of(
+                "decks", List.of(Map.of(
+                        "name", "牌组",
+                        "cards", List.of(
+                                Map.of("id", backupCardIdA, "front", "重复正面", "back", "A"),
+                                Map.of("id", backupCardIdB, "front", "重复正面", "back", "B")))),
+                "review_logs", List.of(Map.of(
+                        "card_id", backupCardIdB,
+                        "card_front", "重复正面",
+                        "rating", "FORGET",
+                        "stage_before", 3,
+                        "stage_after", 0)));
+
+        Map<String, Object> result = service.importData(userId, data);
+
+        assertEquals(2, result.get("imported_cards"));
+        assertEquals(1, result.get("imported_review_logs"));
+        ArgumentCaptor<List<ReviewLog>> logCaptor = ArgumentCaptor.forClass(List.class);
+        verify(reviewLogRepository).saveAll(logCaptor.capture());
+        // 直连挂到 B 卡（第二条导入卡），而非 front 匹配的第一张 A。
+        assertNotEquals(backupCardIdA, logCaptor.getValue().get(0).getCardId().toString());
+    }
+
+    @Test
     void importDataIgnoresMissingDecksAndLogsWithoutError() {
         UUID userId = UUID.randomUUID();
 
@@ -236,6 +279,105 @@ class BackupServiceTest {
 
         assertEquals(1, result.get("imported_cards"));
         assertEquals(0, result.get("imported_review_logs"));
+    }
+
+    @Test
+    void exportDataIncludesFullSchedulingState() {
+        UUID userId = UUID.randomUUID();
+        UUID deckId = UUID.randomUUID();
+        User user = new User();
+        user.setId(userId);
+        user.setEmail("user@example.com");
+        user.setRefreshTime(LocalTime.of(4, 0));
+        Deck deck = new Deck();
+        deck.setId(deckId);
+        deck.setUserId(userId);
+        deck.setName("日语");
+        Card card = new Card();
+        card.setId(UUID.randomUUID());
+        card.setDeckId(deckId);
+        card.setFront("正面");
+        card.setBack("反面");
+        card.setStage(3);
+        card.setConsecutiveFamiliar(2);
+        card.setNextReviewDate(java.time.LocalDate.of(2026, 8, 9));
+        card.setLearningMode(true);
+        card.setReentryStage(1);
+        card.setLearningStep(2);
+        card.setLearningOrigin("NEW");
+        card.setReviewVersion(7);
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(deckRepository.findByUserIdOrderByCreatedAtAsc(userId)).thenReturn(List.of(deck));
+        when(cardRepository.findByDeckIdOrderByCreatedAtAsc(deckId)).thenReturn(List.of(card));
+        when(reviewLogRepository.findByUserIdOrderByReviewedAtDesc(userId)).thenReturn(List.of());
+        when(backupRepository.save(any(BackupSnapshot.class))).thenAnswer(invocation -> {
+            BackupSnapshot snapshot = invocation.getArgument(0);
+            snapshot.setId(UUID.randomUUID());
+            ReflectionTestUtils.setField(snapshot, "createdAt", LocalDateTime.of(2026, 8, 8, 11, 0));
+            return snapshot;
+        });
+
+        service.exportData(userId);
+
+        ArgumentCaptor<BackupSnapshot> snapshotCaptor =
+                ArgumentCaptor.forClass(BackupSnapshot.class);
+        verify(backupRepository).save(snapshotCaptor.capture());
+        String data = snapshotCaptor.getValue().getData();
+        // 回归：曾漏导出 learning_step/learning_origin/review_version，
+        // 恢复后队列归属退化与重学插位丢失（架构评审候选 2）。
+        assertTrue(data.contains("\"learning_step\":2"), data);
+        assertTrue(data.contains("\"learning_origin\":\"NEW\""), data);
+        assertTrue(data.contains("\"review_version\":7"), data);
+        assertTrue(data.contains("\"learning_mode\":true"), data);
+        assertTrue(data.contains("\"reentry_stage\":1"), data);
+        // 架构评审 B4：导出携带 card_id，导入可直连恢复（此前只写 front 文本）。
+        assertTrue(data.contains("\"id\":\"" + card.getId() + "\""), data);
+    }
+
+    @Test
+    void importDataRestoresSchedulingState() {
+        UUID userId = UUID.randomUUID();
+        when(deckRepository.save(any(Deck.class))).thenAnswer(invocation -> {
+            Deck deck = invocation.getArgument(0);
+            deck.setId(UUID.randomUUID());
+            return deck;
+        });
+        when(cardRepository.saveAll(any())).thenAnswer(invocation -> {
+            List<Card> cards = invocation.getArgument(0);
+            cards.forEach(c -> c.setId(UUID.randomUUID()));
+            return cards;
+        });
+
+        Map<String, Object> data = Map.of(
+                "decks", List.of(Map.of(
+                        "name", "恢复牌组",
+                        "cards", List.of(Map.of(
+                                "front", "正面",
+                                "back", "反面",
+                                "stage", 3,
+                                "consecutive_familiar", 2,
+                                "next_review_date", "2026-08-09",
+                                "learning_mode", true,
+                                "reentry_stage", 1,
+                                "learning_step", 2,
+                                "learning_origin", "NEW",
+                                "review_version", 7)))));
+
+        service.importData(userId, data);
+
+        ArgumentCaptor<List<Card>> cardCaptor = ArgumentCaptor.forClass(List.class);
+        verify(cardRepository).saveAll(cardCaptor.capture());
+        Card restored = cardCaptor.getValue().get(0);
+        // 排期状态整体恢复（架构评审候选 2）
+        assertEquals(3, restored.getStage());
+        assertEquals(2, restored.getConsecutiveFamiliar());
+        assertEquals(java.time.LocalDate.of(2026, 8, 9), restored.getNextReviewDate());
+        assertEquals(true, restored.isLearningMode());
+        assertEquals(1, restored.getReentryStage());
+        assertEquals(2, restored.getLearningStep());
+        assertEquals("NEW", restored.getLearningOrigin());
+        assertEquals(7, restored.getReviewVersion());
     }
 
     @Test

@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../offline/offline_repository.dart';
@@ -93,25 +91,29 @@ class StatsNotifier extends StateNotifier<AsyncValue<OverviewStats?>> {
     try {
       final meta = await offline!.getActiveSyncMeta();
       if (meta == null) return;
-      state = AsyncValue.data(await offline!.getOverviewStats(meta.userId));
+      await _loadLocalFor(meta.userId);
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+    }
+  }
+
+  Future<void> _loadLocalFor(String userId) async {
+    try {
+      state = AsyncValue.data(await offline!.getOverviewStats(userId));
       _lastLoadedAt = DateTime.now();
     } catch (e, st) {
       state = AsyncValue.error(e, st);
     }
   }
 
+  // 数据变更重载统一委托 reloadDataAfterChange（架构评审 F4）；
+  // 在线通道需绕过 TTL 强制刷新（数据已变，不能复用缓存）。
   Future<void> reloadAfterDataChange() async {
-    if (offline == null) {
-      // 数据变更（dataVersionProvider 变化）需绕过 TTL 强制刷新。
-      await loadOverview(force: true);
-      return;
-    }
-    final meta = await offline!.getActiveSyncMeta();
-    if (meta == null) {
-      await loadOverview(force: true);
-      return;
-    }
-    await _loadLocal();
+    await reloadDataAfterChange(
+      offline: offline,
+      reloadOnline: () => loadOverview(force: true),
+      reloadLocal: _loadLocalFor,
+    );
   }
 }
 
@@ -122,9 +124,7 @@ final statsProvider =
         offline: ref.watch(offlineRepositoryProvider),
         sync: ref.watch(syncServiceProvider),
       );
-      ref.listen(dataVersionProvider, (_, _) {
-        unawaited(notifier.reloadAfterDataChange());
-      });
+      listenDataVersion(ref, notifier.reloadAfterDataChange);
       return notifier;
     });
 

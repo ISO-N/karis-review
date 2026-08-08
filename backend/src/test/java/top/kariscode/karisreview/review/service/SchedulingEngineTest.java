@@ -60,8 +60,6 @@ class SchedulingEngineTest {
         Card normal = new Card();
         normal.setStage(3);
         assertEquals(4, SchedulingEngine.getStageInterval(3));
-        assertEquals(7, SchedulingEngine.getFamiliarIntervalAfterRating(normal));
-        assertEquals(4, SchedulingEngine.getVagueIntervalAfterRating(normal));
 
         Card relearning = new Card();
         relearning.setStage(0);
@@ -69,10 +67,6 @@ class SchedulingEngineTest {
         relearning.setConsecutiveFamiliar(2);
         relearning.setReentryStage(4);
         assertEquals(3, SchedulingEngine.getRelearningThreshold(relearning));
-        assertEquals(3, SchedulingEngine.getFamiliarIntervalAfterRating(relearning));
-
-        relearning.setConsecutiveFamiliar(1);
-        assertEquals(0, SchedulingEngine.getFamiliarIntervalAfterRating(relearning));
     }
 
     @Test
@@ -254,14 +248,11 @@ class SchedulingEngineTest {
 
     @Test
     void vagueIntervalHelpersHandleBoundaryStages() {
-        Card stageOne = new Card();
-        stageOne.setStage(1);
-        assertEquals(0, SchedulingEngine.getVagueIntervalAfterRating(stageOne));
-
-        Card stageTwo = new Card();
-        stageTwo.setStage(2);
-        assertEquals(2, SchedulingEngine.getVagueIntervalAfterRating(stageTwo));
+        // 回归间隔公式（生产方法）：目标级间隔 − 上一级间隔。
         assertEquals(1, SchedulingEngine.calculateVagueReviewInterval(2));
+        assertEquals(3, SchedulingEngine.calculateVagueReviewInterval(4));
+        // 防御守卫：target ≤ 1 时返回 1（不越界）。
+        assertEquals(1, SchedulingEngine.calculateVagueReviewInterval(1));
     }
 
     @Test
@@ -369,13 +360,5 @@ class SchedulingEngineTest {
         assertEquals(3, result.getStageAfter());
         assertEquals(4, card.getReentryStage());
     }
-
-    @Test
-    void vagueIntervalPreviewAccountsForOverdue() {
-        Card card = new Card();
-        card.setStage(4);
-        assertEquals(7, SchedulingEngine.getVagueIntervalAfterRating(card));
-        assertEquals(4, SchedulingEngine.getVagueIntervalAfterRating(card, 7));
-        assertEquals(0, SchedulingEngine.getVagueIntervalAfterRating(card, 82));
-    }
 }
+

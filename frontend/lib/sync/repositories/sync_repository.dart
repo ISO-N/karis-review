@@ -1,4 +1,3 @@
-import 'package:dio/dio.dart';
 import 'package:fixnum/fixnum.dart';
 
 import '../../shared/api/api_client.dart';
@@ -11,24 +10,17 @@ class SyncRepository {
 
   SyncRepository({ApiClient? client}) : _client = client ?? ApiClient.shared;
 
+  // 内容协商统一走 ApiClient.getData/postData（架构评审 F3）：
+  // proto 优先，服务端不支持（401/406/415）时自动回退 JSON。
+
   Future<Map<String, dynamic>> fetchBootstrap({int eventCursor = 0}) async {
-    try {
-      final message = await _client.getProto<proto.SyncResponse>(
-        ApiEndpoints.syncBootstrap,
-        queryParameters: {'event_cursor': eventCursor},
-        parse: proto.SyncResponse.fromBuffer,
-      );
-      return syncResponseToMap(message);
-    } on DioException catch (e) {
-      if (_unsupported(e)) {
-        final response = await _client.get(
-          ApiEndpoints.syncBootstrap,
-          queryParameters: {'event_cursor': eventCursor},
-        );
-        return response.data['data'] as Map<String, dynamic>;
-      }
-      rethrow;
-    }
+    final data = await _client.getData<proto.SyncResponse>(
+      ApiEndpoints.syncBootstrap,
+      queryParameters: {'event_cursor': eventCursor},
+      parse: proto.SyncResponse.fromBuffer,
+      toData: syncResponseToMap,
+    );
+    return data as Map<String, dynamic>;
   }
 
   Future<Map<String, dynamic>> createReviewSession({
@@ -41,27 +33,18 @@ class SyncRepository {
       deckId: deckId,
       batchSize: batchSize,
     );
-    try {
-      final message = await _client.postProto<proto.ReviewSessionPageResponse>(
-        ApiEndpoints.reviewSessions,
-        data: request.writeToBuffer(),
-        parse: proto.ReviewSessionPageResponse.fromBuffer,
-      );
-      return reviewSessionPageToMap(message);
-    } on DioException catch (e) {
-      if (_unsupported(e)) {
-        final response = await _client.post(
-          ApiEndpoints.reviewSessions,
-          data: {
-            'mode': mode,
-            'deck_id': deckId,
-            'batch_size': batchSize,
-          },
-        );
-        return response.data['data'] as Map<String, dynamic>;
-      }
-      rethrow;
-    }
+    final data = await _client.postData<proto.ReviewSessionPageResponse>(
+      ApiEndpoints.reviewSessions,
+      protoData: request.writeToBuffer(),
+      parse: proto.ReviewSessionPageResponse.fromBuffer,
+      toData: reviewSessionPageToMap,
+      jsonData: {
+        'mode': mode,
+        'deck_id': deckId,
+        'batch_size': batchSize,
+      },
+    );
+    return data as Map<String, dynamic>;
   }
 
   Future<Map<String, dynamic>> fetchReviewSessionPage({
@@ -69,23 +52,13 @@ class SyncRepository {
     required int cursor,
     int limit = 10,
   }) async {
-    try {
-      final message = await _client.getProto<proto.ReviewSessionPageResponse>(
-        ApiEndpoints.reviewSession(sessionId),
-        queryParameters: {'cursor': cursor, 'limit': limit},
-        parse: proto.ReviewSessionPageResponse.fromBuffer,
-      );
-      return reviewSessionPageToMap(message);
-    } on DioException catch (e) {
-      if (_unsupported(e)) {
-        final response = await _client.get(
-          ApiEndpoints.reviewSession(sessionId),
-          queryParameters: {'cursor': cursor, 'limit': limit},
-        );
-        return response.data['data'] as Map<String, dynamic>;
-      }
-      rethrow;
-    }
+    final data = await _client.getData<proto.ReviewSessionPageResponse>(
+      ApiEndpoints.reviewSession(sessionId),
+      queryParameters: {'cursor': cursor, 'limit': limit},
+      parse: proto.ReviewSessionPageResponse.fromBuffer,
+      toData: reviewSessionPageToMap,
+    );
+    return data as Map<String, dynamic>;
   }
 
   Future<void> deleteReviewSession(String sessionId) async {
@@ -105,28 +78,13 @@ class SyncRepository {
       );
     }).toList();
     final request = proto.ReviewSyncRequest(items: protoItems);
-    try {
-      final message = await _client.postProto<proto.ReviewSyncResponse>(
-        ApiEndpoints.reviewSync,
-        data: request.writeToBuffer(),
-        parse: proto.ReviewSyncResponse.fromBuffer,
-      );
-      return reviewSyncResponseToMap(message);
-    } on DioException catch (e) {
-      if (_unsupported(e)) {
-        final response = await _client.post(
-          ApiEndpoints.reviewSync,
-          data: {'items': items},
-        );
-        return response.data['data'] as Map<String, dynamic>;
-      }
-      rethrow;
-    }
-  }
-
-  bool _unsupported(DioException e) {
-    return e.response?.statusCode == 401 ||
-        e.response?.statusCode == 406 ||
-        e.response?.statusCode == 415;
+    final data = await _client.postData<proto.ReviewSyncResponse>(
+      ApiEndpoints.reviewSync,
+      protoData: request.writeToBuffer(),
+      parse: proto.ReviewSyncResponse.fromBuffer,
+      toData: reviewSyncResponseToMap,
+      jsonData: {'items': items},
+    );
+    return data as Map<String, dynamic>;
   }
 }

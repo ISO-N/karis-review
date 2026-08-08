@@ -3,7 +3,6 @@ package top.kariscode.karisreview.common.exception;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.http.ResponseEntity;
@@ -18,7 +17,6 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 import top.kariscode.karisreview.common.dto.ApiResponse;
 import top.kariscode.karisreview.config.ProtobufHttpMessageConverter;
-import top.kariscode.karisreview.log.service.UserLogService;
 import top.kariscode.karisreview.proto.KarisReviewProto.ApiError;
 
 import java.util.Locale;
@@ -31,12 +29,17 @@ public class GlobalExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
     private final MessageSource messageSource;
-    private final Optional<UserLogService> userLogService;
+    private final Optional<ServerErrorReporter> serverErrorReporter;
 
+    /**
+     * 构造注入 Optional：错误上报是可选能力（slice 测试等无 log 模块的上下文
+     * 不需要它）。架构评审 B1 已把依赖方向反转为 common ← log（接口在 common、
+     * 实现 UserLogService 在 log），Optional 表达的是「能力可选」而非掩盖编译期环。
+     */
     public GlobalExceptionHandler(MessageSource messageSource,
-                                 @Autowired(required = false) UserLogService userLogService) {
+                                  Optional<ServerErrorReporter> serverErrorReporter) {
         this.messageSource = messageSource;
-        this.userLogService = Optional.ofNullable(userLogService);
+        this.serverErrorReporter = serverErrorReporter;
     }
 
     private String resolve(String key, HttpServletRequest request, Object... args) {
@@ -96,10 +99,10 @@ public class GlobalExceptionHandler {
     }
 
     private void logUserError(String messageKey, String detail) {
-        userLogService.ifPresent(service -> {
+        serverErrorReporter.ifPresent(reporter -> {
             UUID userId = getCurrentUserId();
             if (userId != null) {
-                service.log(userId, "ERROR", "SYSTEM", messageKey, Map.of("detail", detail != null ? detail : ""));
+                reporter.report(userId, messageKey, Map.of("detail", detail != null ? detail : ""));
             }
         });
     }

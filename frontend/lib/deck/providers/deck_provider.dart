@@ -1,10 +1,9 @@
-import 'dart:async';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../offline/offline_repository.dart';
 import '../../offline/providers.dart';
 import '../../shared/providers/data_refresh_provider.dart';
+import '../../shared/providers/dual_channel_loader.dart';
 import '../../sync/providers.dart';
 import '../../sync/sync_service.dart';
 import '../repositories/deck_repository.dart';
@@ -14,9 +13,11 @@ class DeckListNotifier extends StateNotifier<AsyncValue<List<Deck>>> {
   final DeckRepository _repository;
   final OfflineRepository? offline;
   final SyncService? sync;
+  final DualChannelLoader _loader;
 
   DeckListNotifier(this._repository, {this.offline, this.sync})
-    : super(const AsyncValue.loading()) {
+    : _loader = DualChannelLoader(offline: offline, sync: sync),
+      super(const AsyncValue.loading()) {
     if (offline != null) {
       _loadLocal();
     } else {
@@ -24,37 +25,14 @@ class DeckListNotifier extends StateNotifier<AsyncValue<List<Deck>>> {
     }
   }
 
+  // 加载骨架收敛为 DualChannelLoader（架构评审 C1）。
   Future<void> loadDecks() async {
-    if (offline != null) {
-      final previous = state.valueOrNull;
-      if (previous == null) {
-        state = const AsyncValue.loading();
-      }
-      try {
-        final meta = await offline!.getActiveSyncMeta();
-        if (meta == null) {
-          state = AsyncValue.data(await _repository.getDecks());
-          return;
-        }
-        await sync!.refresh();
-        state = AsyncValue.data(await offline!.getDeckSummaries(meta.userId));
-      } catch (e, st) {
-        if (previous == null) {
-          state = AsyncValue.error(e, st);
-        } else {
-          state = AsyncValue.data(previous);
-        }
-      }
-      return;
-    }
-
-    state = const AsyncValue.loading();
-    try {
-      final decks = await _repository.getDecks();
-      state = AsyncValue.data(decks);
-    } catch (e, st) {
-      state = AsyncValue.error(e, st);
-    }
+    await _loader.load<List<Deck>>(
+      fetchOnline: () => _repository.getDecks(),
+      fetchLocal: (userId) => offline!.getDeckSummaries(userId),
+      setState: (value) => state = value,
+      currentState: state,
+    );
   }
 
   Future<void> createDeck(String name) async {
@@ -88,23 +66,27 @@ class DeckListNotifier extends StateNotifier<AsyncValue<List<Deck>>> {
     try {
       final meta = await offline!.getActiveSyncMeta();
       if (meta == null) return;
-      state = AsyncValue.data(await offline!.getDeckSummaries(meta.userId));
+      await _loadLocalFor(meta.userId);
     } catch (e, st) {
       state = AsyncValue.error(e, st);
     }
   }
 
+  Future<void> _loadLocalFor(String userId) async {
+    try {
+      state = AsyncValue.data(await offline!.getDeckSummaries(userId));
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+    }
+  }
+
+  // 数据变更重载统一委托 reloadDataAfterChange（架构评审 F4）。
   Future<void> reloadAfterDataChange() async {
-    if (offline == null) {
-      await loadDecks();
-      return;
-    }
-    final meta = await offline!.getActiveSyncMeta();
-    if (meta == null) {
-      await loadDecks();
-      return;
-    }
-    await _loadLocal();
+    await reloadDataAfterChange(
+      offline: offline,
+      reloadOnline: loadDecks,
+      reloadLocal: _loadLocalFor,
+    );
   }
 }
 
@@ -115,8 +97,6 @@ final deckListProvider =
         offline: ref.watch(offlineRepositoryProvider),
         sync: ref.watch(syncServiceProvider),
       );
-      ref.listen(dataVersionProvider, (_, _) {
-        unawaited(notifier.reloadAfterDataChange());
-      });
+      listenDataVersion(ref, notifier.reloadAfterDataChange);
       return notifier;
     });

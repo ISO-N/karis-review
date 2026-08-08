@@ -582,7 +582,9 @@
         "learning_step": 0,
         "reentry_stage": null,
         "due": false,
-        "created_at": "2025-07-01T10:00:00Z"
+        "created_at": "2025-07-01T10:00:00Z",
+        "review_version": 0,
+        "learning_origin": null
       }
     ],
     "page": 0,
@@ -592,6 +594,8 @@
   }
 }
 ```
+
+> 2026-08-08（架构评审候选 2）起 `CardResponse` 补充 `review_version` 与 `learning_origin`（排期状态经 `SchedulingState` 值对象统一投影）；`learning_origin`：`NEW`（学新阶段重学）/ `REVIEW`（复习阶段重学）/ null（非重学），与服务端 `new` 筛选口径一致。
 
 ---
 
@@ -631,7 +635,9 @@
     "learning_step": 0,
     "reentry_stage": null,
     "due": false,
-    "created_at": "2025-08-01T10:00:00Z"
+    "created_at": "2025-08-01T10:00:00Z",
+    "review_version": 0,
+    "learning_origin": null
   }
 }
 ```
@@ -930,7 +936,8 @@
     "consecutive_familiar": 0,
     "next_interval_days": 7,
     "reentry_stage": null,
-    "learning_origin": null
+    "learning_origin": null,
+    "review_version": 1
   }
 }
 ```
@@ -945,6 +952,7 @@
 | next_interval_days | int | 本次评分后的下次复习间隔天数（重学中为 0） |
 | reentry_stage | int/null | 重学回归目标阶段（VAGUE 重学有效；FORGET 重学为 null） |
 | learning_origin | string/null | 评分后卡片来源：`NEW`（学新阶段重学）/ `REVIEW`（复习阶段重学）/ null（非重学） |
+| review_version | long | 评分后的卡片乐观锁版本（跨设备评分锁，前端评分/同步必须携带） |
 
 **可能的业务逻辑返回：**
 
@@ -1162,6 +1170,8 @@
 ```
 
 > 前端可将 `data` 字段保存为 JSON 文件供用户下载。
+
+> **备份格式（2026-08-08 架构评审 B4 起）**：`decks[].cards[]` 携带 `id`（备份时的原 card_id），`review_logs[]` 携带 `card_id` + `card_front`（`card_front` 保留兼容旧版工具）。导入时优先按 `card_id` 直连恢复日志归属（同 front 多卡不再错挂第一张），旧备份（无 `card_id`）回退 `card_front` 文本匹配兜底。`exported_at` 为业务时区（AppTimeZone）时间。
 
 ---
 

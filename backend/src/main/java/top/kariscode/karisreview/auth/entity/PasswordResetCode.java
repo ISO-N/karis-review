@@ -2,6 +2,7 @@ package top.kariscode.karisreview.auth.entity;
 
 import jakarta.persistence.*;
 
+import top.kariscode.karisreview.common.util.DateUtils;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -41,7 +42,7 @@ public class PasswordResetCode {
 
     @PrePersist
     protected void onCreate() {
-        createdAt = LocalDateTime.now();
+        createdAt = DateUtils.now();
     }
 
     public UUID getId() { return id; }

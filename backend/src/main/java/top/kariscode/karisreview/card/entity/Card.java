@@ -2,6 +2,7 @@ package top.kariscode.karisreview.card.entity;
 
 import jakarta.persistence.*;
 import java.time.LocalDate;
+import top.kariscode.karisreview.common.util.DateUtils;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -63,13 +64,13 @@ public class Card {
 
     @PrePersist
     protected void onCreate() {
-        createdAt = LocalDateTime.now();
-        updatedAt = LocalDateTime.now();
+        createdAt = DateUtils.now();
+        updatedAt = DateUtils.now();
     }
 
     @PreUpdate
     protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
+        updatedAt = DateUtils.now();
     }
 
     public UUID getId() { return id; }
@@ -100,4 +101,24 @@ public class Card {
     public LocalDateTime getUpdatedAt() { return updatedAt; }
     public long getReviewVersion() { return reviewVersion; }
     public void setReviewVersion(long reviewVersion) { this.reviewVersion = reviewVersion; }
+
+    /**
+     * 排期状态（架构评审候选 2）：stage/consecutiveFamiliar/nextReviewDate/
+     * learningMode/reentryStage/learningStep/learningOrigin 的唯一出口。
+     * DTO 与备份投影必须经由此对象，禁止逐字段散落读取。
+     */
+    public SchedulingState getSchedulingState() {
+        return SchedulingState.from(this);
+    }
+
+    /** 应用排期状态（备份导入 / 恢复用）。 */
+    public void applySchedulingState(SchedulingState s) {
+        this.stage = s.getStage();
+        this.consecutiveFamiliar = s.getConsecutiveFamiliar();
+        this.nextReviewDate = s.getNextReviewDate();
+        this.learningMode = s.isLearningMode();
+        this.reentryStage = s.getReentryStage();
+        this.learningStep = s.getLearningStep();
+        this.learningOrigin = s.getLearningOrigin();
+    }
 }

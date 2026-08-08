@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../offline/offline_repository.dart';
 import '../../offline/providers.dart';
+import '../../shared/scheduling/scheduling_constants.dart';
 import '../repositories/settings_repository.dart';
 
 class SettingsState {
@@ -13,7 +14,7 @@ class SettingsState {
 
   const SettingsState({
     this.email = '',
-    this.refreshTime = '04:00:00',
+    this.refreshTime = SchedulingConstants.defaultRefreshTime,
     this.isLoading = false,
     this.error,
     this.isSaved = false,
@@ -66,7 +67,7 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
       final settings = await _repository.getSettings();
       state = state.copyWith(
         email: settings['email'] as String? ?? '',
-        refreshTime: settings['refresh_time'] as String? ?? '04:00:00',
+        refreshTime: settings['refresh_time'] as String? ?? SchedulingConstants.defaultRefreshTime,
         isLoading: false,
         error: null,
       );

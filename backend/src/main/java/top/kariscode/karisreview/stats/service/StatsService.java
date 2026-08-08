@@ -2,16 +2,16 @@ package top.kariscode.karisreview.stats.service;
 
 import org.springframework.stereotype.Service;
 import top.kariscode.karisreview.card.repository.CardRepository;
+import top.kariscode.karisreview.common.etag.UserRefreshTimeQuery;
 import top.kariscode.karisreview.common.exception.BusinessException;
 import top.kariscode.karisreview.common.util.DateUtils;
 import top.kariscode.karisreview.deck.entity.Deck;
 import top.kariscode.karisreview.deck.repository.DeckRepository;
 import top.kariscode.karisreview.review.repository.ReviewLogRepository;
+import top.kariscode.karisreview.stats.dto.DeckCounters;
 import top.kariscode.karisreview.stats.dto.DeckStatsResponse;
 import top.kariscode.karisreview.stats.dto.OverviewStatsResponse;
 import top.kariscode.karisreview.stats.dto.TrendStatsResponse;
-import top.kariscode.karisreview.auth.entity.User;
-import top.kariscode.karisreview.auth.repository.UserRepository;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -28,20 +28,40 @@ public class StatsService {
     private final CardRepository cardRepository;
     private final DeckRepository deckRepository;
     private final ReviewLogRepository reviewLogRepository;
-    private final UserRepository userRepository;
+    private final UserRefreshTimeQuery userRefreshTimeQuery;
 
     public StatsService(CardRepository cardRepository,
                         DeckRepository deckRepository,
                         ReviewLogRepository reviewLogRepository,
-                        UserRepository userRepository) {
+                        UserRefreshTimeQuery userRefreshTimeQuery) {
         this.cardRepository = cardRepository;
         this.deckRepository = deckRepository;
         this.reviewLogRepository = reviewLogRepository;
-        this.userRepository = userRepository;
+        this.userRefreshTimeQuery = userRefreshTimeQuery;
+    }
+
+    /**
+     * 卡组计数唯一出口（架构评审候选 4）：DeckService.toDeckResponse 与
+     * getDeckStats 共用。due/new 口径见 CardQueryPredicates。
+     */
+    public DeckCounters getDeckCounters(UUID userId, UUID deckId) {
+        LocalTime refreshTime = userRefreshTimeQuery.resolve(userId);
+        LocalDate today = DateUtils.calculateToday(refreshTime);
+
+        DeckCounters counters = new DeckCounters();
+        counters.setCardCount((int) cardRepository.countByDeckId(deckId));
+        counters.setDueCount(cardRepository.countDueByDeckId(deckId, today));
+        counters.setNewCount((int) cardRepository.countNewByDeckId(deckId));
+        counters.setMasteredCount((int) cardRepository.countByDeckIdAndStageGreaterThanEqual(deckId, 5));
+        counters.setStageDistribution(distributionFromRows(
+                cardRepository.countByStageGroupedByDeck(deckId)));
+        counters.setDueStageDistribution(distributionFromRows(
+                cardRepository.countDueByStageGroupedByDeck(deckId, today)));
+        return counters;
     }
 
     public OverviewStatsResponse getOverview(UUID userId) {
-        LocalTime refreshTime = getRefreshTime(userId);
+        LocalTime refreshTime = userRefreshTimeQuery.resolve(userId);
         LocalDate today = DateUtils.calculateToday(refreshTime);
 
         LocalDateTime refreshStart = today.atTime(refreshTime);
@@ -70,10 +90,10 @@ public class StatsService {
             masteredCards += mastered;
             newCards += fresh;
             learningCards += learning;
-            if (stage >= 0 && stage <= 8) {
-                stageDistribution.set(stage, stageDistribution.get(stage) + total);
-                dueStageDistribution.set(stage, dueStageDistribution.get(stage) + due);
-            }
+            // 分布累加收敛（架构评审 B2）：与 distributionFromRows 同一语义，
+            // 9 位列表 + stage 范围检查 + 累加集中在 accumulateStage。
+            accumulateStage(stageDistribution, stage, total);
+            accumulateStage(dueStageDistribution, stage, due);
         }
 
         stats.setTotalCards(totalCards);
@@ -93,29 +113,31 @@ public class StatsService {
         Deck deck = deckRepository.findByIdAndUserId(deckId, userId)
                 .orElseThrow(() -> new BusinessException(404, "stats.deck.notfound"));
 
-        LocalTime refreshTime = getRefreshTime(userId);
+        LocalTime refreshTime = userRefreshTimeQuery.resolve(userId);
         LocalDate today = DateUtils.calculateToday(refreshTime);
         LocalDateTime refreshStart = today.atTime(refreshTime);
         LocalDateTime refreshEnd = today.plusDays(1).atTime(refreshTime);
 
+        // 复用卡组计数唯一出口（getDeckCounters），仅补充 deck 页独有字段，
+        // 避免 today 解析 + 6 项计数 + 双分布重复（架构评审 B2）。
+        DeckCounters counters = getDeckCounters(userId, deckId);
+
         DeckStatsResponse stats = new DeckStatsResponse();
         stats.setDeckId(deckId.toString());
         stats.setDeckName(deck.getName());
-        stats.setTotalCards(cardRepository.countByDeckId(deckId));
-        stats.setDueToday(cardRepository.countDueByDeckId(deckId, today));
+        stats.setTotalCards(counters.getCardCount());
+        stats.setDueToday(counters.getDueCount());
         stats.setReviewedToday(reviewLogRepository.countReviewedTodayForDeck(userId, deckId, refreshStart, refreshEnd));
-        stats.setNewCards(cardRepository.countNewByDeckId(deckId));
+        stats.setNewCards(counters.getNewCount());
         stats.setLearningCards(cardRepository.countByDeckIdAndLearningModeTrue(deckId));
-        stats.setMasteredCards(cardRepository.countByDeckIdAndStageGreaterThanEqual(deckId, 5));
-        stats.setStageDistribution(distributionFromRows(
-                cardRepository.countByStageGroupedByDeck(deckId)));
-        stats.setDueStageDistribution(distributionFromRows(
-                cardRepository.countDueByStageGroupedByDeck(deckId, today)));
+        stats.setMasteredCards(counters.getMasteredCount());
+        stats.setStageDistribution(counters.getStageDistribution());
+        stats.setDueStageDistribution(counters.getDueStageDistribution());
         return stats;
     }
 
     public List<TrendStatsResponse> getTrend(UUID userId, int days) {
-        LocalTime refreshTime = getRefreshTime(userId);
+        LocalTime refreshTime = userRefreshTimeQuery.resolve(userId);
         LocalDate today = DateUtils.calculateToday(refreshTime);
         LocalDateTime start = today.minusDays(days).atTime(refreshTime);
 
@@ -145,16 +167,15 @@ public class StatsService {
         List<Long> distribution = new ArrayList<>(List.of(0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L));
         for (Object[] row : rows) {
             int stage = ((Number) row[0]).intValue();
-            if (stage >= 0 && stage <= 8) {
-                distribution.set(stage, distribution.get(stage) + ((Number) row[1]).longValue());
-            }
+            accumulateStage(distribution, stage, ((Number) row[1]).longValue());
         }
         return distribution;
     }
 
-    private LocalTime getRefreshTime(UUID userId) {
-        return userRepository.findById(userId)
-                .map(User::getRefreshTime)
-                .orElse(LocalTime.of(4, 0));
+    /** 阶段分布累加唯一实现：stage 越界忽略（架构评审 B2 收敛，getOverview 同用）。 */
+    private void accumulateStage(List<Long> distribution, int stage, long value) {
+        if (stage >= 0 && stage <= 8) {
+            distribution.set(stage, distribution.get(stage) + value);
+        }
     }
 }

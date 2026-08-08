@@ -11,6 +11,34 @@ import '../utils/daily_refresh.dart';
 /// 数据版本号：本地 Drift 数据或服务端同步结果发生变化后递增。
 final dataVersionProvider = StateProvider<int>((ref) => 0);
 
+/// 数据变更后重载（架构评审 F4 收敛）：离线已登录 → 本地重算（不发起网络）；
+/// 无离线或未登录 → 在线通道重载。Deck/Stats/Card 三个 notifier 的
+/// reloadAfterDataChange 统一委托本函数，删除各自实现。
+Future<void> reloadDataAfterChange({
+  required OfflineRepository? offline,
+  required Future<void> Function() reloadOnline,
+  required Future<void> Function(String userId) reloadLocal,
+}) async {
+  if (offline == null) {
+    await reloadOnline();
+    return;
+  }
+  final meta = await offline.getActiveSyncMeta();
+  if (meta == null) {
+    await reloadOnline();
+    return;
+  }
+  await reloadLocal(meta.userId);
+}
+
+/// 注册数据版本变更自动重载（架构评审 F4 收敛）：各 provider 定义处
+/// 不再各自写 ref.listen(dataVersionProvider) + unawaited 样板。
+void listenDataVersion(Ref ref, Future<void> Function() reload) {
+  ref.listen(dataVersionProvider, (_, _) {
+    unawaited(reload());
+  });
+}
+
 class DataRefreshController {
   DataRefreshController(this._sync, this._offline, this._onDataChanged);
 

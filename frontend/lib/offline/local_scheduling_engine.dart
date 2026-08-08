@@ -1,6 +1,9 @@
 import '../card/models/card.dart';
 import '../review/models/review_card.dart';
+import '../shared/scheduling/scheduling_constants.dart';
+import '../shared/scheduling/rating.dart';
 import '../shared/utils/app_timezone.dart';
+import '../shared/utils/date_utils.dart';
 
 class LocalRatingOutcome {
   final FlashCard card;
@@ -17,16 +20,17 @@ class LocalRatingOutcome {
 }
 
 class LocalSchedulingEngine {
-  static const List<int> stageIntervals = [0, 1, 2, 4, 7, 15, 30, 90, 180];
-  static const int maxStage = 8;
-  static const int forgetThreshold = 5;
-  static const int vagueThreshold = 3;
+  // 常量与公式单一数据源（架构评审候选 5）：见 shared/scheduling/scheduling_constants.dart。
+  static const List<int> stageIntervals = SchedulingConstants.stageIntervals;
+  static const int maxStage = SchedulingConstants.maxStage;
+  static const int forgetThreshold = SchedulingConstants.forgetThreshold;
+  static const int vagueThreshold = SchedulingConstants.vagueThreshold;
 
   LocalRatingOutcome rate(
     FlashCard card,
     String rating, {
     DateTime? nowUtc,
-    String refreshTime = '04:00:00',
+    String refreshTime = SchedulingConstants.defaultRefreshTime,
   }) {
     final now = (nowUtc ?? DateTime.now().toUtc());
     final today = _calculateToday(now, refreshTime);
@@ -47,7 +51,7 @@ class LocalSchedulingEngine {
     String? nextReviewDate;
 
     switch (rating) {
-      case 'FAMILIAR':
+      case Rating.familiar:
         if (learningMode) {
           consecutiveFamiliar += 1;
           final threshold = reentryStage != null && reentryStage > 0
@@ -69,7 +73,7 @@ class LocalSchedulingEngine {
             }
           } else {
             learningStep += 1;
-            nextReviewDate = _formatDate(today);
+            nextReviewDate = AppDateUtils.formatDate(today);
           }
         } else if (stage == 0) {
           stage = 1;
@@ -80,7 +84,7 @@ class LocalSchedulingEngine {
         } else {
           nextReviewDate = _plusDays(today, stageIntervals[maxStage]);
         }
-      case 'FORGET':
+      case Rating.forget:
         // 学习来源归属：非学习状态进入重学 → 按原状态定来源（新卡=NEW，到期卡=REVIEW）；
         // 重学中再次忘记 → 保持原来源；历史数据（来源为空）兜底按 REVIEW（旧行为归复习队列）。
         if (learningMode) {
@@ -93,8 +97,8 @@ class LocalSchedulingEngine {
         consecutiveFamiliar = 0;
         learningStep = 0;
         reentryStage = null;
-        nextReviewDate = _formatDate(today);
-      case 'VAGUE':
+        nextReviewDate = AppDateUtils.formatDate(today);
+      case Rating.vague:
         final effectiveStage = calculateEffectiveStage(stage, overdueDays);
         if (effectiveStage <= 1) {
           // VAGUE 视同 FORGET，来源逻辑与 FORGET 一致
@@ -108,7 +112,7 @@ class LocalSchedulingEngine {
           consecutiveFamiliar = 0;
           learningStep = 0;
           reentryStage = null;
-          nextReviewDate = _formatDate(today);
+          nextReviewDate = AppDateUtils.formatDate(today);
         } else {
           // VAGUE 只发生在 stage≥2 的到期卡上，来源必为 REVIEW；
           // 重学中再模糊保持原来源，历史数据兜底 REVIEW。
@@ -120,7 +124,7 @@ class LocalSchedulingEngine {
           learningMode = true;
           consecutiveFamiliar = 0;
           learningStep = 0;
-          nextReviewDate = _formatDate(today);
+          nextReviewDate = AppDateUtils.formatDate(today);
         }
       default:
         throw ArgumentError.value(rating, 'rating', 'Invalid rating');
@@ -164,37 +168,24 @@ class LocalSchedulingEngine {
     );
   }
 
-  static int stageInterval(int stage) {
-    if (stage < 0 || stage > maxStage) return stageIntervals[maxStage];
-    return stageIntervals[stage];
-  }
+  static int stageInterval(int stage) =>
+      SchedulingConstants.stageInterval(stage);
 
   static int familiarIntervalAfterRating({
     required int stage,
     required bool learningMode,
     required int consecutiveFamiliar,
     required int? reentryStage,
-  }) {
-    if (learningMode) {
-      final threshold = reentryStage != null && reentryStage > 0
-          ? vagueThreshold
-          : forgetThreshold;
-      if (consecutiveFamiliar + 1 >= threshold) {
-        if (reentryStage != null && reentryStage > 0) {
-          return _vagueInterval(reentryStage);
-        }
-        return stageIntervals[1];
-      }
-      return 0;
-    }
-    if (stage >= maxStage) return stageIntervals[maxStage];
-    return stageIntervals[stage + 1];
-  }
+  }) =>
+      SchedulingConstants.familiarIntervalAfterRating(
+        stage: stage,
+        learningMode: learningMode,
+        consecutiveFamiliar: consecutiveFamiliar,
+        reentryStage: reentryStage,
+      );
 
-  static int vagueIntervalAfterRating(int stage) {
-    if (stage <= 1) return 0;
-    return stageIntervals[stage];
-  }
+  static int vagueIntervalAfterRating(int stage) =>
+      SchedulingConstants.vagueIntervalAfterRating(stage);
 
   /// 计算逾期卡的等效 stage。
   ///
@@ -204,7 +195,8 @@ class LocalSchedulingEngine {
   /// 例：stage 4（7 天）逾期 7 天 → ρ = 2 → 等效 stage 3。
   static int calculateEffectiveStage(int stage, int overdueDays) {
     if (stage <= 1 || overdueDays <= 0) return stage;
-    if (overdueDays <= 2) return stage;
+    // 绝对宽限：与后端 OVERDUE_GRACE_DAYS 一致，常量来自单一数据源（架构评审 A2）。
+    if (overdueDays <= SchedulingConstants.overdueGraceDays) return stage;
     final interval = stageIntervals[stage];
     final elapsed = interval + overdueDays;
     // k = floor(log2(ρ))：k 从 0 递增，直到 elapsed < 2^(k+1) * interval
@@ -222,9 +214,8 @@ class LocalSchedulingEngine {
     return _calculateToday(nowUtc, refreshTime);
   }
 
-  static int _vagueInterval(int targetStage) {
-    return stageIntervals[targetStage] - stageIntervals[targetStage - 1];
-  }
+  static int _vagueInterval(int targetStage) =>
+      SchedulingConstants.vagueIntervalForTarget(targetStage);
 
   static DateTime _calculateToday(DateTime nowUtc, String refreshTime) {
     final businessNow = serverUtcToBusiness(nowUtc);
@@ -245,12 +236,6 @@ class LocalSchedulingEngine {
   }
 
   static String _plusDays(DateTime date, int days) {
-    return _formatDate(date.add(Duration(days: days)));
-  }
-
-  static String _formatDate(DateTime date) {
-    final month = date.month.toString().padLeft(2, '0');
-    final day = date.day.toString().padLeft(2, '0');
-    return '${date.year}-$month-$day';
+    return AppDateUtils.formatDate(date.add(Duration(days: days)));
   }
 }

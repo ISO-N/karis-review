@@ -1,15 +1,18 @@
 // ignore_for_file: prefer_initializing_formals
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../card/models/card.dart';
 import '../../offline/local_scheduling_engine.dart';
+import '../../offline/offline_mappers.dart';
 import '../../offline/offline_repository.dart';
 import '../../offline/providers.dart';
 import '../../shared/providers/data_refresh_provider.dart';
+import '../../shared/scheduling/queue_composer.dart';
+import '../../shared/scheduling/scheduling_constants.dart';
+import '../../shared/utils/date_utils.dart';
 import '../../sync/providers.dart';
 import '../../sync/repositories/sync_repository.dart';
 import '../../sync/sync_service.dart';
@@ -61,6 +64,9 @@ class ReviewSessionState {
 
   ReviewCard? get currentCard =>
       currentIndex < cards.length ? cards[currentIndex] : null;
+
+  /// 当前第几张（从 1 计），UI 进度显示用，避免各页自算。
+  int get currentNumber => currentIndex + 1;
 
   bool get isComplete =>
       !hasMore && currentIndex >= cards.length && cards.isNotEmpty;
@@ -377,24 +383,13 @@ class ReviewNotifier extends StateNotifier<ReviewSessionState> {
       // 评分时刻的学习来源快照（排程算法会返回变更后的卡，必须先取值）：
       // 学新阶段产生的重学（NEW）评分不计入「今日复习」。
       final originAtRating = flash.learningOrigin;
-      debugPrint(
-        '[KARIS-DBG] rate() card=${card.id} rating=$rating '
-        'stage=${card.stage} learningMode=${card.learningMode} '
-        'learningOrigin=${card.learningOrigin} queueSource=${state.queueSource}',
-      );
       final outcome = LocalSchedulingEngine().rate(
         flash,
         rating,
         nowUtc: DateTime.now().toUtc(),
-        refreshTime: meta?.refreshTime ?? '04:00:00',
+        refreshTime: meta?.refreshTime ?? SchedulingConstants.defaultRefreshTime,
       );
       final clientRequestId = const Uuid().v4();
-      debugPrint(
-        '[KARIS-DBG] rate() outcome wasNewCard=${outcome.wasNewCard} '
-        'originAtRating=$originAtRating '
-        'stageAfter=${outcome.result.stageAfter} '
-        'learningModeAfter=${outcome.result.learningMode}',
-      );
       await _offline.applyLocalRating(
         userId: userId,
         card: outcome.card,
@@ -418,7 +413,7 @@ class ReviewNotifier extends StateNotifier<ReviewSessionState> {
       // 进入学习模式（FORGET / VAGUE 重学、FAMILIAR 未达标）的卡片
       // 按 2^n 位置实时插回当前队列，避免依赖退出重进复习/学习页面才出现。
       if (outcome.result.learningMode) {
-        _reinsertRelearningCard(_toReviewCard(outcome.card));
+        _reinsertRelearningCard(reviewCardFromFlash(outcome.card));
       }
       _ratingInFlight = false;
       if (state.isComplete) {
@@ -513,33 +508,18 @@ class ReviewNotifier extends StateNotifier<ReviewSessionState> {
 
   /// 将进入学习模式（重学）的卡片按 2^n 位置实时插回当前队列。
   ///
-  /// 位置语义与 [OfflineRepository.getDueQueue] 一致：offset = 1 << learningStep，
-  /// 但以已消费的 [ReviewSessionState.currentIndex] 为基准，只插入到待评卡之后，
+  /// 位置语义与 [OfflineRepository.getDueQueue] 一致（QueueComposer 单一实现，
+  /// 架构评审 F1）：offset = 2^learningStep，但以已消费的
+  /// [ReviewSessionState.currentIndex] 为基准，只插入到待评卡之后，
   /// 避免把卡插回自己前面造成重复评分。
   void _reinsertRelearningCard(ReviewCard relearnCard) {
-    final current = state.currentIndex;
-    final remaining = state.cards.length - current;
-    final offset = (1 << relearnCard.learningStep).clamp(0, remaining);
-    final insertAt = current + offset;
-    final cards = [...state.cards]..insert(insertAt, relearnCard);
-    state = state.copyWith(cards: cards);
-  }
-
-  ReviewCard _toReviewCard(FlashCard card) {
-    return ReviewCard(
-      id: card.id,
-      deckId: card.deckId,
-      front: card.front,
-      back: card.back,
-      stage: card.stage,
-      learningMode: card.learningMode,
-      consecutiveFamiliar: card.consecutiveFamiliar,
-      learningStep: card.learningStep,
-      reentryStage: card.reentryStage,
-      nextReviewDate: card.nextReviewDate,
-      reviewVersion: card.reviewVersion,
-      learningOrigin: card.learningOrigin,
+    final cards = QueueComposer.interleave(
+      queue: state.cards,
+      learningCards: [relearnCard],
+      learningStepOf: (c) => c.learningStep,
+      baseOffset: state.currentIndex,
     );
+    state = state.copyWith(cards: cards);
   }
 
   Future<void> removeStaleCard(String cardId) async {
@@ -573,10 +553,10 @@ class ReviewNotifier extends StateNotifier<ReviewSessionState> {
   }
 
   FlashCard _toFlashCard(ReviewCard card, {String? refreshTime}) {
-    final today = _formatDate(
+    final today = AppDateUtils.formatDate(
       LocalSchedulingEngine.calculateToday(
         DateTime.now().toUtc(),
-        refreshTime ?? '04:00:00',
+        refreshTime ?? SchedulingConstants.defaultRefreshTime,
       ),
     );
     return FlashCard(
@@ -596,12 +576,6 @@ class ReviewNotifier extends StateNotifier<ReviewSessionState> {
       reviewVersion: card.reviewVersion,
       learningOrigin: card.learningOrigin,
     );
-  }
-
-  String _formatDate(DateTime date) {
-    final month = date.month.toString().padLeft(2, '0');
-    final day = date.day.toString().padLeft(2, '0');
-    return '${date.year}-$month-$day';
   }
 }
 
