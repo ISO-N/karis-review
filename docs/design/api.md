@@ -635,7 +635,9 @@
     "learning_step": 0,
     "reentry_stage": null,
     "due": false,
-    "created_at": "2025-08-01T10:00:00Z"
+    "created_at": "2025-08-01T10:00:00Z",
+    "review_version": 0,
+    "learning_origin": null
   }
 }
 ```
@@ -934,7 +936,8 @@
     "consecutive_familiar": 0,
     "next_interval_days": 7,
     "reentry_stage": null,
-    "learning_origin": null
+    "learning_origin": null,
+    "review_version": 1
   }
 }
 ```
@@ -949,6 +952,7 @@
 | next_interval_days | int | 本次评分后的下次复习间隔天数（重学中为 0） |
 | reentry_stage | int/null | 重学回归目标阶段（VAGUE 重学有效；FORGET 重学为 null） |
 | learning_origin | string/null | 评分后卡片来源：`NEW`（学新阶段重学）/ `REVIEW`（复习阶段重学）/ null（非重学） |
+| review_version | long | 评分后的卡片乐观锁版本（跨设备评分锁，前端评分/同步必须携带） |
 
 **可能的业务逻辑返回：**
 

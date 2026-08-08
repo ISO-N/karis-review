@@ -23,6 +23,17 @@ class SchedulingConstants {
   /// VAGUE 重学：连续 3 次 Familiar 脱离（回 reentryStage）。
   static const int vagueThreshold = 3;
 
+  /// 逾期绝对宽限天数（架构评审 A2，2026-08-08）：逾期不超过该天数不触发
+  /// 等效 stage 惩罚。与后端 SchedulingEngine.OVERDUE_GRACE_DAYS 一致，
+  /// 已入单一数据源——禁止在引擎/UI 内硬编码字面量。
+  static const int overdueGraceDays = 2;
+
+  /// 默认每日刷新点（架构评审 C3，2026-08-08）：未配置用户/未同步时的兜底值。
+  /// 此前在 sync/offline/settings/review/app_database 散落 13 处字面量，
+  /// 现为单一数据源；与后端 UserRefreshTime.DEFAULT_REFRESH_TIME（04:00）一致。
+  /// 注意：Drift 的 withDefault 需要 const 表达式，直接引用本常量。
+  static const String defaultRefreshTime = '04:00:00';
+
   /// 间隔天数显示标签（记忆刻度/统计页用）。与 [stageIntervals] 一一对应。
   static const List<String> stageLabels = [
     '0', '1', '2', '4', '7', '15', '30', '90', '180',
@@ -64,10 +75,30 @@ class SchedulingConstants {
     return stageIntervals[stage + 1];
   }
 
-  /// Vague 评分后的间隔（天）：Stage 0/1 视同 FORGET（0 天），否则当前级间隔。
-  static int vagueIntervalAfterRating(int stage) {
+  /// Vague 评分后的间隔预览（天，架构评审 A2，2026-08-08）：
+  /// Stage 0/1 视同 FORGET（0 天），否则取等效 stage 的间隔（逾期时先按
+  /// [LocalSchedulingEngine.calculateEffectiveStage] 折算，与后端
+  /// SchedulingEngine.getVagueIntervalAfterRating(card, overdueDays) 对齐）。
+  /// overdueDays 缺省 0 表示未逾期（保持原行为）；逾期卡传入实际逾期天数后，
+  /// 预览与评分后的实际回归间隔一致。
+  static int vagueIntervalAfterRating(int stage, {int overdueDays = 0}) {
     if (stage <= 1) return 0;
-    return stageIntervals[stage];
+    if (overdueDays <= 0 || overdueDays <= overdueGraceDays) {
+      return stageIntervals[stage];
+    }
+    // 与 LocalSchedulingEngine.calculateEffectiveStage 同一公式（宽限已在上方短路，
+    // 这里只需按 log2(ρ) 折算；stage≤1 已返回，故结果恒 ≥1）。
+    final interval = stageIntervals[stage];
+    final elapsed = interval + overdueDays;
+    var k = 0;
+    var threshold = interval * 2;
+    while (elapsed >= threshold) {
+      k++;
+      if (threshold > (1 << 62)) break;
+      threshold *= 2;
+    }
+    final effective = stage - k < 1 ? 1 : stage - k;
+    return stageIntervals[effective];
   }
 
   /// 重学插位偏移：第 1 次隔 1 张、第 2 次隔 2 张、第 3 次隔 4 张（2^n）。

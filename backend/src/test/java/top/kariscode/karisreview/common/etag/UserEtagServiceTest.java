@@ -5,14 +5,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.jdbc.core.JdbcTemplate;
 
+import java.time.LocalTime;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
@@ -20,32 +19,27 @@ import static org.mockito.Mockito.when;
 class UserEtagServiceTest {
 
     @Mock
-    private JdbcTemplate jdbcTemplate;
+    private SyncEventSeqQuery syncEventSeqQuery;
+
+    @Mock
+    private UserRefreshTimeQuery userRefreshTimeQuery;
 
     private UserEtagService service;
 
     @BeforeEach
     void setUp() {
-        service = new UserEtagService(jdbcTemplate);
-        lenient().when(jdbcTemplate.queryForObject(
-                eq("SELECT refresh_time FROM users WHERE id = ?"),
-                eq(String.class),
-                any(UUID.class))).thenReturn("04:00:00");
+        service = new UserEtagService(syncEventSeqQuery, userRefreshTimeQuery);
+        lenient().when(userRefreshTimeQuery.resolve(any(UUID.class)))
+                .thenReturn(LocalTime.of(4, 0));
     }
 
     @Test
     void etagChangesWhenEventSequenceChanges() {
         UUID userId = UUID.randomUUID();
-        when(jdbcTemplate.queryForObject(
-                eq("SELECT COALESCE(MAX(event_seq), 0) FROM sync_events WHERE user_id = ?"),
-                eq(Long.class),
-                eq(userId))).thenReturn(1L);
+        when(syncEventSeqQuery.latestSeq(userId)).thenReturn(1L);
         String first = service.decksEtag(userId);
 
-        when(jdbcTemplate.queryForObject(
-                eq("SELECT COALESCE(MAX(event_seq), 0) FROM sync_events WHERE user_id = ?"),
-                eq(Long.class),
-                eq(userId))).thenReturn(2L);
+        when(syncEventSeqQuery.latestSeq(userId)).thenReturn(2L);
         String second = service.decksEtag(userId);
 
         assertNotEquals(first, second);
@@ -56,10 +50,7 @@ class UserEtagServiceTest {
     void deckStatsEtagIncludesDeckId() {
         UUID userId = UUID.randomUUID();
         UUID deckId = UUID.randomUUID();
-        when(jdbcTemplate.queryForObject(
-                eq("SELECT COALESCE(MAX(event_seq), 0) FROM sync_events WHERE user_id = ?"),
-                eq(Long.class),
-                eq(userId))).thenReturn(3L);
+        when(syncEventSeqQuery.latestSeq(userId)).thenReturn(3L);
 
         String etag = service.deckStatsEtag(userId, deckId);
 
@@ -70,10 +61,7 @@ class UserEtagServiceTest {
     @Test
     void overviewEtagHasNoDeckSuffix() {
         UUID userId = UUID.randomUUID();
-        when(jdbcTemplate.queryForObject(
-                eq("SELECT COALESCE(MAX(event_seq), 0) FROM sync_events WHERE user_id = ?"),
-                eq(Long.class),
-                eq(userId))).thenReturn(0L);
+        when(syncEventSeqQuery.latestSeq(userId)).thenReturn(0L);
 
         String etag = service.overviewEtag(userId);
 

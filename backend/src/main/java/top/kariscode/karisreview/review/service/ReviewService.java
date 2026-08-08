@@ -4,11 +4,10 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import top.kariscode.karisreview.auth.repository.UserRepository;
-import top.kariscode.karisreview.auth.util.UserRefreshTime;
 import top.kariscode.karisreview.card.entity.Card;
 import top.kariscode.karisreview.card.entity.SchedulingState;
 import top.kariscode.karisreview.card.repository.CardRepository;
+import top.kariscode.karisreview.common.etag.UserRefreshTimeQuery;
 import top.kariscode.karisreview.common.exception.BusinessException;
 import top.kariscode.karisreview.common.util.DateUtils;
 import top.kariscode.karisreview.log.service.UserLogService;
@@ -49,7 +48,7 @@ public class ReviewService {
 
     private final CardRepository cardRepository;
     private final ReviewLogRepository reviewLogRepository;
-    private final UserRepository userRepository;
+    private final UserRefreshTimeQuery userRefreshTimeQuery;
     private final SchedulingEngine schedulingEngine;
     private final ReviewSessionRepository reviewSessionRepository;
     private final ReviewQueueItemRepository reviewQueueItemRepository;
@@ -57,14 +56,14 @@ public class ReviewService {
 
     public ReviewService(CardRepository cardRepository,
                          ReviewLogRepository reviewLogRepository,
-                         UserRepository userRepository,
+                         UserRefreshTimeQuery userRefreshTimeQuery,
                          SchedulingEngine schedulingEngine,
                          ReviewSessionRepository reviewSessionRepository,
                          ReviewQueueItemRepository reviewQueueItemRepository,
                          UserLogService userLogService) {
         this.cardRepository = cardRepository;
         this.reviewLogRepository = reviewLogRepository;
-        this.userRepository = userRepository;
+        this.userRefreshTimeQuery = userRefreshTimeQuery;
         this.schedulingEngine = schedulingEngine;
         this.reviewSessionRepository = reviewSessionRepository;
         this.reviewQueueItemRepository = reviewQueueItemRepository;
@@ -174,7 +173,7 @@ public class ReviewService {
         int missing = 0;
 
         // refresh_time 只取一次，避免循环内每条评分都点查 users 表
-        LocalTime refreshTime = UserRefreshTime.resolve(userRepository, userId);
+        LocalTime refreshTime = userRefreshTimeQuery.resolve(userId);
         LocalDate today = DateUtils.calculateToday(refreshTime);
 
         // 1) 幂等检查批量化：一次 IN 查询替代逐条查询
@@ -201,9 +200,9 @@ public class ReviewService {
             // 幂等判定共享 checkIdempotency（架构评审 B1：与 rateCard 单一实现）
             switch (checkIdempotency(existing, item.getCardId(), item.getRating())) {
                 case REPLAY ->
-                        resultByIndex.put(i, new ReviewSyncItemResult(clientRequestId, "ALREADY_SYNCED", null));
+                        resultByIndex.put(i, new ReviewSyncItemResult(clientRequestId, "ALREADY_SYNCED", null, item.getCardId()));
                 case CONFLICT -> {
-                    resultByIndex.put(i, new ReviewSyncItemResult(clientRequestId, "CONFLICT", null));
+                    resultByIndex.put(i, new ReviewSyncItemResult(clientRequestId, "CONFLICT", null, item.getCardId()));
                     conflicts++;
                 }
                 default -> throw new IllegalStateException("existing 非空时不可能 NEW");
@@ -228,7 +227,7 @@ public class ReviewService {
             String clientRequestId = item.getClientRequestId();
             Card card = cardMap.get(item.getCardId());
             if (card == null) {
-                resultByIndex.put(idx, new ReviewSyncItemResult(clientRequestId, "CARD_NOT_FOUND", null));
+                resultByIndex.put(idx, new ReviewSyncItemResult(clientRequestId, "CARD_NOT_FOUND", null, item.getCardId()));
                 missing++;
                 continue;
             }
@@ -240,13 +239,13 @@ public class ReviewService {
                     DateUtils.toBusinessLocalDateTime(item.getRatedAt()), refreshTime, today);
             if (outcome.conflict) {
                 resultByIndex.put(idx, new ReviewSyncItemResult(
-                        clientRequestId, "CONFLICT", toReviewCardResponse(outcome.conflictCard)));
+                        clientRequestId, "CONFLICT", toReviewCardResponse(outcome.conflictCard), item.getCardId()));
                 conflicts++;
                 continue;
             }
             cardsToSave.add(card);
             logsToSave.add(outcome.log);
-            resultByIndex.put(idx, new ReviewSyncItemResult(clientRequestId, "SYNCED", null));
+            resultByIndex.put(idx, new ReviewSyncItemResult(clientRequestId, "SYNCED", null, item.getCardId()));
             synced++;
         }
 
@@ -301,7 +300,7 @@ public class ReviewService {
         Card card = cardRepository.findByIdAndUserIdForUpdate(cardId, userId)
                 .orElseThrow(() -> new BusinessException(404, "review.card.notfound"));
 
-        LocalTime refreshTime = UserRefreshTime.resolve(userRepository, userId);
+        LocalTime refreshTime = userRefreshTimeQuery.resolve(userId);
         LocalDate today = DateUtils.calculateToday(refreshTime);
 
         // 共享评分管道（架构评审 B1）：幂等判定 + 版本冲突判定 + 排期计算单一实现，
@@ -454,7 +453,7 @@ public class ReviewService {
     }
 
     private List<Card> buildDueQueue(UUID userId, UUID deckId) {
-        LocalTime refreshTime = UserRefreshTime.resolve(userRepository, userId);
+        LocalTime refreshTime = userRefreshTimeQuery.resolve(userId);
         LocalDate today = DateUtils.calculateToday(refreshTime);
         List<Card> dueCards = cardRepository.findDueCards(userId, today, deckId);
         List<Card> learningCards = cardRepository.findLearningModeCardsForReview(userId, today, deckId);
@@ -467,7 +466,7 @@ public class ReviewService {
      * 退出重进学新页仍能继续刷到忘记/模糊的卡。
      */
     private List<Card> buildNewQueue(UUID userId, UUID deckId) {
-        LocalTime refreshTime = UserRefreshTime.resolve(userRepository, userId);
+        LocalTime refreshTime = userRefreshTimeQuery.resolve(userId);
         LocalDate today = DateUtils.calculateToday(refreshTime);
         List<Card> newCards = cardRepository.findNewCards(userId, deckId);
         List<Card> learningNew = cardRepository.findLearningModeCardsForNew(userId, today, deckId);

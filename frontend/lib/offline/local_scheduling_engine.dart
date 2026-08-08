@@ -1,6 +1,7 @@
 import '../card/models/card.dart';
 import '../review/models/review_card.dart';
 import '../shared/scheduling/scheduling_constants.dart';
+import '../shared/scheduling/rating.dart';
 import '../shared/utils/app_timezone.dart';
 import '../shared/utils/date_utils.dart';
 
@@ -29,7 +30,7 @@ class LocalSchedulingEngine {
     FlashCard card,
     String rating, {
     DateTime? nowUtc,
-    String refreshTime = '04:00:00',
+    String refreshTime = SchedulingConstants.defaultRefreshTime,
   }) {
     final now = (nowUtc ?? DateTime.now().toUtc());
     final today = _calculateToday(now, refreshTime);
@@ -50,7 +51,7 @@ class LocalSchedulingEngine {
     String? nextReviewDate;
 
     switch (rating) {
-      case 'FAMILIAR':
+      case Rating.familiar:
         if (learningMode) {
           consecutiveFamiliar += 1;
           final threshold = reentryStage != null && reentryStage > 0
@@ -83,7 +84,7 @@ class LocalSchedulingEngine {
         } else {
           nextReviewDate = _plusDays(today, stageIntervals[maxStage]);
         }
-      case 'FORGET':
+      case Rating.forget:
         // 学习来源归属：非学习状态进入重学 → 按原状态定来源（新卡=NEW，到期卡=REVIEW）；
         // 重学中再次忘记 → 保持原来源；历史数据（来源为空）兜底按 REVIEW（旧行为归复习队列）。
         if (learningMode) {
@@ -97,7 +98,7 @@ class LocalSchedulingEngine {
         learningStep = 0;
         reentryStage = null;
         nextReviewDate = AppDateUtils.formatDate(today);
-      case 'VAGUE':
+      case Rating.vague:
         final effectiveStage = calculateEffectiveStage(stage, overdueDays);
         if (effectiveStage <= 1) {
           // VAGUE 视同 FORGET，来源逻辑与 FORGET 一致
@@ -194,7 +195,8 @@ class LocalSchedulingEngine {
   /// 例：stage 4（7 天）逾期 7 天 → ρ = 2 → 等效 stage 3。
   static int calculateEffectiveStage(int stage, int overdueDays) {
     if (stage <= 1 || overdueDays <= 0) return stage;
-    if (overdueDays <= 2) return stage;
+    // 绝对宽限：与后端 OVERDUE_GRACE_DAYS 一致，常量来自单一数据源（架构评审 A2）。
+    if (overdueDays <= SchedulingConstants.overdueGraceDays) return stage;
     final interval = stageIntervals[stage];
     final elapsed = interval + overdueDays;
     // k = floor(log2(ρ))：k 从 0 递增，直到 elapsed < 2^(k+1) * interval

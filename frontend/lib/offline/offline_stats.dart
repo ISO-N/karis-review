@@ -1,4 +1,5 @@
 import '../shared/utils/date_utils.dart';
+import '../shared/scheduling/rating.dart';
 import 'database/app_database.dart';
 import 'local_scheduling_engine.dart';
 
@@ -29,7 +30,7 @@ bool isReviewedTodayLog(LocalReviewLog log) =>
 
 /// 日志是否属于「今日新学」口径（与后端 LEARNED_TODAY 一致）：新卡且 FAMILIAR。
 bool isLearnedTodayLog(LocalReviewLog log) =>
-    log.isNewCard && log.rating == 'FAMILIAR';
+    log.isNewCard && log.rating == Rating.familiar;
 
 /// 业务日判定：评分时间按刷新点折算后是否落在指定业务日（DateUtils.calculateToday 口径）。
 bool isOnRefreshDay(DateTime reviewedAt, String refreshTime, String day) {

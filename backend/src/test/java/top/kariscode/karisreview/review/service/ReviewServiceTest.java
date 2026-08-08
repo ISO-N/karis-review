@@ -6,7 +6,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import top.kariscode.karisreview.auth.entity.User;
-import top.kariscode.karisreview.auth.repository.UserRepository;
+import top.kariscode.karisreview.common.etag.UserRefreshTimeQuery;
 import top.kariscode.karisreview.card.entity.Card;
 import top.kariscode.karisreview.card.repository.CardRepository;
 import top.kariscode.karisreview.common.exception.BusinessException;
@@ -35,6 +35,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.mockito.ArgumentCaptor;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -49,7 +50,7 @@ class ReviewServiceTest {
     private ReviewLogRepository reviewLogRepository;
 
     @Mock
-    private UserRepository userRepository;
+    private UserRefreshTimeQuery userRefreshTimeQuery;
 
     @Mock
     private SchedulingEngine schedulingEngine;
@@ -68,8 +69,11 @@ class ReviewServiceTest {
     @BeforeEach
     void setUp() {
         service = new ReviewService(
-                cardRepository, reviewLogRepository, userRepository, schedulingEngine,
+                cardRepository, reviewLogRepository, userRefreshTimeQuery, schedulingEngine,
                 reviewSessionRepository, reviewQueueItemRepository, userLogService);
+        // 兜底默认刷新点（UserRefreshTimeService 内部语义）；单测可覆盖。
+        lenient().when(userRefreshTimeQuery.resolve(any(UUID.class)))
+                .thenReturn(LocalTime.of(4, 0));
     }
 
     @Test
@@ -81,7 +85,7 @@ class ReviewServiceTest {
         Card dueC = card("C", deckId, userId, 2, false, 0);
         Card learning1 = card("L1", deckId, userId, 0, true, 0);
         Card learning2 = card("L2", deckId, userId, 0, true, 1);
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user()));
+        when(userRefreshTimeQuery.resolve(userId)).thenReturn(LocalTime.of(4, 0));
         when(cardRepository.findDueCards(userId, DateUtils.calculateToday(LocalTime.of(4, 0)), deckId))
                 .thenReturn(List.of(dueA, dueB, dueC));
         when(cardRepository.findLearningModeCardsForReview(
@@ -115,7 +119,7 @@ class ReviewServiceTest {
         card.setId(cardId);
         card.setStage(0);
         when(cardRepository.findByIdAndUserIdForUpdate(cardId, userId)).thenReturn(Optional.of(card));
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user()));
+        when(userRefreshTimeQuery.resolve(userId)).thenReturn(LocalTime.of(4, 0));
         SchedulingEngine.RatingResult result = result(0, 1, false, 0);
         when(schedulingEngine.rateFamiliar(card, LocalTime.of(4, 0))).thenReturn(result);
         when(cardRepository.save(card)).thenReturn(card);
@@ -138,7 +142,7 @@ class ReviewServiceTest {
         card.setId(cardId);
         card.setStage(4);
         when(cardRepository.findByIdAndUserIdForUpdate(cardId, userId)).thenReturn(Optional.of(card));
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user()));
+        when(userRefreshTimeQuery.resolve(userId)).thenReturn(LocalTime.of(4, 0));
         SchedulingEngine.RatingResult result = result(4, 0, true, 0);
         when(schedulingEngine.rateForget(card, LocalTime.of(4, 0))).thenReturn(result);
         when(cardRepository.save(card)).thenReturn(card);
@@ -193,7 +197,7 @@ class ReviewServiceTest {
         card.setUserId(userId);
         card.setStage(3);
         card.setReviewVersion(3);
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user()));
+        when(userRefreshTimeQuery.resolve(userId)).thenReturn(LocalTime.of(4, 0));
         when(reviewLogRepository.findByUserIdAndClientRequestIdIn(userId, List.of("request-1")))
                 .thenReturn(List.of());
         when(cardRepository.findByIdInAndUserIdForUpdate(List.of(cardId), userId))
@@ -216,7 +220,7 @@ class ReviewServiceTest {
         existing.setClientRequestId("request-1");
         existing.setCardId(cardId);
         existing.setRating("FAMILIAR");
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user()));
+        when(userRefreshTimeQuery.resolve(userId)).thenReturn(LocalTime.of(4, 0));
         when(reviewLogRepository.findByUserIdAndClientRequestIdIn(userId, List.of("request-1")))
                 .thenReturn(List.of(existing));
 
@@ -237,7 +241,7 @@ class ReviewServiceTest {
         card.setUserId(userId);
         card.setStage(0);
         card.setReviewVersion(0);
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user()));
+        when(userRefreshTimeQuery.resolve(userId)).thenReturn(LocalTime.of(4, 0));
         when(reviewLogRepository.findByUserIdAndClientRequestIdIn(userId, List.of("request-1")))
                 .thenReturn(List.of());
         when(cardRepository.findByIdInAndUserIdForUpdate(List.of(cardId), userId))
@@ -330,7 +334,7 @@ class ReviewServiceTest {
     void syncRatingsReturnsCardNotFound() {
         UUID userId = UUID.randomUUID();
         UUID cardId = UUID.randomUUID();
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user()));
+        when(userRefreshTimeQuery.resolve(userId)).thenReturn(LocalTime.of(4, 0));
         when(reviewLogRepository.findByUserIdAndClientRequestIdIn(userId, List.of("request-1")))
                 .thenReturn(List.of());
         when(cardRepository.findByIdInAndUserIdForUpdate(List.of(cardId), userId))
@@ -352,7 +356,7 @@ class ReviewServiceTest {
         existing.setClientRequestId("request-1");
         existing.setCardId(cardId);
         existing.setRating("FAMILIAR");
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user()));
+        when(userRefreshTimeQuery.resolve(userId)).thenReturn(LocalTime.of(4, 0));
         when(reviewLogRepository.findByUserIdAndClientRequestIdIn(userId, List.of("request-1")))
                 .thenReturn(List.of(existing));
 

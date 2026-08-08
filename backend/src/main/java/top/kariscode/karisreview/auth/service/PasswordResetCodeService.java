@@ -8,6 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 import top.kariscode.karisreview.auth.entity.PasswordResetCode;
 import top.kariscode.karisreview.auth.repository.PasswordResetCodeRepository;
 import top.kariscode.karisreview.common.exception.BusinessException;
+import top.kariscode.karisreview.common.util.DateUtils;
 
 import java.security.MessageDigest;
 import java.security.SecureRandom;
@@ -45,11 +46,11 @@ public class PasswordResetCodeService {
      */
     @Transactional
     public String issueCode(String email, String purpose) {
-        repository.deleteExpired(LocalDateTime.now());
+        repository.deleteExpired(DateUtils.now());
 
         repository.findFirstByEmailAndPurposeAndUsedFalseOrderByCreatedAtDesc(email, purpose)
                 .ifPresent(existing -> {
-                    if (existing.getExpiresAt().isAfter(LocalDateTime.now())) {
+                    if (existing.getExpiresAt().isAfter(DateUtils.now())) {
                         throw new BusinessException(429, "auth.password.code.too.frequent");
                     }
                 });
@@ -58,7 +59,7 @@ public class PasswordResetCodeService {
         entity.setEmail(email);
         entity.setPurpose(purpose);
         entity.setCode(generateCode());
-        entity.setExpiresAt(LocalDateTime.now().plus(CODE_TTL));
+        entity.setExpiresAt(DateUtils.now().plus(CODE_TTL));
         repository.save(entity);
         return entity.getCode();
     }
@@ -72,7 +73,7 @@ public class PasswordResetCodeService {
                 .findFirstByEmailAndPurposeAndUsedFalseOrderByCreatedAtDesc(email, purpose)
                 .orElseThrow(() -> new BusinessException(400, "auth.password.code.invalid"));
 
-        if (record.getExpiresAt().isBefore(LocalDateTime.now())) {
+        if (record.getExpiresAt().isBefore(DateUtils.now())) {
             throw new BusinessException(400, "auth.password.code.expired");
         }
         if (record.getAttemptCount() >= MAX_ATTEMPTS) {
@@ -102,7 +103,7 @@ public class PasswordResetCodeService {
     @Scheduled(cron = "0 40 3 * * *")
     @Transactional
     public void cleanupExpiredCodes() {
-        LocalDateTime cutoff = LocalDateTime.now().minus(EXPIRED_RETENTION);
+        LocalDateTime cutoff = DateUtils.now().minus(EXPIRED_RETENTION);
         int deleted = repository.deleteExpiredBefore(cutoff);
         if (deleted > 0) {
             log.info("Cleaned up {} expired email verification codes older than {}", deleted, cutoff);

@@ -44,7 +44,18 @@ class ReviewCard {
         reentryStage: reentryStage,
       );
 
-  int get vagueIntervalDays => SchedulingConstants.vagueIntervalAfterRating(stage);
+  /// VAGUE 间隔预览（架构评审 A2，2026-08-08）：传入今日业务日时，逾期卡按
+  /// 等效 stage 计算预览（与实际评分后的回归间隔一致）；不传（null）时按
+  /// 未逾期计算，保持旧行为。nextReviewDate 非空时自动计算逾期天数。
+  int vagueIntervalDays(DateTime? today) {
+    final overdueDays = (today != null && nextReviewDate != null)
+        ? today.difference(DateTime.parse(nextReviewDate!)).inDays
+        : 0;
+    return SchedulingConstants.vagueIntervalAfterRating(
+      stage,
+      overdueDays: overdueDays > 0 ? overdueDays : 0,
+    );
+  }
 
   factory ReviewCard.fromJson(Map<String, dynamic> json) {
     return ReviewCard(

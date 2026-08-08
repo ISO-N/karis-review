@@ -8,6 +8,8 @@ import '../../shared/widgets/adaptive_scaffold.dart';
 import '../../shared/utils/motion.dart';
 import '../../shared/widgets/app_semantics.dart';
 import '../../shared/widgets/entrance.dart';
+import '../../review/models/rating_labels.dart';
+import '../../shared/scheduling/rating.dart';
 import '../../shared/widgets/loading_widget.dart';
 import '../../shared/widgets/memory_ring.dart';
 import '../../shared/widgets/rich_card_content.dart';
@@ -127,15 +129,13 @@ class _ReviewPageState extends ConsumerState<ReviewPage> {
       return;
     }
     if (!mounted) return;
-    final label = switch (rating) {
-      'FORGET' => '忘记',
-      'VAGUE' => '模糊',
-      'FAMILIAR' => '熟悉',
-      _ => rating,
-    };
-    final interval = result.nextIntervalDays > 0
-        ? KarisTheme.intervalLabel(result.nextIntervalDays)
-        : (rating == 'FAMILIAR' && result.learningMode ? '继续' : '重学');
+    // 评分文案/间隔标签单一实现（架构评审 D1）：rating_labels 纯函数。
+    final label = ratingDisplayLabel(rating);
+    final interval = ratingNextLabel(
+      rating,
+      result.nextIntervalDays,
+      result.learningMode,
+    );
     announceMessage(context, '已评分：$label · 下次 $interval');
   }
 
@@ -189,12 +189,8 @@ class _ReviewStage extends ConsumerWidget {
           }
           return KeyEventResult.handled;
         }
-        final rating = switch (event.logicalKey) {
-          LogicalKeyboardKey.digit1 => 'FORGET',
-          LogicalKeyboardKey.digit2 => 'VAGUE',
-          LogicalKeyboardKey.digit3 => 'FAMILIAR',
-          _ => null,
-        };
+        // 键盘快捷键：1/2/3 评分（仅翻面后可评）。映射单一实现（架构评审 D1）。
+        final rating = ratingOf(event.logicalKey);
         if (rating != null) {
           // 事件回调中读取最新状态，避免为快捷键监听 isFlipped/isRating
           // 而让整个舞台随翻面重建。
@@ -458,15 +454,13 @@ class _StatusChip extends ConsumerWidget {
     }
     final result = lastResult;
     if (result != null) {
-      final label = switch (result.rating) {
-        'FORGET' => '忘记',
-        'VAGUE' => '模糊',
-        'FAMILIAR' => '熟悉',
-        _ => result.rating,
-      };
-      final interval = result.nextIntervalDays > 0
-          ? KarisTheme.intervalLabel(result.nextIntervalDays)
-          : (result.rating == 'FAMILIAR' && result.learningMode ? '继续' : '重学');
+      // 文案单一实现（架构评审 D1）：rating_labels 纯函数。
+      final label = ratingDisplayLabel(result.rating);
+      final interval = ratingNextLabel(
+        result.rating,
+        result.nextIntervalDays,
+        result.learningMode,
+      );
       return _StatusSpec(
         icon: Icons.check,
         text: '已评分 $label · 下次 $interval',
@@ -600,21 +594,23 @@ class _RatingRow extends StatelessWidget {
             icon: Icons.close,
             color: colors.cinnabar,
             enabled: enabled,
-            onTap: () => onRate('FORGET'),
+            onTap: () => onRate(Rating.forget),
           ),
         ),
         _divider(colors),
         Expanded(
           child: _RatingButton(
             label: '模糊',
-            sub: card.vagueIntervalDays > 0
-                ? KarisTheme.intervalLabel(card.vagueIntervalDays)
+            // VAGUE 间隔预览（架构评审 A2）：vagueIntervalDays 支持逾期感知，
+            // 但会话内透传 today 成本高，UI 按未逾期简化值展示（不承诺精确）。
+            sub: card.vagueIntervalDays(null) > 0
+                ? KarisTheme.intervalLabel(card.vagueIntervalDays(null))
                 : '重学',
             shortcut: '2',
             icon: Icons.help_outline,
             color: colors.amber,
             enabled: enabled,
-            onTap: () => onRate('VAGUE'),
+            onTap: () => onRate(Rating.vague),
           ),
         ),
         _divider(colors),
@@ -628,7 +624,7 @@ class _RatingRow extends StatelessWidget {
             icon: Icons.check,
             color: colors.jade,
             enabled: enabled,
-            onTap: () => onRate('FAMILIAR'),
+            onTap: () => onRate(Rating.familiar),
           ),
         ),
       ],
@@ -797,11 +793,11 @@ class _CardFace extends StatelessWidget {
 /// 方向即语义：忘记回落、熟悉生长、模糊悬置。
 Offset _exitOffsetFor(String? rating) {
   switch (rating) {
-    case 'FORGET':
+    case Rating.forget:
       return const Offset(-0.12, 0.10);
-    case 'FAMILIAR':
+    case Rating.familiar:
       return const Offset(0.12, -0.10);
-    case 'VAGUE':
+    case Rating.vague:
       return const Offset(0, 0.05);
     default:
       return const Offset(0, 0.03);

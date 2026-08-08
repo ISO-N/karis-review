@@ -663,6 +663,8 @@ class _DiagnosticsBlock extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
       final l10n = KarisReviewLocalizations.of(context)!;
+    // 最近一次评分同步结果（架构评审 F2 消费点）：冲突/缺失数不再是丢弃的返回值。
+    final outcome = ref.watch(syncServiceProvider).lastSyncOutcome;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -672,6 +674,15 @@ class _DiagnosticsBlock extends StatelessWidget {
           title: l10n.settingsLogs,
           subtitle: l10n.settingsLogsSubtitle,
           onTap: () => context.go('/settings/logs'),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+          child: Text(
+            '最近同步：已同步 ${outcome.synced} · 冲突 ${outcome.conflicts} · 缺失 ${outcome.missing}',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+          ),
         ),
       ],
     );

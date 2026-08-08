@@ -1,10 +1,8 @@
 package top.kariscode.karisreview.stats.service;
 
 import org.springframework.stereotype.Service;
-import top.kariscode.karisreview.auth.entity.User;
-import top.kariscode.karisreview.auth.repository.UserRepository;
-import top.kariscode.karisreview.auth.util.UserRefreshTime;
 import top.kariscode.karisreview.card.repository.CardRepository;
+import top.kariscode.karisreview.common.etag.UserRefreshTimeQuery;
 import top.kariscode.karisreview.common.exception.BusinessException;
 import top.kariscode.karisreview.common.util.DateUtils;
 import top.kariscode.karisreview.deck.entity.Deck;
@@ -30,16 +28,16 @@ public class StatsService {
     private final CardRepository cardRepository;
     private final DeckRepository deckRepository;
     private final ReviewLogRepository reviewLogRepository;
-    private final UserRepository userRepository;
+    private final UserRefreshTimeQuery userRefreshTimeQuery;
 
     public StatsService(CardRepository cardRepository,
                         DeckRepository deckRepository,
                         ReviewLogRepository reviewLogRepository,
-                        UserRepository userRepository) {
+                        UserRefreshTimeQuery userRefreshTimeQuery) {
         this.cardRepository = cardRepository;
         this.deckRepository = deckRepository;
         this.reviewLogRepository = reviewLogRepository;
-        this.userRepository = userRepository;
+        this.userRefreshTimeQuery = userRefreshTimeQuery;
     }
 
     /**
@@ -47,7 +45,7 @@ public class StatsService {
      * getDeckStats 共用。due/new 口径见 CardQueryPredicates。
      */
     public DeckCounters getDeckCounters(UUID userId, UUID deckId) {
-        LocalTime refreshTime = UserRefreshTime.resolve(userRepository, userId);
+        LocalTime refreshTime = userRefreshTimeQuery.resolve(userId);
         LocalDate today = DateUtils.calculateToday(refreshTime);
 
         DeckCounters counters = new DeckCounters();
@@ -63,7 +61,7 @@ public class StatsService {
     }
 
     public OverviewStatsResponse getOverview(UUID userId) {
-        LocalTime refreshTime = UserRefreshTime.resolve(userRepository, userId);
+        LocalTime refreshTime = userRefreshTimeQuery.resolve(userId);
         LocalDate today = DateUtils.calculateToday(refreshTime);
 
         LocalDateTime refreshStart = today.atTime(refreshTime);
@@ -115,7 +113,7 @@ public class StatsService {
         Deck deck = deckRepository.findByIdAndUserId(deckId, userId)
                 .orElseThrow(() -> new BusinessException(404, "stats.deck.notfound"));
 
-        LocalTime refreshTime = UserRefreshTime.resolve(userRepository, userId);
+        LocalTime refreshTime = userRefreshTimeQuery.resolve(userId);
         LocalDate today = DateUtils.calculateToday(refreshTime);
         LocalDateTime refreshStart = today.atTime(refreshTime);
         LocalDateTime refreshEnd = today.plusDays(1).atTime(refreshTime);
@@ -139,7 +137,7 @@ public class StatsService {
     }
 
     public List<TrendStatsResponse> getTrend(UUID userId, int days) {
-        LocalTime refreshTime = UserRefreshTime.resolve(userRepository, userId);
+        LocalTime refreshTime = userRefreshTimeQuery.resolve(userId);
         LocalDate today = DateUtils.calculateToday(refreshTime);
         LocalDateTime start = today.minusDays(days).atTime(refreshTime);
 

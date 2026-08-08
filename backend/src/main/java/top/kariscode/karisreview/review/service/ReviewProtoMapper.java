@@ -98,6 +98,10 @@ public class ReviewProtoMapper {
                     KarisReviewProto.ReviewSyncItemResult.newBuilder()
                             .setClientRequestId(result.getClientRequestId())
                             .setStatus(result.getStatus());
+            // card_id（架构评审 A4 补齐）：proto 早已声明，此前从不填充。
+            if (result.getCardId() != null) {
+                resultBuilder.setCardId(result.getCardId().toString());
+            }
             if (result.getCurrentCard() != null) {
                 resultBuilder.setCurrentCard(toCard(result.getCurrentCard()));
             }

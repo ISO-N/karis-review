@@ -8,6 +8,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import top.kariscode.karisreview.auth.entity.PasswordResetCode;
 import top.kariscode.karisreview.auth.repository.PasswordResetCodeRepository;
 import top.kariscode.karisreview.common.exception.BusinessException;
+import top.kariscode.karisreview.common.util.DateUtils;
 
 import java.time.LocalDateTime;
 import java.util.Optional;
@@ -48,7 +49,7 @@ class PasswordResetCodeServiceTest {
     @Test
     void issueCodeRejectsRepeatedRequestWithinCooldown() {
         PasswordResetCode existing = new PasswordResetCode();
-        existing.setExpiresAt(LocalDateTime.now().plusMinutes(10));
+        existing.setExpiresAt(DateUtils.now().plusMinutes(10));
         when(repository.findFirstByEmailAndPurposeAndUsedFalseOrderByCreatedAtDesc(
                 "a@b.c", PasswordResetCodeService.PURPOSE_REGISTER))
                 .thenReturn(Optional.of(existing));
@@ -67,7 +68,7 @@ class PasswordResetCodeServiceTest {
         PasswordResetCode record = new PasswordResetCode();
         record.setEmail("a@b.c");
         record.setCode("123456");
-        record.setExpiresAt(LocalDateTime.now().plusMinutes(10));
+        record.setExpiresAt(DateUtils.now().plusMinutes(10));
         when(repository.findFirstByEmailAndPurposeAndUsedFalseOrderByCreatedAtDesc(
                 "a@b.c", PasswordResetCodeService.PURPOSE_RESET))
                 .thenReturn(Optional.of(record));
@@ -82,7 +83,7 @@ class PasswordResetCodeServiceTest {
     void verifyCodeRejectsWrongCodeAndIncrementsAttempts() {
         PasswordResetCode record = new PasswordResetCode();
         record.setCode("123456");
-        record.setExpiresAt(LocalDateTime.now().plusMinutes(10));
+        record.setExpiresAt(DateUtils.now().plusMinutes(10));
         when(repository.findFirstByEmailAndPurposeAndUsedFalseOrderByCreatedAtDesc(
                 "a@b.c", PasswordResetCodeService.PURPOSE_RESET))
                 .thenReturn(Optional.of(record));
@@ -101,7 +102,7 @@ class PasswordResetCodeServiceTest {
     void verifyCodeRejectsExpiredCode() {
         PasswordResetCode record = new PasswordResetCode();
         record.setCode("123456");
-        record.setExpiresAt(LocalDateTime.now().minusMinutes(1));
+        record.setExpiresAt(DateUtils.now().minusMinutes(1));
         when(repository.findFirstByEmailAndPurposeAndUsedFalseOrderByCreatedAtDesc(
                 "a@b.c", PasswordResetCodeService.PURPOSE_RESET))
                 .thenReturn(Optional.of(record));
@@ -118,7 +119,7 @@ class PasswordResetCodeServiceTest {
     void verifyCodeRejectsTooManyAttempts() {
         PasswordResetCode record = new PasswordResetCode();
         record.setCode("123456");
-        record.setExpiresAt(LocalDateTime.now().plusMinutes(10));
+        record.setExpiresAt(DateUtils.now().plusMinutes(10));
         record.setAttemptCount(10);
         when(repository.findFirstByEmailAndPurposeAndUsedFalseOrderByCreatedAtDesc(
                 "a@b.c", PasswordResetCodeService.PURPOSE_RESET))

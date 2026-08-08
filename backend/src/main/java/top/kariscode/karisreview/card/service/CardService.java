@@ -11,14 +11,13 @@ import top.kariscode.karisreview.card.entity.Card;
 import top.kariscode.karisreview.card.entity.SchedulingState;
 import top.kariscode.karisreview.card.repository.CardRepository;
 import top.kariscode.karisreview.common.exception.BusinessException;
+import top.kariscode.karisreview.common.etag.UserRefreshTimeQuery;
 import top.kariscode.karisreview.common.util.DateUtils;
+import top.kariscode.karisreview.common.util.PagingHelper;
 import top.kariscode.karisreview.deck.entity.Deck;
 import top.kariscode.karisreview.deck.repository.DeckRepository;
-import top.kariscode.karisreview.auth.repository.UserRepository;
-import top.kariscode.karisreview.auth.util.UserRefreshTime;
 
 import java.time.LocalDate;
-import java.time.LocalTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -27,14 +26,14 @@ public class CardService {
 
     private final CardRepository cardRepository;
     private final DeckRepository deckRepository;
-    private final UserRepository userRepository;
+    private final UserRefreshTimeQuery userRefreshTimeQuery;
 
     public CardService(CardRepository cardRepository,
                        DeckRepository deckRepository,
-                       UserRepository userRepository) {
+                       UserRefreshTimeQuery userRefreshTimeQuery) {
         this.cardRepository = cardRepository;
         this.deckRepository = deckRepository;
-        this.userRepository = userRepository;
+        this.userRefreshTimeQuery = userRefreshTimeQuery;
     }
     public Page<CardResponse> getDeckCards(UUID userId, UUID deckId, int page, int size, String filter) {
         return getDeckCards(userId, deckId, page, size, filter, "");
@@ -47,7 +46,9 @@ public class CardService {
 
         String effectiveFilter = filter == null ? "all" : filter;
         String normalizedQuery = normalizeSearchQuery(query);
-        PageRequest pageRequest = PageRequest.of(page, size);
+        // 分页 clamp（架构评审 B4）：此前 size 无上限可传 10 万拉全表，统一收口。
+        PageRequest pageRequest = PageRequest.of(
+                PagingHelper.safePage(page), PagingHelper.safeSize(size));
         LocalDate today = todayFor(userId);
         Page<Card> cards;
         if (normalizedQuery.isEmpty()) {
@@ -146,7 +147,13 @@ public class CardService {
 
     private CardResponse toCardResponse(Card card, LocalDate today) {
         SchedulingState s = card.getSchedulingState();
-        boolean due = s.getNextReviewDate() != null && !s.getNextReviewDate().isAfter(today);
+        // due 口径与 CardQueryPredicates.DUE_EXCLUDING_NEW 一致（2026-08-08 架构评审 A4）：
+        // 非重学卡，或 REVIEW/null 来源重学卡才计 due；NEW 来源重学卡（next_review_date
+        // 恒为评分当天，必然命中日期条件）必须排除——否则响应内 due 与 due_count/filter=due 矛盾。
+        boolean due = s.getNextReviewDate() != null
+                && !s.getNextReviewDate().isAfter(today)
+                && (!s.isLearningMode() || s.getLearningOrigin() == null
+                || "REVIEW".equals(s.getLearningOrigin()));
         return new CardResponse(
                 card.getId(), card.getDeckId(), card.getFront(), card.getBack(),
                 s.getStage(), s.getNextReviewDate(), s.isLearningMode(),
@@ -156,7 +163,6 @@ public class CardService {
     }
 
     private LocalDate todayFor(UUID userId) {
-        return DateUtils.calculateToday(
-                UserRefreshTime.resolve(userRepository, userId));
+        return DateUtils.calculateToday(userRefreshTimeQuery.resolve(userId));
     }
 }

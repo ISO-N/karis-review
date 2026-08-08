@@ -1,7 +1,6 @@
 // ignore_for_file: prefer_initializing_formals
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
@@ -12,6 +11,7 @@ import '../../offline/offline_repository.dart';
 import '../../offline/providers.dart';
 import '../../shared/providers/data_refresh_provider.dart';
 import '../../shared/scheduling/queue_composer.dart';
+import '../../shared/scheduling/scheduling_constants.dart';
 import '../../shared/utils/date_utils.dart';
 import '../../sync/providers.dart';
 import '../../sync/repositories/sync_repository.dart';
@@ -383,24 +383,13 @@ class ReviewNotifier extends StateNotifier<ReviewSessionState> {
       // 评分时刻的学习来源快照（排程算法会返回变更后的卡，必须先取值）：
       // 学新阶段产生的重学（NEW）评分不计入「今日复习」。
       final originAtRating = flash.learningOrigin;
-      debugPrint(
-        '[KARIS-DBG] rate() card=${card.id} rating=$rating '
-        'stage=${card.stage} learningMode=${card.learningMode} '
-        'learningOrigin=${card.learningOrigin} queueSource=${state.queueSource}',
-      );
       final outcome = LocalSchedulingEngine().rate(
         flash,
         rating,
         nowUtc: DateTime.now().toUtc(),
-        refreshTime: meta?.refreshTime ?? '04:00:00',
+        refreshTime: meta?.refreshTime ?? SchedulingConstants.defaultRefreshTime,
       );
       final clientRequestId = const Uuid().v4();
-      debugPrint(
-        '[KARIS-DBG] rate() outcome wasNewCard=${outcome.wasNewCard} '
-        'originAtRating=$originAtRating '
-        'stageAfter=${outcome.result.stageAfter} '
-        'learningModeAfter=${outcome.result.learningMode}',
-      );
       await _offline.applyLocalRating(
         userId: userId,
         card: outcome.card,
@@ -567,7 +556,7 @@ class ReviewNotifier extends StateNotifier<ReviewSessionState> {
     final today = AppDateUtils.formatDate(
       LocalSchedulingEngine.calculateToday(
         DateTime.now().toUtc(),
-        refreshTime ?? '04:00:00',
+        refreshTime ?? SchedulingConstants.defaultRefreshTime,
       ),
     );
     return FlashCard(

@@ -7,7 +7,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import top.kariscode.karisreview.common.dto.ApiResponse;
+import top.kariscode.karisreview.common.etag.EtagSupport;
 import top.kariscode.karisreview.common.etag.UserEtagService;
+import top.kariscode.karisreview.common.util.PagingHelper;
 import top.kariscode.karisreview.stats.dto.DeckStatsResponse;
 import top.kariscode.karisreview.stats.dto.OverviewStatsResponse;
 import top.kariscode.karisreview.stats.dto.TrendStatsResponse;
@@ -34,7 +36,7 @@ public class StatsController {
             @AuthenticationPrincipal UUID userId,
             @RequestHeader(name = "If-None-Match", required = false) String ifNoneMatch) {
         String etag = etagService.overviewEtag(userId);
-        if (matches(ifNoneMatch, etag)) {
+        if (EtagSupport.matches(ifNoneMatch, etag)) {
             return ResponseEntity.status(HttpStatus.NOT_MODIFIED).eTag(etag).build();
         }
         OverviewStatsResponse stats = statsService.getOverview(userId);
@@ -50,7 +52,7 @@ public class StatsController {
             @PathVariable UUID deckId,
             @RequestHeader(name = "If-None-Match", required = false) String ifNoneMatch) {
         String etag = etagService.deckStatsEtag(userId, deckId);
-        if (matches(ifNoneMatch, etag)) {
+        if (EtagSupport.matches(ifNoneMatch, etag)) {
             return ResponseEntity.status(HttpStatus.NOT_MODIFIED).eTag(etag).build();
         }
         DeckStatsResponse stats = statsService.getDeckStats(userId, deckId);
@@ -66,17 +68,15 @@ public class StatsController {
             @RequestParam(defaultValue = "30") int days,
             @RequestHeader(name = "If-None-Match", required = false) String ifNoneMatch) {
         String etag = etagService.trendEtag(userId);
-        if (matches(ifNoneMatch, etag)) {
+        if (EtagSupport.matches(ifNoneMatch, etag)) {
             return ResponseEntity.status(HttpStatus.NOT_MODIFIED).eTag(etag).build();
         }
-        List<TrendStatsResponse> trend = statsService.getTrend(userId, days);
+        List<TrendStatsResponse> trend = statsService.getTrend(
+                userId, PagingHelper.safeTrendDays(days));
         return ResponseEntity.ok()
                 .eTag(etag)
                 .cacheControl(CacheControl.noCache().cachePrivate())
                 .body(ApiResponse.success(trend));
     }
 
-    private boolean matches(String ifNoneMatch, String etag) {
-        return ifNoneMatch != null && ("*".equals(ifNoneMatch) || ifNoneMatch.equals(etag));
-    }
 }

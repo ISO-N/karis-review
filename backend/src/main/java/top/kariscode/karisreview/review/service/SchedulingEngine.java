@@ -261,37 +261,6 @@ public class SchedulingEngine {
         return STAGE_INTERVALS[stage];
     }
 
-    public static int getFamiliarIntervalAfterRating(Card card) {
-        if (card.isLearningMode()) {
-            int threshold = getRelearningThreshold(card);
-            if (card.getConsecutiveFamiliar() + 1 >= threshold) {
-                Integer targetStage = card.getReentryStage();
-                if (targetStage != null && targetStage > 0) {
-                    return calculateVagueReviewInterval(targetStage);
-                }
-                return STAGE_INTERVALS[1];
-            }
-            return 0;
-        }
-        if (card.getStage() >= MAX_STAGE) return STAGE_INTERVALS[MAX_STAGE];
-        return STAGE_INTERVALS[card.getStage() + 1];
-    }
-
-    public static int getVagueIntervalAfterRating(Card card) {
-        return getVagueIntervalAfterRating(card, 0);
-    }
-
-    /**
-     * Interval preview for a VAGUE rating, taking overdue days into account:
-     * the step-back happens from the effective stage, so the preview shows the
-     * reentry interval the card would receive after relearning.
-     */
-    public static int getVagueIntervalAfterRating(Card card, int overdueDays) {
-        int effectiveStage = calculateEffectiveStage(card.getStage(), overdueDays);
-        if (effectiveStage <= 1) return 0;
-        return STAGE_INTERVALS[effectiveStage];
-    }
-
     /**
      * Result of a rating operation.
      */

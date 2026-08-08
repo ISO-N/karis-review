@@ -10,6 +10,9 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import top.kariscode.karisreview.common.exception.ServerErrorReporter;
+import top.kariscode.karisreview.common.util.DateUtils;
+import top.kariscode.karisreview.common.util.PagingHelper;
 import top.kariscode.karisreview.log.dto.UserLogResponse;
 import top.kariscode.karisreview.log.entity.UserLog;
 import top.kariscode.karisreview.log.repository.UserLogRepository;
@@ -21,11 +24,10 @@ import java.util.Map;
 import java.util.UUID;
 
 @Service
-public class UserLogService {
+public class UserLogService implements ServerErrorReporter {
 
     private static final Logger log = LoggerFactory.getLogger(UserLogService.class);
     private static final int LOG_RETENTION_DAYS = 30;
-    private static final int MAX_PAGE_SIZE = 100;
 
     private final UserLogRepository userLogRepository;
     private final ObjectMapper objectMapper;
@@ -41,6 +43,16 @@ public class UserLogService {
     @Transactional
     public void log(UUID userId, String level, String category, String message) {
         log(userId, level, category, message, null);
+    }
+
+    /**
+     * ServerErrorReporter 实现（架构评审 B1）：GlobalExceptionHandler 经 common 接口
+     * 上报 500 错误，依赖方向 common ← log，切断编译期环。
+     */
+    @Override
+    @Transactional
+    public void report(UUID userId, String messageKey, Map<String, Object> detail) {
+        log(userId, "ERROR", "SYSTEM", messageKey, detail);
     }
 
     /**
@@ -69,9 +81,9 @@ public class UserLogService {
      */
     public Page<UserLogResponse> getLogs(UUID userId, String level, String category,
                                           int page, int size) {
-        int safeSize = Math.max(1, Math.min(MAX_PAGE_SIZE, size));
-        int safePage = Math.max(0, page);
-        Pageable pageable = PageRequest.of(safePage, safeSize);
+        // 分页 clamp 统一走 PagingHelper（架构评审 B4）。
+        Pageable pageable = PageRequest.of(
+                PagingHelper.safePage(page), PagingHelper.safeSize(size));
 
         Page<UserLog> logPage;
         if (level != null && !level.isBlank() && category != null && !category.isBlank()) {
@@ -97,7 +109,7 @@ public class UserLogService {
     @Scheduled(cron = "0 0 3 * * *")
     @Transactional
     public void cleanupOldLogs() {
-        LocalDateTime cutoff = LocalDateTime.now().minusDays(LOG_RETENTION_DAYS);
+        LocalDateTime cutoff = DateUtils.now().minusDays(LOG_RETENTION_DAYS);
         userLogRepository.deleteByCreatedAtBefore(cutoff);
         log.info("Cleaned up user_logs older than {}", cutoff);
     }
