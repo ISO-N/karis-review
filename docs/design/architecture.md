@@ -411,6 +411,8 @@ log ───────► common
 
 > **2026-08-08 架构评审候选 2 落地**：排期状态统一经 `card/entity/SchedulingState` 值对象投影——`Card.getSchedulingState()`/`applySchedulingState()`，`CardResponse`/`ReviewCardResponse`/`BootstrapCard`/备份 JSON 四类出口都从它取排期字段，禁止逐字段散落读取。修复备份缺口：`BackupService.exportData` 曾漏导出 `learning_step`/`learning_origin`/`review_version`（导入却读取 `learning_origin`），恢复后 NEW 重学卡队列归属退化为 REVIEW 兜底、重学插位间距全丢；现导出/导入均经 `SchedulingState` 全字段 round-trip（旧备份缺键自动回退默认）。`CardResponse` 随之补充 `review_version`/`learning_origin`（JSON 卡片列表通道字段补齐，`new` 筛选仍由服务端 `filter=new` 计算）。
 
+> **2026-08-08 架构评审候选 3 落地**：due/new 查询谓词单一化——`card/repository/CardQueryPredicates` 集中声明两种口径的 JPQL 与 native SQL 变体（`NEW_QUEUE` 学新队列 / `DUE_EXCLUDING_NEW` 复习队列与统计），`CardRepository` 9 处 `@Query` 全部拼接常量，前端 `offline_repository.dart` 收敛为 `_isNewCard`/`_isDueCard` 两函数（10+ 处调用点），两端注释互相引用。**修复口径 bug**：卡片列表 `filter=due` 原用派生查询未排除 NEW 重学卡，与「待复习」badge 计数（统计口径含排除）不一致，现改用 `DUE_EXCLUDING_NEW`。删除无调用死方法 `countNewByUserId`/`countDueToday`。后端全量 286 测试（含系统测试）、前端全量 228 测试通过。
+
 ## 7.1.2 统计一致性问题复盘（2026-08 生产故障）
 
 ### 现象

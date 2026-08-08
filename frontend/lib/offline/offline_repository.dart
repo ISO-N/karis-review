@@ -94,6 +94,8 @@ class OfflineRepository {
     final cards = await getCards(userId, deckId: deckId);
     final meta = await getSyncMeta(userId);
     final today = _today(meta);
+    // 复习队列 = 非重学到期卡（本查询）+ REVIEW/null 重学卡（learning 查询），
+    // 口径同后端 CardQueryPredicates.DUE_EXCLUDING_NEW；两分列是为了按 2^n 插位。
     final due =
         cards
             .where(
@@ -157,8 +159,9 @@ class OfflineRepository {
     final cards = await getCards(userId, deckId: deckId);
     final meta = await getSyncMeta(userId);
     final today = _formatDate(_today(meta));
-    // 学新队列 = 待学新卡 + 学新阶段产生的重学卡（来源 NEW，按 2^n 间距插入）。
-    // 与 OfflineRepository.getDueQueue 的重学插位语义一致。
+    // 学新队列 = 待学新卡 + 学新阶段产生的重学卡（来源 NEW，按 2^n 间距插入），
+    // 口径同后端 CardQueryPredicates.NEW_QUEUE；与 OfflineRepository.getDueQueue
+    // 的重学插位语义一致。
     final newCards = cards.where((c) => c.stage == 0 && !c.learningMode).toList()
       ..sort(
         (a, b) => (a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0))
@@ -201,32 +204,16 @@ class OfflineRepository {
     return decks.map((deck) {
       final deckCards = cards.where((c) => c.deckId == deck.id).toList();
       final due = deckCards
-          .where(
-            (c) =>
-                c.nextReviewDate != null &&
-                c.nextReviewDate!.compareTo(today) <= 0 &&
-                !(c.learningMode && c.learningOrigin == 'NEW'),
-          )
+          .where((c) => _isDueCard(c, today))
           .length;
-      final newCount = deckCards
-          .where(
-            (c) =>
-                (c.stage == 0 && !c.learningMode) ||
-                (c.learningMode && c.learningOrigin == 'NEW'),
-          )
-          .length;
+      final newCount = deckCards.where(_isNewCard).length;
       final mastered = deckCards.where((c) => c.stage >= 5).length;
       final distribution = _distribution(
         deckCards.map((c) => c.stage).toList(),
       );
       final dueDistribution = _distribution(
         deckCards
-            .where(
-              (c) =>
-                  c.nextReviewDate != null &&
-                  c.nextReviewDate!.compareTo(today) <= 0 &&
-                  !(c.learningMode && c.learningOrigin == 'NEW'),
-            )
+            .where((c) => _isDueCard(c, today))
             .map((c) => c.stage)
             .toList(),
       );
@@ -261,15 +248,7 @@ class OfflineRepository {
         todayDate.day,
       ).subtract(const Duration(days: 1)),
     );
-    final dueToday = cards
-        .where(
-          (c) =>
-              c.nextReviewDate != null &&
-              c.nextReviewDate!.compareTo(today) <= 0 &&
-              // 学新阶段的重学卡属于学习队列，不计入「今日待复习」
-              !(c.learningMode && c.learningOrigin == 'NEW'),
-        )
-        .length;
+    final dueToday = cards.where((c) => _isDueCard(c, today)).length;
     final reviewedToday = logs
         .where(
           (l) =>
@@ -298,7 +277,7 @@ class OfflineRepository {
       '[KARIS-DBG] getOverviewStats userId=$userId refreshTime=$refreshTime '
       'today=$today logs=${logs.length} '
       'reviewedToday=$reviewedToday learnedToday=$learnedToday '
-      'dueToday=$dueToday newCards=${cards.where((c) => (c.stage == 0 && !c.learningMode) || (c.learningMode && c.learningOrigin == 'NEW')).length}',
+      'dueToday=$dueToday newCards=${cards.where(_isNewCard).length}',
     );
     final stages = cards.map((c) => c.stage).toList();
     return OverviewStats(
@@ -308,23 +287,12 @@ class OfflineRepository {
       reviewedToday: reviewedToday,
       learnedToday: learnedToday,
       masteredCards: stages.where((s) => s >= 5).length,
-      newCards: cards
-          .where(
-            (c) =>
-                (c.stage == 0 && !c.learningMode) ||
-                (c.learningMode && c.learningOrigin == 'NEW'),
-          )
-          .length,
+      newCards: cards.where(_isNewCard).length,
       learningCards: stages.where((s) => s < 5).length,
       stageDistribution: _distribution(stages),
       dueStageDistribution: _distribution(
         cards
-            .where(
-              (c) =>
-                  c.nextReviewDate != null &&
-                  c.nextReviewDate!.compareTo(today) <= 0 &&
-                  !(c.learningMode && c.learningOrigin == 'NEW'),
-            )
+            .where((c) => _isDueCard(c, today))
             .map((c) => c.stage)
             .toList(),
       ),
@@ -363,33 +331,15 @@ class OfflineRepository {
       deckId: deckId,
       deckName: deck?.name ?? '',
       totalCards: cards.length,
-      dueToday: cards
-          .where(
-            (c) =>
-                c.nextReviewDate != null &&
-                c.nextReviewDate!.compareTo(today) <= 0 &&
-                !(c.learningMode && c.learningOrigin == 'NEW'),
-          )
-          .length,
+      dueToday: cards.where((c) => _isDueCard(c, today)).length,
       reviewedToday: reviewedToday,
-      newCards: cards
-          .where(
-            (c) =>
-                (c.stage == 0 && !c.learningMode) ||
-                (c.learningMode && c.learningOrigin == 'NEW'),
-          )
-          .length,
+      newCards: cards.where(_isNewCard).length,
       learningCards: cards.where((c) => c.learningMode).length,
       masteredCards: stages.where((s) => s >= 5).length,
       stageDistribution: _distribution(stages),
       dueStageDistribution: _distribution(
         cards
-            .where(
-              (c) =>
-                  c.nextReviewDate != null &&
-                  c.nextReviewDate!.compareTo(today) <= 0 &&
-                  !(c.learningMode && c.learningOrigin == 'NEW'),
-            )
+            .where((c) => _isDueCard(c, today))
             .map((c) => c.stage)
             .toList(),
       ),
@@ -1077,6 +1027,19 @@ class OfflineRepository {
       learningOrigin: card.learningOrigin,
     );
   }
+
+  // 谓词单一事实源（架构评审候选 3）：对应后端
+  // card/repository/CardQueryPredicates，两端口径必须一致。
+  // 学新队列口径：待学新卡（stage=0 且非重学）+ 学新阶段重学卡（learning_origin='NEW'）。
+  bool _isNewCard(LocalCard c) =>
+      (c.stage == 0 && !c.learningMode) ||
+      (c.learningMode && c.learningOrigin == 'NEW');
+
+  // 复习队列/统计口径：已排期到期卡且非学新阶段重学（同后端 DUE_EXCLUDING_NEW）。
+  bool _isDueCard(LocalCard c, String today) =>
+      c.nextReviewDate != null &&
+      c.nextReviewDate!.compareTo(today) <= 0 &&
+      !(c.learningMode && c.learningOrigin == 'NEW');
 
   List<int> _distribution(List<int> stages) {
     final result = List<int>.filled(9, 0);
