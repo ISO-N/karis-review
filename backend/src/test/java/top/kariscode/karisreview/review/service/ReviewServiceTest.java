@@ -84,7 +84,7 @@ class ReviewServiceTest {
         when(userRepository.findById(userId)).thenReturn(Optional.of(user()));
         when(cardRepository.findDueCards(userId, DateUtils.calculateToday(LocalTime.of(4, 0)), deckId))
                 .thenReturn(List.of(dueA, dueB, dueC));
-        when(cardRepository.findLearningModeCards(
+        when(cardRepository.findLearningModeCardsForReview(
                 userId, DateUtils.calculateToday(LocalTime.of(4, 0)), deckId))
                 .thenReturn(List.of(learning2, learning1));
 

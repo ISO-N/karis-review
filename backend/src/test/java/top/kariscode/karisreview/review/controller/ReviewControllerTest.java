@@ -190,7 +190,7 @@ class ReviewControllerTest {
     private ReviewCardResponse reviewCard() {
         return new ReviewCardResponse(
                 UUID.randomUUID(), UUID.randomUUID(), "正面", "反面",
-                0, false, 0, null, null, 0, 0);
+                0, false, 0, null, null, 0, 0, null);
     }
 
     private RequestPostProcessor authentication(UUID userId) {

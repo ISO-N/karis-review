@@ -103,7 +103,7 @@ class StatsServiceTest {
         when(reviewLogRepository.countReviewedTodayForDeck(
                 userId, deckId, today.atTime(refreshTime), today.plusDays(1).atTime(refreshTime)))
                 .thenReturn(3L);
-        when(cardRepository.countByDeckIdAndStageAndLearningModeFalse(deckId, 0)).thenReturn(1L);
+        when(cardRepository.countNewByDeckId(deckId)).thenReturn(1L);
         when(cardRepository.countByDeckIdAndLearningModeTrue(deckId)).thenReturn(2L);
         when(cardRepository.countByDeckIdAndStageGreaterThanEqual(deckId, 5)).thenReturn(1L);
         when(cardRepository.countByStageGroupedByDeck(deckId)).thenReturn(
