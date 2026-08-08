@@ -80,6 +80,8 @@ class ReviewResult {
   final int consecutiveFamiliar;
   final int nextIntervalDays;
   final int reviewVersion;
+  final int? reentryStage;
+  final String? learningOrigin;
 
   ReviewResult({
     required this.cardId,
@@ -91,6 +93,8 @@ class ReviewResult {
     required this.consecutiveFamiliar,
     required this.nextIntervalDays,
     this.reviewVersion = 0,
+    this.reentryStage,
+    this.learningOrigin,
   });
 
   factory ReviewResult.fromJson(Map<String, dynamic> json) {
@@ -104,6 +108,8 @@ class ReviewResult {
       consecutiveFamiliar: (json['consecutive_familiar'] as num?)?.toInt() ?? 0,
       nextIntervalDays: (json['next_interval_days'] as num?)?.toInt() ?? 0,
       reviewVersion: (json['review_version'] as num?)?.toInt() ?? 0,
+      reentryStage: (json['reentry_stage'] as num?)?.toInt(),
+      learningOrigin: json['learning_origin'] as String?,
     );
   }
 }
