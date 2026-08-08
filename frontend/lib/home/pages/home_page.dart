@@ -202,9 +202,12 @@ class _HomeMainColumn extends StatelessWidget {
                             children: [
                               TextSpan(
                                 text: '$due',
-                                style: karisMono(
+                                // 纪念碑场景：衬线大数字（karisMonument），
+                                // 让「今日待办」像碑文一样立起来，区别于
+                                // 统计页等宽对齐的数据数字。
+                                style: karisMonument(
                                   fontSize: 54,
-                                  weight: FontWeight.w500,
+                                  color: colors.ink,
                                 ),
                               ),
                               TextSpan(
