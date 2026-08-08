@@ -1,6 +1,7 @@
 import '../auth/models/login_response.dart';
 import '../offline/offline_repository.dart';
 import '../review/models/review_card.dart';
+import '../shared/scheduling/scheduling_constants.dart';
 import 'repositories/sync_repository.dart';
 
 class SyncOutcome {
@@ -22,6 +23,11 @@ class SyncService {
   Future<void>? _inflightRefresh;
   Future<SyncOutcome>? _inflightSync;
   DateTime? _lastRefreshAt;
+
+  /// 最近一次评分同步的结果（架构评审 F2 消费点）：设置页诊断块展示
+  /// synced/conflicts/missing，冲突/缺失数不再是丢弃的返回值。
+  SyncOutcome _lastSyncOutcome = const SyncOutcome();
+  SyncOutcome get lastSyncOutcome => _lastSyncOutcome;
 
   SyncService(this._repository, this._offline);
 
@@ -87,7 +93,7 @@ class SyncService {
     await _offline.saveBootstrap(
       userId: userId,
       email: user['email'] as String? ?? '',
-      refreshTime: user['refresh_time'] as String? ?? '04:00:00',
+      refreshTime: user['refresh_time'] as String? ?? SchedulingConstants.defaultRefreshTime,
       serverTime: DateTime.parse(data['server_time'] as String),
       decks: (data['decks'] as List? ?? const []).cast<Map<String, dynamic>>(),
       reviewLogs: (data['review_logs'] as List? ?? const [])
@@ -160,7 +166,9 @@ class SyncService {
       }
     }
 
-    return SyncOutcome(synced: synced, conflicts: conflicts, missing: missing);
+    final outcome = SyncOutcome(synced: synced, conflicts: conflicts, missing: missing);
+    _lastSyncOutcome = outcome;
+    return outcome;
   }
 
   Future<void> forceServerAuthoritative({required String userId}) async {
