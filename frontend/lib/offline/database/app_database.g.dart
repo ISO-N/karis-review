@@ -803,6 +803,17 @@ class $LocalCardsTable extends LocalCards
     requiredDuringInsert: false,
     defaultValue: const Constant(0),
   );
+  static const VerificationMeta _learningOriginMeta = const VerificationMeta(
+    'learningOrigin',
+  );
+  @override
+  late final GeneratedColumn<String> learningOrigin = GeneratedColumn<String>(
+    'learning_origin',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _reviewVersionMeta = const VerificationMeta(
     'reviewVersion',
   );
@@ -850,6 +861,7 @@ class $LocalCardsTable extends LocalCards
     learningMode,
     reentryStage,
     learningStep,
+    learningOrigin,
     reviewVersion,
     createdAt,
     updatedAt,
@@ -954,6 +966,15 @@ class $LocalCardsTable extends LocalCards
         ),
       );
     }
+    if (data.containsKey('learning_origin')) {
+      context.handle(
+        _learningOriginMeta,
+        learningOrigin.isAcceptableOrUnknown(
+          data['learning_origin']!,
+          _learningOriginMeta,
+        ),
+      );
+    }
     if (data.containsKey('review_version')) {
       context.handle(
         _reviewVersionMeta,
@@ -1032,6 +1053,10 @@ class $LocalCardsTable extends LocalCards
         DriftSqlType.int,
         data['${effectivePrefix}learning_step'],
       )!,
+      learningOrigin: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}learning_origin'],
+      ),
       reviewVersion: attachedDatabase.typeMapping.read(
         DriftSqlType.bigInt,
         data['${effectivePrefix}review_version'],
@@ -1065,6 +1090,7 @@ class LocalCard extends DataClass implements Insertable<LocalCard> {
   final bool learningMode;
   final int? reentryStage;
   final int learningStep;
+  final String? learningOrigin;
   final BigInt reviewVersion;
   final DateTime? createdAt;
   final DateTime? updatedAt;
@@ -1080,6 +1106,7 @@ class LocalCard extends DataClass implements Insertable<LocalCard> {
     required this.learningMode,
     this.reentryStage,
     required this.learningStep,
+    this.learningOrigin,
     required this.reviewVersion,
     this.createdAt,
     this.updatedAt,
@@ -1102,6 +1129,9 @@ class LocalCard extends DataClass implements Insertable<LocalCard> {
       map['reentry_stage'] = Variable<int>(reentryStage);
     }
     map['learning_step'] = Variable<int>(learningStep);
+    if (!nullToAbsent || learningOrigin != null) {
+      map['learning_origin'] = Variable<String>(learningOrigin);
+    }
     map['review_version'] = Variable<BigInt>(reviewVersion);
     if (!nullToAbsent || createdAt != null) {
       map['created_at'] = Variable<DateTime>(createdAt);
@@ -1129,6 +1159,9 @@ class LocalCard extends DataClass implements Insertable<LocalCard> {
           ? const Value.absent()
           : Value(reentryStage),
       learningStep: Value(learningStep),
+      learningOrigin: learningOrigin == null && nullToAbsent
+          ? const Value.absent()
+          : Value(learningOrigin),
       reviewVersion: Value(reviewVersion),
       createdAt: createdAt == null && nullToAbsent
           ? const Value.absent()
@@ -1158,6 +1191,7 @@ class LocalCard extends DataClass implements Insertable<LocalCard> {
       learningMode: serializer.fromJson<bool>(json['learningMode']),
       reentryStage: serializer.fromJson<int?>(json['reentryStage']),
       learningStep: serializer.fromJson<int>(json['learningStep']),
+      learningOrigin: serializer.fromJson<String?>(json['learningOrigin']),
       reviewVersion: serializer.fromJson<BigInt>(json['reviewVersion']),
       createdAt: serializer.fromJson<DateTime?>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime?>(json['updatedAt']),
@@ -1178,6 +1212,7 @@ class LocalCard extends DataClass implements Insertable<LocalCard> {
       'learningMode': serializer.toJson<bool>(learningMode),
       'reentryStage': serializer.toJson<int?>(reentryStage),
       'learningStep': serializer.toJson<int>(learningStep),
+      'learningOrigin': serializer.toJson<String?>(learningOrigin),
       'reviewVersion': serializer.toJson<BigInt>(reviewVersion),
       'createdAt': serializer.toJson<DateTime?>(createdAt),
       'updatedAt': serializer.toJson<DateTime?>(updatedAt),
@@ -1196,6 +1231,7 @@ class LocalCard extends DataClass implements Insertable<LocalCard> {
     bool? learningMode,
     Value<int?> reentryStage = const Value.absent(),
     int? learningStep,
+    Value<String?> learningOrigin = const Value.absent(),
     BigInt? reviewVersion,
     Value<DateTime?> createdAt = const Value.absent(),
     Value<DateTime?> updatedAt = const Value.absent(),
@@ -1213,6 +1249,9 @@ class LocalCard extends DataClass implements Insertable<LocalCard> {
     learningMode: learningMode ?? this.learningMode,
     reentryStage: reentryStage.present ? reentryStage.value : this.reentryStage,
     learningStep: learningStep ?? this.learningStep,
+    learningOrigin: learningOrigin.present
+        ? learningOrigin.value
+        : this.learningOrigin,
     reviewVersion: reviewVersion ?? this.reviewVersion,
     createdAt: createdAt.present ? createdAt.value : this.createdAt,
     updatedAt: updatedAt.present ? updatedAt.value : this.updatedAt,
@@ -1240,6 +1279,9 @@ class LocalCard extends DataClass implements Insertable<LocalCard> {
       learningStep: data.learningStep.present
           ? data.learningStep.value
           : this.learningStep,
+      learningOrigin: data.learningOrigin.present
+          ? data.learningOrigin.value
+          : this.learningOrigin,
       reviewVersion: data.reviewVersion.present
           ? data.reviewVersion.value
           : this.reviewVersion,
@@ -1262,6 +1304,7 @@ class LocalCard extends DataClass implements Insertable<LocalCard> {
           ..write('learningMode: $learningMode, ')
           ..write('reentryStage: $reentryStage, ')
           ..write('learningStep: $learningStep, ')
+          ..write('learningOrigin: $learningOrigin, ')
           ..write('reviewVersion: $reviewVersion, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt')
@@ -1282,6 +1325,7 @@ class LocalCard extends DataClass implements Insertable<LocalCard> {
     learningMode,
     reentryStage,
     learningStep,
+    learningOrigin,
     reviewVersion,
     createdAt,
     updatedAt,
@@ -1301,6 +1345,7 @@ class LocalCard extends DataClass implements Insertable<LocalCard> {
           other.learningMode == this.learningMode &&
           other.reentryStage == this.reentryStage &&
           other.learningStep == this.learningStep &&
+          other.learningOrigin == this.learningOrigin &&
           other.reviewVersion == this.reviewVersion &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt);
@@ -1318,6 +1363,7 @@ class LocalCardsCompanion extends UpdateCompanion<LocalCard> {
   final Value<bool> learningMode;
   final Value<int?> reentryStage;
   final Value<int> learningStep;
+  final Value<String?> learningOrigin;
   final Value<BigInt> reviewVersion;
   final Value<DateTime?> createdAt;
   final Value<DateTime?> updatedAt;
@@ -1334,6 +1380,7 @@ class LocalCardsCompanion extends UpdateCompanion<LocalCard> {
     this.learningMode = const Value.absent(),
     this.reentryStage = const Value.absent(),
     this.learningStep = const Value.absent(),
+    this.learningOrigin = const Value.absent(),
     this.reviewVersion = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
@@ -1351,6 +1398,7 @@ class LocalCardsCompanion extends UpdateCompanion<LocalCard> {
     this.learningMode = const Value.absent(),
     this.reentryStage = const Value.absent(),
     this.learningStep = const Value.absent(),
+    this.learningOrigin = const Value.absent(),
     this.reviewVersion = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
@@ -1372,6 +1420,7 @@ class LocalCardsCompanion extends UpdateCompanion<LocalCard> {
     Expression<bool>? learningMode,
     Expression<int>? reentryStage,
     Expression<int>? learningStep,
+    Expression<String>? learningOrigin,
     Expression<BigInt>? reviewVersion,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
@@ -1390,6 +1439,7 @@ class LocalCardsCompanion extends UpdateCompanion<LocalCard> {
       if (learningMode != null) 'learning_mode': learningMode,
       if (reentryStage != null) 'reentry_stage': reentryStage,
       if (learningStep != null) 'learning_step': learningStep,
+      if (learningOrigin != null) 'learning_origin': learningOrigin,
       if (reviewVersion != null) 'review_version': reviewVersion,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
@@ -1409,6 +1459,7 @@ class LocalCardsCompanion extends UpdateCompanion<LocalCard> {
     Value<bool>? learningMode,
     Value<int?>? reentryStage,
     Value<int>? learningStep,
+    Value<String?>? learningOrigin,
     Value<BigInt>? reviewVersion,
     Value<DateTime?>? createdAt,
     Value<DateTime?>? updatedAt,
@@ -1426,6 +1477,7 @@ class LocalCardsCompanion extends UpdateCompanion<LocalCard> {
       learningMode: learningMode ?? this.learningMode,
       reentryStage: reentryStage ?? this.reentryStage,
       learningStep: learningStep ?? this.learningStep,
+      learningOrigin: learningOrigin ?? this.learningOrigin,
       reviewVersion: reviewVersion ?? this.reviewVersion,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -1469,6 +1521,9 @@ class LocalCardsCompanion extends UpdateCompanion<LocalCard> {
     if (learningStep.present) {
       map['learning_step'] = Variable<int>(learningStep.value);
     }
+    if (learningOrigin.present) {
+      map['learning_origin'] = Variable<String>(learningOrigin.value);
+    }
     if (reviewVersion.present) {
       map['review_version'] = Variable<BigInt>(reviewVersion.value);
     }
@@ -1498,6 +1553,7 @@ class LocalCardsCompanion extends UpdateCompanion<LocalCard> {
           ..write('learningMode: $learningMode, ')
           ..write('reentryStage: $reentryStage, ')
           ..write('learningStep: $learningStep, ')
+          ..write('learningOrigin: $learningOrigin, ')
           ..write('reviewVersion: $reviewVersion, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
@@ -1586,6 +1642,17 @@ class $LocalReviewLogsTable extends LocalReviewLogs
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _learningOriginMeta = const VerificationMeta(
+    'learningOrigin',
+  );
+  @override
+  late final GeneratedColumn<String> learningOrigin = GeneratedColumn<String>(
+    'learning_origin',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _reviewedAtMeta = const VerificationMeta(
     'reviewedAt',
   );
@@ -1641,6 +1708,7 @@ class $LocalReviewLogsTable extends LocalReviewLogs
     stageBefore,
     stageAfter,
     isNewCard,
+    learningOrigin,
     reviewedAt,
     clientRequestId,
     reviewVersion,
@@ -1712,6 +1780,15 @@ class $LocalReviewLogsTable extends LocalReviewLogs
         isNewCard.isAcceptableOrUnknown(data['is_new_card']!, _isNewCardMeta),
       );
     }
+    if (data.containsKey('learning_origin')) {
+      context.handle(
+        _learningOriginMeta,
+        learningOrigin.isAcceptableOrUnknown(
+          data['learning_origin']!,
+          _learningOriginMeta,
+        ),
+      );
+    }
     if (data.containsKey('reviewed_at')) {
       context.handle(
         _reviewedAtMeta,
@@ -1781,6 +1858,10 @@ class $LocalReviewLogsTable extends LocalReviewLogs
         DriftSqlType.bool,
         data['${effectivePrefix}is_new_card'],
       )!,
+      learningOrigin: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}learning_origin'],
+      ),
       reviewedAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}reviewed_at'],
@@ -1814,6 +1895,7 @@ class LocalReviewLog extends DataClass implements Insertable<LocalReviewLog> {
   final int stageBefore;
   final int stageAfter;
   final bool isNewCard;
+  final String? learningOrigin;
   final DateTime reviewedAt;
   final String? clientRequestId;
   final BigInt reviewVersion;
@@ -1826,6 +1908,7 @@ class LocalReviewLog extends DataClass implements Insertable<LocalReviewLog> {
     required this.stageBefore,
     required this.stageAfter,
     required this.isNewCard,
+    this.learningOrigin,
     required this.reviewedAt,
     this.clientRequestId,
     required this.reviewVersion,
@@ -1841,6 +1924,9 @@ class LocalReviewLog extends DataClass implements Insertable<LocalReviewLog> {
     map['stage_before'] = Variable<int>(stageBefore);
     map['stage_after'] = Variable<int>(stageAfter);
     map['is_new_card'] = Variable<bool>(isNewCard);
+    if (!nullToAbsent || learningOrigin != null) {
+      map['learning_origin'] = Variable<String>(learningOrigin);
+    }
     map['reviewed_at'] = Variable<DateTime>(reviewedAt);
     if (!nullToAbsent || clientRequestId != null) {
       map['client_request_id'] = Variable<String>(clientRequestId);
@@ -1859,6 +1945,9 @@ class LocalReviewLog extends DataClass implements Insertable<LocalReviewLog> {
       stageBefore: Value(stageBefore),
       stageAfter: Value(stageAfter),
       isNewCard: Value(isNewCard),
+      learningOrigin: learningOrigin == null && nullToAbsent
+          ? const Value.absent()
+          : Value(learningOrigin),
       reviewedAt: Value(reviewedAt),
       clientRequestId: clientRequestId == null && nullToAbsent
           ? const Value.absent()
@@ -1881,6 +1970,7 @@ class LocalReviewLog extends DataClass implements Insertable<LocalReviewLog> {
       stageBefore: serializer.fromJson<int>(json['stageBefore']),
       stageAfter: serializer.fromJson<int>(json['stageAfter']),
       isNewCard: serializer.fromJson<bool>(json['isNewCard']),
+      learningOrigin: serializer.fromJson<String?>(json['learningOrigin']),
       reviewedAt: serializer.fromJson<DateTime>(json['reviewedAt']),
       clientRequestId: serializer.fromJson<String?>(json['clientRequestId']),
       reviewVersion: serializer.fromJson<BigInt>(json['reviewVersion']),
@@ -1898,6 +1988,7 @@ class LocalReviewLog extends DataClass implements Insertable<LocalReviewLog> {
       'stageBefore': serializer.toJson<int>(stageBefore),
       'stageAfter': serializer.toJson<int>(stageAfter),
       'isNewCard': serializer.toJson<bool>(isNewCard),
+      'learningOrigin': serializer.toJson<String?>(learningOrigin),
       'reviewedAt': serializer.toJson<DateTime>(reviewedAt),
       'clientRequestId': serializer.toJson<String?>(clientRequestId),
       'reviewVersion': serializer.toJson<BigInt>(reviewVersion),
@@ -1913,6 +2004,7 @@ class LocalReviewLog extends DataClass implements Insertable<LocalReviewLog> {
     int? stageBefore,
     int? stageAfter,
     bool? isNewCard,
+    Value<String?> learningOrigin = const Value.absent(),
     DateTime? reviewedAt,
     Value<String?> clientRequestId = const Value.absent(),
     BigInt? reviewVersion,
@@ -1925,6 +2017,9 @@ class LocalReviewLog extends DataClass implements Insertable<LocalReviewLog> {
     stageBefore: stageBefore ?? this.stageBefore,
     stageAfter: stageAfter ?? this.stageAfter,
     isNewCard: isNewCard ?? this.isNewCard,
+    learningOrigin: learningOrigin.present
+        ? learningOrigin.value
+        : this.learningOrigin,
     reviewedAt: reviewedAt ?? this.reviewedAt,
     clientRequestId: clientRequestId.present
         ? clientRequestId.value
@@ -1945,6 +2040,9 @@ class LocalReviewLog extends DataClass implements Insertable<LocalReviewLog> {
           ? data.stageAfter.value
           : this.stageAfter,
       isNewCard: data.isNewCard.present ? data.isNewCard.value : this.isNewCard,
+      learningOrigin: data.learningOrigin.present
+          ? data.learningOrigin.value
+          : this.learningOrigin,
       reviewedAt: data.reviewedAt.present
           ? data.reviewedAt.value
           : this.reviewedAt,
@@ -1970,6 +2068,7 @@ class LocalReviewLog extends DataClass implements Insertable<LocalReviewLog> {
           ..write('stageBefore: $stageBefore, ')
           ..write('stageAfter: $stageAfter, ')
           ..write('isNewCard: $isNewCard, ')
+          ..write('learningOrigin: $learningOrigin, ')
           ..write('reviewedAt: $reviewedAt, ')
           ..write('clientRequestId: $clientRequestId, ')
           ..write('reviewVersion: $reviewVersion, ')
@@ -1987,6 +2086,7 @@ class LocalReviewLog extends DataClass implements Insertable<LocalReviewLog> {
     stageBefore,
     stageAfter,
     isNewCard,
+    learningOrigin,
     reviewedAt,
     clientRequestId,
     reviewVersion,
@@ -2003,6 +2103,7 @@ class LocalReviewLog extends DataClass implements Insertable<LocalReviewLog> {
           other.stageBefore == this.stageBefore &&
           other.stageAfter == this.stageAfter &&
           other.isNewCard == this.isNewCard &&
+          other.learningOrigin == this.learningOrigin &&
           other.reviewedAt == this.reviewedAt &&
           other.clientRequestId == this.clientRequestId &&
           other.reviewVersion == this.reviewVersion &&
@@ -2017,6 +2118,7 @@ class LocalReviewLogsCompanion extends UpdateCompanion<LocalReviewLog> {
   final Value<int> stageBefore;
   final Value<int> stageAfter;
   final Value<bool> isNewCard;
+  final Value<String?> learningOrigin;
   final Value<DateTime> reviewedAt;
   final Value<String?> clientRequestId;
   final Value<BigInt> reviewVersion;
@@ -2030,6 +2132,7 @@ class LocalReviewLogsCompanion extends UpdateCompanion<LocalReviewLog> {
     this.stageBefore = const Value.absent(),
     this.stageAfter = const Value.absent(),
     this.isNewCard = const Value.absent(),
+    this.learningOrigin = const Value.absent(),
     this.reviewedAt = const Value.absent(),
     this.clientRequestId = const Value.absent(),
     this.reviewVersion = const Value.absent(),
@@ -2044,6 +2147,7 @@ class LocalReviewLogsCompanion extends UpdateCompanion<LocalReviewLog> {
     required int stageBefore,
     required int stageAfter,
     this.isNewCard = const Value.absent(),
+    this.learningOrigin = const Value.absent(),
     required DateTime reviewedAt,
     this.clientRequestId = const Value.absent(),
     this.reviewVersion = const Value.absent(),
@@ -2064,6 +2168,7 @@ class LocalReviewLogsCompanion extends UpdateCompanion<LocalReviewLog> {
     Expression<int>? stageBefore,
     Expression<int>? stageAfter,
     Expression<bool>? isNewCard,
+    Expression<String>? learningOrigin,
     Expression<DateTime>? reviewedAt,
     Expression<String>? clientRequestId,
     Expression<BigInt>? reviewVersion,
@@ -2078,6 +2183,7 @@ class LocalReviewLogsCompanion extends UpdateCompanion<LocalReviewLog> {
       if (stageBefore != null) 'stage_before': stageBefore,
       if (stageAfter != null) 'stage_after': stageAfter,
       if (isNewCard != null) 'is_new_card': isNewCard,
+      if (learningOrigin != null) 'learning_origin': learningOrigin,
       if (reviewedAt != null) 'reviewed_at': reviewedAt,
       if (clientRequestId != null) 'client_request_id': clientRequestId,
       if (reviewVersion != null) 'review_version': reviewVersion,
@@ -2094,6 +2200,7 @@ class LocalReviewLogsCompanion extends UpdateCompanion<LocalReviewLog> {
     Value<int>? stageBefore,
     Value<int>? stageAfter,
     Value<bool>? isNewCard,
+    Value<String?>? learningOrigin,
     Value<DateTime>? reviewedAt,
     Value<String?>? clientRequestId,
     Value<BigInt>? reviewVersion,
@@ -2108,6 +2215,7 @@ class LocalReviewLogsCompanion extends UpdateCompanion<LocalReviewLog> {
       stageBefore: stageBefore ?? this.stageBefore,
       stageAfter: stageAfter ?? this.stageAfter,
       isNewCard: isNewCard ?? this.isNewCard,
+      learningOrigin: learningOrigin ?? this.learningOrigin,
       reviewedAt: reviewedAt ?? this.reviewedAt,
       clientRequestId: clientRequestId ?? this.clientRequestId,
       reviewVersion: reviewVersion ?? this.reviewVersion,
@@ -2140,6 +2248,9 @@ class LocalReviewLogsCompanion extends UpdateCompanion<LocalReviewLog> {
     if (isNewCard.present) {
       map['is_new_card'] = Variable<bool>(isNewCard.value);
     }
+    if (learningOrigin.present) {
+      map['learning_origin'] = Variable<String>(learningOrigin.value);
+    }
     if (reviewedAt.present) {
       map['reviewed_at'] = Variable<DateTime>(reviewedAt.value);
     }
@@ -2168,6 +2279,7 @@ class LocalReviewLogsCompanion extends UpdateCompanion<LocalReviewLog> {
           ..write('stageBefore: $stageBefore, ')
           ..write('stageAfter: $stageAfter, ')
           ..write('isNewCard: $isNewCard, ')
+          ..write('learningOrigin: $learningOrigin, ')
           ..write('reviewedAt: $reviewedAt, ')
           ..write('clientRequestId: $clientRequestId, ')
           ..write('reviewVersion: $reviewVersion, ')
@@ -3030,6 +3142,7 @@ typedef $$LocalCardsTableCreateCompanionBuilder =
       Value<bool> learningMode,
       Value<int?> reentryStage,
       Value<int> learningStep,
+      Value<String?> learningOrigin,
       Value<BigInt> reviewVersion,
       Value<DateTime?> createdAt,
       Value<DateTime?> updatedAt,
@@ -3048,6 +3161,7 @@ typedef $$LocalCardsTableUpdateCompanionBuilder =
       Value<bool> learningMode,
       Value<int?> reentryStage,
       Value<int> learningStep,
+      Value<String?> learningOrigin,
       Value<BigInt> reviewVersion,
       Value<DateTime?> createdAt,
       Value<DateTime?> updatedAt,
@@ -3115,6 +3229,11 @@ class $$LocalCardsTableFilterComposer
 
   ColumnFilters<int> get learningStep => $composableBuilder(
     column: $table.learningStep,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get learningOrigin => $composableBuilder(
+    column: $table.learningOrigin,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -3198,6 +3317,11 @@ class $$LocalCardsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get learningOrigin => $composableBuilder(
+    column: $table.learningOrigin,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<BigInt> get reviewVersion => $composableBuilder(
     column: $table.reviewVersion,
     builder: (column) => ColumnOrderings(column),
@@ -3266,6 +3390,11 @@ class $$LocalCardsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get learningOrigin => $composableBuilder(
+    column: $table.learningOrigin,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<BigInt> get reviewVersion => $composableBuilder(
     column: $table.reviewVersion,
     builder: (column) => column,
@@ -3320,6 +3449,7 @@ class $$LocalCardsTableTableManager
                 Value<bool> learningMode = const Value.absent(),
                 Value<int?> reentryStage = const Value.absent(),
                 Value<int> learningStep = const Value.absent(),
+                Value<String?> learningOrigin = const Value.absent(),
                 Value<BigInt> reviewVersion = const Value.absent(),
                 Value<DateTime?> createdAt = const Value.absent(),
                 Value<DateTime?> updatedAt = const Value.absent(),
@@ -3336,6 +3466,7 @@ class $$LocalCardsTableTableManager
                 learningMode: learningMode,
                 reentryStage: reentryStage,
                 learningStep: learningStep,
+                learningOrigin: learningOrigin,
                 reviewVersion: reviewVersion,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
@@ -3354,6 +3485,7 @@ class $$LocalCardsTableTableManager
                 Value<bool> learningMode = const Value.absent(),
                 Value<int?> reentryStage = const Value.absent(),
                 Value<int> learningStep = const Value.absent(),
+                Value<String?> learningOrigin = const Value.absent(),
                 Value<BigInt> reviewVersion = const Value.absent(),
                 Value<DateTime?> createdAt = const Value.absent(),
                 Value<DateTime?> updatedAt = const Value.absent(),
@@ -3370,6 +3502,7 @@ class $$LocalCardsTableTableManager
                 learningMode: learningMode,
                 reentryStage: reentryStage,
                 learningStep: learningStep,
+                learningOrigin: learningOrigin,
                 reviewVersion: reviewVersion,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
@@ -3406,6 +3539,7 @@ typedef $$LocalReviewLogsTableCreateCompanionBuilder =
       required int stageBefore,
       required int stageAfter,
       Value<bool> isNewCard,
+      Value<String?> learningOrigin,
       required DateTime reviewedAt,
       Value<String?> clientRequestId,
       Value<BigInt> reviewVersion,
@@ -3421,6 +3555,7 @@ typedef $$LocalReviewLogsTableUpdateCompanionBuilder =
       Value<int> stageBefore,
       Value<int> stageAfter,
       Value<bool> isNewCard,
+      Value<String?> learningOrigin,
       Value<DateTime> reviewedAt,
       Value<String?> clientRequestId,
       Value<BigInt> reviewVersion,
@@ -3469,6 +3604,11 @@ class $$LocalReviewLogsTableFilterComposer
 
   ColumnFilters<bool> get isNewCard => $composableBuilder(
     column: $table.isNewCard,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get learningOrigin => $composableBuilder(
+    column: $table.learningOrigin,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -3537,6 +3677,11 @@ class $$LocalReviewLogsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get learningOrigin => $composableBuilder(
+    column: $table.learningOrigin,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get reviewedAt => $composableBuilder(
     column: $table.reviewedAt,
     builder: (column) => ColumnOrderings(column),
@@ -3591,6 +3736,11 @@ class $$LocalReviewLogsTableAnnotationComposer
 
   GeneratedColumn<bool> get isNewCard =>
       $composableBuilder(column: $table.isNewCard, builder: (column) => column);
+
+  GeneratedColumn<String> get learningOrigin => $composableBuilder(
+    column: $table.learningOrigin,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<DateTime> get reviewedAt => $composableBuilder(
     column: $table.reviewedAt,
@@ -3657,6 +3807,7 @@ class $$LocalReviewLogsTableTableManager
                 Value<int> stageBefore = const Value.absent(),
                 Value<int> stageAfter = const Value.absent(),
                 Value<bool> isNewCard = const Value.absent(),
+                Value<String?> learningOrigin = const Value.absent(),
                 Value<DateTime> reviewedAt = const Value.absent(),
                 Value<String?> clientRequestId = const Value.absent(),
                 Value<BigInt> reviewVersion = const Value.absent(),
@@ -3670,6 +3821,7 @@ class $$LocalReviewLogsTableTableManager
                 stageBefore: stageBefore,
                 stageAfter: stageAfter,
                 isNewCard: isNewCard,
+                learningOrigin: learningOrigin,
                 reviewedAt: reviewedAt,
                 clientRequestId: clientRequestId,
                 reviewVersion: reviewVersion,
@@ -3685,6 +3837,7 @@ class $$LocalReviewLogsTableTableManager
                 required int stageBefore,
                 required int stageAfter,
                 Value<bool> isNewCard = const Value.absent(),
+                Value<String?> learningOrigin = const Value.absent(),
                 required DateTime reviewedAt,
                 Value<String?> clientRequestId = const Value.absent(),
                 Value<BigInt> reviewVersion = const Value.absent(),
@@ -3698,6 +3851,7 @@ class $$LocalReviewLogsTableTableManager
                 stageBefore: stageBefore,
                 stageAfter: stageAfter,
                 isNewCard: isNewCard,
+                learningOrigin: learningOrigin,
                 reviewedAt: reviewedAt,
                 clientRequestId: clientRequestId,
                 reviewVersion: reviewVersion,
