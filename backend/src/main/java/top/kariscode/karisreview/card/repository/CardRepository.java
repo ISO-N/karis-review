@@ -24,7 +24,8 @@ public interface CardRepository extends JpaRepository<Card, UUID> {
     Page<Card> findByDeckIdOrderByCreatedAtAsc(UUID deckId, Pageable pageable);
     Page<Card> findByDeckIdAndLearningModeTrueOrderByCreatedAtAsc(UUID deckId, Pageable pageable);
     @Query("SELECT c FROM Card c WHERE c.deckId = :deckId " +
-           "AND c.learningMode = false AND c.stage = 0 " +
+           "AND ((c.learningMode = false AND c.stage = 0) " +
+           "     OR (c.learningMode = true AND c.learningOrigin = 'NEW')) " +
            "ORDER BY c.createdAt DESC")
     Page<Card> findNewByDeckIdOrderByCreatedAtDesc(@Param("deckId") UUID deckId, Pageable pageable);
     Page<Card> findByDeckIdAndNextReviewDateNotNullAndNextReviewDateLessThanEqualOrderByNextReviewDateAsc(
@@ -52,7 +53,8 @@ public interface CardRepository extends JpaRepository<Card, UUID> {
                                                                    @Param("pattern") String pattern,
                                                                    Pageable pageable);
     @Query("SELECT c FROM Card c WHERE c.deckId = :deckId " +
-           "AND c.learningMode = false AND c.stage = 0 " +
+           "AND ((c.learningMode = false AND c.stage = 0) " +
+           "     OR (c.learningMode = true AND c.learningOrigin = 'NEW')) " +
            "AND (LOWER(c.front) LIKE LOWER(:pattern) ESCAPE '\\' " +
            "OR LOWER(c.back) LIKE LOWER(:pattern) ESCAPE '\\') " +
            "ORDER BY c.createdAt DESC")
@@ -78,25 +80,36 @@ public interface CardRepository extends JpaRepository<Card, UUID> {
     long countByDeckIdAndStage(UUID deckId, int stage);
     long countByDeckIdAndStageAndLearningModeFalse(UUID deckId, int stage);
     @Query("SELECT COUNT(c) FROM Card c WHERE c.userId = :userId " +
-           "AND c.stage = 0 AND c.learningMode = false")
+           "AND ((c.stage = 0 AND c.learningMode = false) " +
+           "     OR (c.learningMode = true AND c.learningOrigin = 'NEW'))")
     long countNewByUserId(@Param("userId") UUID userId);
 
     @Query("SELECT COUNT(c) FROM Card c WHERE c.deckId = :deckId " +
-           "AND c.nextReviewDate IS NOT NULL AND c.nextReviewDate <= :today")
+           "AND ((c.stage = 0 AND c.learningMode = false) " +
+           "     OR (c.learningMode = true AND c.learningOrigin = 'NEW'))")
+    long countNewByDeckId(@Param("deckId") UUID deckId);
+
+    @Query("SELECT COUNT(c) FROM Card c WHERE c.deckId = :deckId " +
+           "AND c.nextReviewDate IS NOT NULL AND c.nextReviewDate <= :today " +
+           "AND (c.learningMode = false OR c.learningOrigin = 'REVIEW' OR c.learningOrigin IS NULL)")
     int countDueByDeckId(@Param("deckId") UUID deckId, @Param("today") LocalDate today);
 
     @Query("SELECT c.stage, COUNT(c) FROM Card c WHERE c.userId = :userId GROUP BY c.stage")
     List<Object[]> countByStageGrouped(@Param("userId") UUID userId);
 
     @Query("SELECT c.stage, COUNT(c) FROM Card c WHERE c.userId = :userId " +
-           "AND c.nextReviewDate IS NOT NULL AND c.nextReviewDate <= :today GROUP BY c.stage")
+           "AND c.nextReviewDate IS NOT NULL AND c.nextReviewDate <= :today " +
+           "AND (c.learningMode = false OR c.learningOrigin = 'REVIEW' OR c.learningOrigin IS NULL) " +
+           "GROUP BY c.stage")
     List<Object[]> countDueByStageGrouped(@Param("userId") UUID userId, @Param("today") LocalDate today);
 
     @Query("SELECT c.stage, COUNT(c) FROM Card c WHERE c.deckId = :deckId GROUP BY c.stage")
     List<Object[]> countByStageGroupedByDeck(@Param("deckId") UUID deckId);
 
     @Query("SELECT c.stage, COUNT(c) FROM Card c WHERE c.deckId = :deckId " +
-           "AND c.nextReviewDate IS NOT NULL AND c.nextReviewDate <= :today GROUP BY c.stage")
+           "AND c.nextReviewDate IS NOT NULL AND c.nextReviewDate <= :today " +
+           "AND (c.learningMode = false OR c.learningOrigin = 'REVIEW' OR c.learningOrigin IS NULL) " +
+           "GROUP BY c.stage")
     List<Object[]> countDueByStageGroupedByDeck(@Param("deckId") UUID deckId, @Param("today") LocalDate today);
 
     @Query("SELECT c FROM Card c WHERE c.userId = :userId " +
@@ -120,11 +133,22 @@ public interface CardRepository extends JpaRepository<Card, UUID> {
     @Query("SELECT c FROM Card c WHERE c.userId = :userId " +
            "AND c.learningMode = true " +
            "AND c.nextReviewDate IS NOT NULL AND c.nextReviewDate <= :today " +
+           "AND c.learningOrigin = 'NEW' " +
            "AND (:deckId IS NULL OR c.deckId = :deckId) " +
            "ORDER BY c.nextReviewDate ASC")
-    List<Card> findLearningModeCards(@Param("userId") UUID userId,
-                                     @Param("today") LocalDate today,
-                                     @Param("deckId") UUID deckId);
+    List<Card> findLearningModeCardsForNew(@Param("userId") UUID userId,
+                                           @Param("today") LocalDate today,
+                                           @Param("deckId") UUID deckId);
+
+    @Query("SELECT c FROM Card c WHERE c.userId = :userId " +
+           "AND c.learningMode = true " +
+           "AND c.nextReviewDate IS NOT NULL AND c.nextReviewDate <= :today " +
+           "AND (c.learningOrigin = 'REVIEW' OR c.learningOrigin IS NULL) " +
+           "AND (:deckId IS NULL OR c.deckId = :deckId) " +
+           "ORDER BY c.nextReviewDate ASC")
+    List<Card> findLearningModeCardsForReview(@Param("userId") UUID userId,
+                                              @Param("today") LocalDate today,
+                                              @Param("deckId") UUID deckId);
 
     @Query("SELECT COUNT(c) FROM Card c WHERE c.userId = :userId " +
            "AND c.nextReviewDate IS NOT NULL AND c.nextReviewDate <= :today")
@@ -141,14 +165,17 @@ public interface CardRepository extends JpaRepository<Card, UUID> {
      * 用户级概览聚合：一次查询产出全部计数与分布，替代原来的 7+ 条独立 COUNT。
      * 配合 idx_cards_user_stage_learning 复合索引可走 Index Only Scan。
      * 列顺序: stage, total, learning_cards(stage<5), mastered(stage>=5 非学习),
-     *         new_cards(stage=0 非学习), due(next_review_date <= :today)
+     *         new_cards(待学新卡 + 学新阶段重学卡, 即学新队列规模),
+     *         due(到期卡 + 复习阶段重学卡, 即复习队列规模; 学新阶段重学卡不计入)
      */
     @Query(value = "SELECT stage, COUNT(*) AS total, " +
                    "COUNT(*) FILTER (WHERE stage < 5) AS learning_cards, " +
                    "COUNT(*) FILTER (WHERE NOT learning_mode AND stage >= 5) AS mastered, " +
-                   "COUNT(*) FILTER (WHERE stage = 0 AND NOT learning_mode) AS new_cards, " +
+                   "COUNT(*) FILTER (WHERE (stage = 0 AND NOT learning_mode) " +
+                   "                  OR (learning_mode AND learning_origin = 'NEW')) AS new_cards, " +
                    "COUNT(*) FILTER (WHERE next_review_date IS NOT NULL " +
-                   "AND next_review_date <= :today) AS due " +
+                   "AND next_review_date <= :today " +
+                   "AND (NOT learning_mode OR learning_origin = 'REVIEW' OR learning_origin IS NULL)) AS due " +
                    "FROM cards WHERE user_id = :userId GROUP BY stage",
            nativeQuery = true)
     List<Object[]> aggregateOverviewStats(@Param("userId") UUID userId, @Param("today") LocalDate today);
