@@ -14,6 +14,7 @@ import '../../shared/widgets/rich_card_content.dart';
 import '../../shared/widgets/section_widgets.dart';
 import '../../shared/widgets/stage_ruler.dart';
 import '../../tts/tts_provider.dart';
+import '../../tts/widgets/phonetic_line.dart';
 import '../../tts/widgets/tts_button.dart';
 import '../models/review_card.dart';
 import '../providers/review_provider.dart';
@@ -819,10 +820,17 @@ class _FrontFace extends StatelessWidget {
           letterSpacing: 0,
         ),
       ),
-      child: RichCardContent(
-        content: card.front,
-        textAlign: TextAlign.center,
-        style: karisDisplay(fontSize: 28),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          RichCardContent(
+            content: card.front,
+            textAlign: TextAlign.center,
+            style: karisDisplay(fontSize: 28),
+          ),
+          // 正面为纯英文单词时显示美式音标（查不到/非单词静默）。
+          PhoneticLine(content: card.front),
+        ],
       ),
     );
   }
@@ -922,10 +930,17 @@ class _BackFace extends StatelessWidget {
           ),
         ],
       ),
-      child: RichCardContent(
-        content: card.back ?? '',
-        textAlign: TextAlign.center,
-        style: karisDisplay(fontSize: 28),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          RichCardContent(
+            content: card.back ?? '',
+            textAlign: TextAlign.center,
+            style: karisDisplay(fontSize: 28),
+          ),
+          // 背面为纯英文单词时同样显示音标。
+          PhoneticLine(content: card.back ?? ''),
+        ],
       ),
     );
   }
