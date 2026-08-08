@@ -13,6 +13,9 @@ import '../../shared/widgets/memory_ring.dart';
 import '../../shared/widgets/rich_card_content.dart';
 import '../../shared/widgets/section_widgets.dart';
 import '../../shared/widgets/stage_ruler.dart';
+import '../../tts/tts_provider.dart';
+import '../../tts/widgets/phonetic_line.dart';
+import '../../tts/widgets/tts_button.dart';
 import '../models/review_card.dart';
 import '../providers/review_provider.dart';
 import '../widgets/review_flip_card.dart';
@@ -25,10 +28,17 @@ class ReviewPage extends ConsumerStatefulWidget {
 }
 
 class _ReviewPageState extends ConsumerState<ReviewPage> {
+  // 缓存的 TTS notifier：dispose 阶段 ref 不可用（element 已卸载），
+  // 直接调用实例停止朗读，避免残留语音。
+  TtsNotifier? _ttsNotifier;
+
   @override
   void initState() {
     super.initState();
+    _ttsNotifier = ref.read(ttsProvider.notifier);
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      // 探测 TTS 引擎可用性并加载朗读偏好（幂等）。
+      _ttsNotifier?.init();
       final query = GoRouterState.of(context).uri.queryParameters;
       final mode = query['mode'] == 'new' ? 'new' : 'due';
       final deckId = query['deck_id'];
@@ -39,6 +49,13 @@ class _ReviewPageState extends ConsumerState<ReviewPage> {
             deckId: deckId == 'all' || deckId == null ? null : deckId,
           );
     });
+  }
+
+  @override
+  void dispose() {
+    // 离开复习页停止朗读，防止后台残留语音。
+    _ttsNotifier?.stop();
+    super.dispose();
   }
 
   @override
@@ -102,6 +119,8 @@ class _ReviewPageState extends ConsumerState<ReviewPage> {
   }
 
   Future<void> _rate(String rating) async {
+    // 评分换卡：先停掉当前卡片的朗读，避免旧卡语音残留。
+    await ref.read(ttsProvider.notifier).stop();
     final result = await ref.read(reviewProvider.notifier).rate(rating);
     if (result == null) {
       if (mounted) announceMessage(context, '评分失败，请检查网络后重试');
@@ -155,6 +174,19 @@ class _ReviewStage extends ConsumerWidget {
         }
         if (event.logicalKey == LogicalKeyboardKey.space) {
           ref.read(reviewProvider.notifier).flip();
+          return KeyEventResult.handled;
+        }
+        // V：朗读当前显示的面（翻面读背面，未翻读正面）。
+        if (event.logicalKey == LogicalKeyboardKey.keyV) {
+          final s = ref.read(reviewProvider);
+          final card = s.currentCard;
+          if (card != null) {
+            final isFlipped = s.isFlipped;
+            ref.read(ttsProvider.notifier).toggle(
+                  isFlipped ? 'back' : 'front',
+                  isFlipped ? (card.back ?? '') : card.front,
+                );
+          }
           return KeyEventResult.handled;
         }
         final rating = switch (event.logicalKey) {
@@ -323,6 +355,8 @@ class _FlipCardArea extends ConsumerWidget {
         flipped: isFlipped,
         semanticsLabel: isFlipped ? '闪卡，点击回到问题面' : '闪卡，点击翻面',
         onTap: () {
+          // 翻面切换朗读面：停掉当前朗读。
+          ref.read(ttsProvider.notifier).stop();
           ref.read(reviewProvider.notifier).flip();
         },
         front: _CardFace(
@@ -757,6 +791,7 @@ class _FrontFace extends StatelessWidget {
             style: karisMono(fontSize: 10, color: colors.stone),
           ),
           const Spacer(),
+          TtsButton(side: 'front', content: card.front),
           Container(
             height: 24,
             padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -785,10 +820,17 @@ class _FrontFace extends StatelessWidget {
           letterSpacing: 0,
         ),
       ),
-      child: RichCardContent(
-        content: card.front,
-        textAlign: TextAlign.center,
-        style: karisDisplay(fontSize: 28),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          RichCardContent(
+            content: card.front,
+            textAlign: TextAlign.center,
+            style: karisDisplay(fontSize: 28),
+          ),
+          // 正面为纯英文单词时显示美式音标（查不到/非单词静默）。
+          PhoneticLine(content: card.front),
+        ],
       ),
     );
   }
@@ -834,6 +876,8 @@ class _BackFace extends StatelessWidget {
                 ),
               ),
             ),
+          if (card.learningMode) const SizedBox(width: 4),
+          TtsButton(side: 'back', content: card.back ?? ''),
         ],
       ),
       footer: Column(
@@ -886,10 +930,17 @@ class _BackFace extends StatelessWidget {
           ),
         ],
       ),
-      child: RichCardContent(
-        content: card.back ?? '',
-        textAlign: TextAlign.center,
-        style: karisDisplay(fontSize: 28),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          RichCardContent(
+            content: card.back ?? '',
+            textAlign: TextAlign.center,
+            style: karisDisplay(fontSize: 28),
+          ),
+          // 背面为纯英文单词时同样显示音标。
+          PhoneticLine(content: card.back ?? ''),
+        ],
       ),
     );
   }

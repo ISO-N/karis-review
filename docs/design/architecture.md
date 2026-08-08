@@ -289,6 +289,14 @@ lib/
 │   ├── pages/stats_page.dart
 │   └── models/stats.dart
 │
+├── tts/
+│   ├── tts_engine.dart                  # TTS 引擎抽象接口 + 平台工厂
+│   ├── system_tts_engine.dart           # flutter_tts 实现（Android/iOS/Windows）
+│   ├── linux_tts_engine.dart            # spd-say 子进程实现（Linux）
+│   ├── tts_text_extractor.dart          # Delta/Markdown → 朗读文本 + 语言分段
+│   ├── tts_provider.dart                # 朗读状态与本地偏好（开关/语速）
+│   └── widgets/tts_button.dart          # 复习页正反面朗读按钮
+│
 └── settings/
     ├── providers/settings_provider.dart
     ├── repositories/settings_repository.dart
@@ -306,6 +314,7 @@ lib/
 | 富文本编辑 | flutter_quill | 10.x | 富文本编辑器 |
 | LaTeX 渲染 | flutter_math_fork | 0.7.x | 数学公式渲染 |
 | 代码高亮 | flutter_highlight | 0.7.x | 语法高亮 |
+| 系统 TTS | flutter_tts | 4.x | Android/iOS/Windows 朗读（Linux 用 spd-say） |
 | 后端框架 | Spring Boot | 3.x | Java 生态最成熟 |
 | Java 版本 | Java | 21 (LTS) | 当前最新 LTS |
 | ORM | Spring Data JPA + Hibernate | — | 与 Spring Boot 深度集成 |
@@ -324,6 +333,26 @@ lib/
 - `SecurityConfig` 放行 `/api/auth/config`、`/api/auth/register`、`/api/auth/register-code`、`/api/auth/login`、`/api/auth/password/reset-code`、`/api/auth/password/reset`、`/v3/api-docs/**`、`/swagger-ui/**`、`/swagger-ui.html`。
 - 生产环境使用 `prod` profile 时关闭文档。
 - 邮件发送通过 `MailSender` 抽象：未配置 `mail.smtp.host` 时用 `NoopMailSender`（验证码仅打日志，便于本地开发）；配置后自动切换 `SmtpMailSender`。SMTP 支持 `mail.smtp.socks.host`/`mail.smtp.socks.port` 走本地 SOCKS5 代理（Resend 等境外服务在国内部署时使用）。
+
+### 5.1 TTS 朗读（前端 `tts/` 模块）
+
+纯客户端系统 TTS，不依赖后端与网络。分层与关键设计：
+
+- **引擎抽象**：`TtsEngine` 接口（`isAvailable/setSpeechRate/speakSegments/stop/dispose`），为云端神经网络 TTS 预留扩展位。
+- **双实现**：
+  - `SystemTtsEngine`（flutter_tts 4.x）：Android / iOS / Windows。iOS 设 `ambient + mixWithOthers` 音频会话，朗读时音乐可继续。
+  - `LinuxTtsEngine`（spd-say 子进程）：flutter_tts **官方不支持 Linux**，Linux 端调用 `speech-dispatcher` 命令行客户端，每段一个 `spd-say -l <lang> -r <rate> -w <text>` 进程，`stop()` kill 当前进程 + 代数递增打断循环。
+  - 工厂 `createTtsEngine()` 按 `Platform.isLinux` 选择。测试环境（`FLUTTER_TEST`）下 SystemTtsEngine 全部短路为 no-op——flutter_tts 的 MethodChannel 在 fake async 下挂起而非抛 MissingPluginException，短路避免测试卡死。
+- **文本提取**（`tts_text_extractor.dart`，纯函数可单测）：卡片内容（Delta JSON / Markdown）→ 朗读纯文本。Delta 只取 String insert，embed（LaTeX/代码块）跳过；Markdown 用正则剥离代码围栏、`$..$`/`$$..$$` 公式、行内代码标记、标题/列表/粗斜体。
+- **中英混读**：`splitForSpeech` 按句末标点切分，CJK ≥ 2 字符判 `zh-CN` 否则 `en-US`，相邻同语言段合并；引擎逐段 `setLanguage` 后朗读，实现中英混合卡片的正确发音。
+- **状态与生命周期**：`ttsProvider` 独立于 `reviewProvider`，管三件事——是否在播、读哪面、本地偏好（开关/语速，存 SharedPreferences，不进后端不参与同步）。换卡、翻面、评分、离开复习页均调用 `stop()` 防叠音。复习页 `dispose()` 阶段 ref 不可用，故在 `initState` 缓存 notifier 实例再调 stop。
+- **UI**：复习页正反面 header 各有 `TtsButton`（引擎不可用或关闭时不占位），键盘 `V` 朗读当前面；设置页「朗读」块含开关与语速滑块（0.5–1.5x）。
+
+平台配置要求：
+
+- Android：minSdk ≥ 21（项目 `flutter.minSdkVersion` 默认 24 满足）；`AndroidManifest.xml` 的 `<queries>` 已声明 `android.intent.action.TTS_SERVICE`（Android 11+ 发现引擎需要）。
+- Windows：flutter_tts 走 WinRT SpeechSynthesis，需 Windows 10 1809+；非中文系统可能缺中文 voice，`isAvailable` 只检测语言列表非空，缺 voice 时按钮隐藏。**构建前置**：flutter_tts 的 Windows 插件用 NuGet 拉取 `Microsoft.Windows.CppWinRT` 依赖，构建机需要 `nuget.exe` 在 PATH（`find_program` 找不到会直接 CMake fatal error）。本机已放一份在 `~/.workbuddy/binaries/nuget/nuget.exe`，构建前 `export PATH="$HOME/.workbuddy/binaries/nuget:$PATH"` 即可。
+- Linux：运行时依赖 `speech-dispatcher` + `espeak-ng`（`apt install speech-dispatcher espeak-ng`）；未安装时 `isAvailable` 返回 false，UI 提示安装。Linux 实现是纯 Dart 子进程，无额外构建依赖。
 
 ## 6. 模块间依赖关系
 ```

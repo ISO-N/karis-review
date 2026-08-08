@@ -101,6 +101,7 @@ Android release 包名为 `top.kariscode.karisreview`，debug 包名为 `top.kar
 - **评分流程**：`review/providers/review_provider.dart` 维护 `ReviewSessionState`（卡片队列、当前索引、是否翻面、cursor、hasMore、待同步数）。在线通过复习会话 cursor 分页；离线回退到 Drift 本地队列；评分先写本地并自动同步。
 - **离线数据层**：`frontend/lib/offline/` 使用 Drift/SQLite 缓存卡组、卡片、复习日志与同步元数据；`SyncService` 通过 `/api/sync/bootstrap` 全量或 `event_cursor` 增量同步，提交 `/api/review/sync`，冲突默认按服务器刷新。`sync_events` 由数据库触发器写入，客户端保存事件游标并支持删除同步。
 - **跨设备评分锁**：`cards.review_version` 是 JPA 乐观锁版本；队列响应携带该值，评分/同步必须校验，旧设备提交会收到冲突。
+- **TTS 朗读**：`frontend/lib/tts/` 纯客户端系统 TTS，不碰后端。`TtsEngine` 抽象接口 + 双实现：`SystemTtsEngine`（flutter_tts 4.x，Android/iOS/Windows；`FLUTTER_TEST` 环境下全部短路为 no-op——flutter_tts 的 MethodChannel 在测试 fake async 里挂起而非抛 MissingPluginException）、`LinuxTtsEngine`（spd-say 子进程，**flutter_tts 官方不支持 Linux**，需系统安装 `speech-dispatcher` + `espeak-ng`，未安装时 `isAvailable` 返回 false 按钮隐藏）。`tts_text_extractor.dart` 是纯函数：Delta/Markdown → 朗读文本（正则剥离代码围栏、`$..$`/`$$..$$` 公式，embed 跳过），`splitForSpeech` 按句切分 + CJK 占比判 `zh-CN`/`en-US` 逐段换语言。`ttsProvider` 独立状态（是否在播/读哪面），偏好（开关/语速）存 SharedPreferences 不进后端；换卡/翻面/评分/离页都调 `stop()` 防叠音，复习页 `dispose()` 阶段 ref 不可用需在 `initState` 缓存 notifier 实例。复习页正反面 header 有 `TtsButton`，键盘 `V` 朗读当前面；设置页「朗读」块管开关与语速。Android 的 `<queries>` 已声明 `TTS_SERVICE`（Android 11+ 需要）。
 
 ## 测试
 
