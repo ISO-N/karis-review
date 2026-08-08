@@ -1,12 +1,16 @@
 import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
 
+import '../../shared/scheduling/rating.dart';
+import '../../shared/scheduling/scheduling_constants.dart';
+
 part 'app_database.g.dart';
 
 class LocalSettings extends Table {
   TextColumn get userId => text()();
   TextColumn get email => text()();
-  TextColumn get refreshTime => text().withDefault(const Constant('04:00:00'))();
+  TextColumn get refreshTime =>
+      text().withDefault(const Constant(SchedulingConstants.defaultRefreshTime))();
   DateTimeColumn get updatedAt => dateTime().nullable()();
 
   @override
@@ -76,7 +80,8 @@ class LocalReviewLogs extends Table {
 class SyncMeta extends Table {
   TextColumn get userId => text()();
   TextColumn get email => text().nullable()();
-  TextColumn get refreshTime => text().withDefault(const Constant('04:00:00'))();
+  TextColumn get refreshTime =>
+      text().withDefault(const Constant(SchedulingConstants.defaultRefreshTime))();
   DateTimeColumn get lastBootstrapAt => dateTime().nullable()();
   IntColumn get clockOffsetMs => integer().withDefault(const Constant(0))();
   Int64Column get lastEventCursor => int64().withDefault(Constant(BigInt.zero))();
@@ -109,7 +114,7 @@ class AppDatabase extends _$AppDatabase {
       }
       if (from < 3) {
         await customStatement(
-          "UPDATE local_review_logs SET is_new_card = 1 WHERE sync_status = 'PENDING' AND rating = 'FAMILIAR' AND stage_before = 0 AND is_new_card = 0",
+          "UPDATE local_review_logs SET is_new_card = 1 WHERE sync_status = 'PENDING' AND rating = '${Rating.familiar}' AND stage_before = 0 AND is_new_card = 0",
         );
       }
       if (from < 4) {

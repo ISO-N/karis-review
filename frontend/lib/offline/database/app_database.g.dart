@@ -37,7 +37,7 @@ class $LocalSettingsTable extends LocalSettings
     false,
     type: DriftSqlType.string,
     requiredDuringInsert: false,
-    defaultValue: const Constant('04:00:00'),
+    defaultValue: const Constant(SchedulingConstants.defaultRefreshTime),
   );
   static const VerificationMeta _updatedAtMeta = const VerificationMeta(
     'updatedAt',
@@ -2324,7 +2324,7 @@ class $SyncMetaTable extends SyncMeta
     false,
     type: DriftSqlType.string,
     requiredDuringInsert: false,
-    defaultValue: const Constant('04:00:00'),
+    defaultValue: const Constant(SchedulingConstants.defaultRefreshTime),
   );
   static const VerificationMeta _lastBootstrapAtMeta = const VerificationMeta(
     'lastBootstrapAt',

@@ -1,10 +1,11 @@
 import 'package:drift/drift.dart';
-import 'package:flutter/foundation.dart';
 
 import '../../card/models/card.dart';
 import '../../deck/models/deck.dart';
 import '../../review/models/review_card.dart';
 import '../../shared/scheduling/queue_composer.dart';
+import '../../shared/scheduling/rating.dart';
+import '../../shared/scheduling/scheduling_constants.dart';
 import '../../shared/utils/app_timezone.dart';
 import '../../shared/utils/date_utils.dart';
 import '../../stats/models/stats.dart';
@@ -147,11 +148,6 @@ class OfflineRepository {
       learningCards: learning,
       learningStepOf: (c) => c.learningStep,
     );
-    debugPrint(
-      '[KARIS-DBG] getDueQueue userId=$userId deckId=$deckId '
-      'due=${due.length} learning=${learning.length} '
-      'learningOrigins=${learning.map((c) => c.learningOrigin).toList()}',
-    );
     return queue.map(reviewCardFromLocal).toList();
   }
 
@@ -190,11 +186,6 @@ class OfflineRepository {
       queue: newCards,
       learningCards: learningNew,
       learningStepOf: (c) => c.learningStep,
-    );
-    debugPrint(
-      '[KARIS-DBG] getNewQueue userId=$userId deckId=$deckId '
-      'new=${newCards.length} learningNew=${learningNew.length} '
-      'learningOrigins=${learningNew.map((c) => c.learningOrigin).toList()}',
     );
     return queue.take(limit).map(reviewCardFromLocal).toList();
   }
@@ -238,7 +229,7 @@ class OfflineRepository {
     final decks = await getDecks(userId);
     final cards = await getCards(userId);
     final meta = await getSyncMeta(userId);
-    final refreshTime = meta?.refreshTime ?? '04:00:00';
+    final refreshTime = meta?.refreshTime ?? SchedulingConstants.defaultRefreshTime;
     final todayDate = _today(meta);
     final today = AppDateUtils.formatDate(todayDate);
     // 今日概览只需“今天”的日志；since 留 1 天余量覆盖刷新点偏移（业务日从
@@ -268,20 +259,6 @@ class OfflineRepository {
               isOnRefreshDay(l.reviewedAt, refreshTime, today),
         )
         .length;
-    for (final l in logs) {
-      debugPrint(
-        '[KARIS-DBG]   log card=${l.cardId} rating=${l.rating} '
-        'isNew=${l.isNewCard} origin=${l.learningOrigin} '
-        'status=${l.syncStatus} at=${l.reviewedAt.toIso8601String()} '
-        'inReviewedDay=${isOnRefreshDay(l.reviewedAt, refreshTime, today)}',
-      );
-    }
-    debugPrint(
-      '[KARIS-DBG] getOverviewStats userId=$userId refreshTime=$refreshTime '
-      'today=$today logs=${logs.length} '
-      'reviewedToday=$reviewedToday learnedToday=$learnedToday '
-      'dueToday=$dueToday newCards=${cards.where(_isNewCard).length}',
-    );
     final stages = cards.map((c) => c.stage).toList();
     return OverviewStats(
       totalCards: cards.length,
@@ -307,7 +284,7 @@ class OfflineRepository {
     final decks = await getDecks(userId);
     final deck = decks.where((d) => d.id == deckId).firstOrNull;
     final meta = await getSyncMeta(userId);
-    final refreshTime = meta?.refreshTime ?? '04:00:00';
+    final refreshTime = meta?.refreshTime ?? SchedulingConstants.defaultRefreshTime;
     final todayDate = _today(meta);
     final today = AppDateUtils.formatDate(todayDate);
     // 同 getOverviewStats：只需“今天”的日志，SQL 层过滤。
@@ -350,7 +327,7 @@ class OfflineRepository {
 
   Future<List<TrendPoint>> getTrend(String userId, {int days = 30}) async {
     final meta = await getSyncMeta(userId);
-    final refreshTime = meta?.refreshTime ?? '04:00:00';
+    final refreshTime = meta?.refreshTime ?? SchedulingConstants.defaultRefreshTime;
     final today = _today(meta);
     // 只拉窗口内日志（留 1 天余量覆盖刷新点偏移），SQL 层过滤。
     final since = DateTime.utc(
@@ -366,11 +343,12 @@ class OfflineRepository {
       final day = AppDateUtils.formatDate(
         LocalSchedulingEngine.calculateToday(log.reviewedAt, refreshTime),
       );
-      if (log.isNewCard) {
-        if (log.rating == 'FAMILIAR') {
-          learnedByDay[day] = (learnedByDay[day] ?? 0) + 1;
-        }
-      } else {
+      // 口径同 offline_stats（后端 ReviewLogQueryPredicates）：
+      // 今日新学 = 新卡 FAMILIAR；今日复习 = 非新卡且非 NEW 来源重学。
+      // 学新阶段重学卡（is_new_card=false, origin='NEW'）两端都不计入复习。
+      if (isLearnedTodayLog(log)) {
+        learnedByDay[day] = (learnedByDay[day] ?? 0) + 1;
+      } else if (isReviewedTodayLog(log)) {
         reviewedByDay[day] = (reviewedByDay[day] ?? 0) + 1;
       }
     }
@@ -457,39 +435,7 @@ class OfflineRepository {
       }
 
       for (final logJson in reviewLogs) {
-        final map = logJson;
-        final rating = map['rating'] as String? ?? 'FAMILIAR';
-        final isNewCard =
-            (map['is_new_card'] as bool?) ??
-            (map['new_card'] as bool?) ??
-            (rating == 'FAMILIAR' && _int(map['stage_before']) == 0);
-        final clientRequestId = map['client_request_id'] as String?;
-        if (clientRequestId != null) {
-          await (db.delete(db.localReviewLogs)..where(
-                (t) =>
-                    t.userId.equals(userId) &
-                    t.clientRequestId.equals(clientRequestId),
-              ))
-              .go();
-        }
-        await db
-            .into(db.localReviewLogs)
-            .insertOnConflictUpdate(
-              LocalReviewLogsCompanion.insert(
-                id: map['id'] as String,
-                userId: userId,
-                cardId: map['card_id'] as String,
-                rating: rating,
-                stageBefore: _int(map['stage_before']),
-                stageAfter: _int(map['stage_after']),
-                isNewCard: Value(isNewCard),
-                learningOrigin: Value(map['learning_origin'] as String?),
-                reviewedAt:
-                    _dateTime(map['reviewed_at']) ?? DateTime.now().toUtc(),
-                clientRequestId: Value(clientRequestId),
-                syncStatus: const Value('SYNCED'),
-              ),
-            );
+        await _upsertLogFromServer(userId, logJson);
       }
 
       await db
@@ -550,39 +496,7 @@ class OfflineRepository {
       }
 
       for (final logJson in (data['review_logs'] as List? ?? const [])) {
-        final map = logJson as Map<String, dynamic>;
-        final rating = map['rating'] as String? ?? 'FAMILIAR';
-        final isNewCard =
-            (map['is_new_card'] as bool?) ??
-            (map['new_card'] as bool?) ??
-            (rating == 'FAMILIAR' && _int(map['stage_before']) == 0);
-        final clientRequestId = map['client_request_id'] as String?;
-        if (clientRequestId != null) {
-          await (db.delete(db.localReviewLogs)..where(
-                (t) =>
-                    t.userId.equals(userId) &
-                    t.clientRequestId.equals(clientRequestId),
-              ))
-              .go();
-        }
-        await db
-            .into(db.localReviewLogs)
-            .insertOnConflictUpdate(
-              LocalReviewLogsCompanion.insert(
-                id: map['id'] as String,
-                userId: userId,
-                cardId: map['card_id'] as String,
-                rating: rating,
-                stageBefore: _int(map['stage_before']),
-                stageAfter: _int(map['stage_after']),
-                isNewCard: Value(isNewCard),
-                learningOrigin: Value(map['learning_origin'] as String?),
-                reviewedAt:
-                    _dateTime(map['reviewed_at']) ?? DateTime.now().toUtc(),
-                clientRequestId: Value(clientRequestId),
-                syncStatus: const Value('SYNCED'),
-              ),
-            );
+        await _upsertLogFromServer(userId, logJson as Map<String, dynamic>);
       }
 
       final deletedDeckIds = (data['deleted_deck_ids'] as List? ?? const [])
@@ -679,6 +593,46 @@ class OfflineRepository {
         );
   }
 
+  /// 服务端 review_log 落库（saveBootstrap 与 applyDelta 共用，架构评审 E1）：
+  /// client_request_id 去重删除（服务端来源替换本地镜像）→ upsert 写入。
+  Future<void> _upsertLogFromServer(
+    String userId,
+    Map<String, dynamic> map,
+  ) async {
+    final rating = map['rating'] as String? ?? Rating.familiar;
+    final isNewCard =
+        (map['is_new_card'] as bool?) ??
+        (map['new_card'] as bool?) ??
+        (rating == Rating.familiar && _int(map['stage_before']) == 0);
+    final clientRequestId = map['client_request_id'] as String?;
+    if (clientRequestId != null) {
+      await (db.delete(db.localReviewLogs)..where(
+            (t) =>
+                t.userId.equals(userId) &
+                t.clientRequestId.equals(clientRequestId),
+          ))
+          .go();
+    }
+    await db
+        .into(db.localReviewLogs)
+        .insertOnConflictUpdate(
+          LocalReviewLogsCompanion.insert(
+            id: map['id'] as String,
+            userId: userId,
+            cardId: map['card_id'] as String,
+            rating: rating,
+            stageBefore: _int(map['stage_before']),
+            stageAfter: _int(map['stage_after']),
+            isNewCard: Value(isNewCard),
+            learningOrigin: Value(map['learning_origin'] as String?),
+            reviewedAt:
+                _dateTime(map['reviewed_at']) ?? DateTime.now().toUtc(),
+            clientRequestId: Value(clientRequestId),
+            syncStatus: const Value('SYNCED'),
+          ),
+        );
+  }
+
   Future<LocalCard?> getLocalCard(String userId, String cardId) async {
     final rows = await (db.select(
       db.localCards,
@@ -737,13 +691,7 @@ class OfflineRepository {
             ),
           );
     });
-    debugPrint(
-      '[KARIS-DBG] applyLocalRating card=${card.id} rating=${result.rating} '
-      'isNewCard=$isNewCard learningOrigin=$learningOrigin '
-      'stageBefore=${result.stageBefore} stageAfter=${result.stageAfter} '
-      'reviewVersionBefore=$reviewVersionBefore',
-    );
-  }
+}
 
   Future<List<LocalReviewLog>> getPendingRatings(String userId) async {
     final rows =
@@ -900,11 +848,7 @@ class OfflineRepository {
     // 去重逻辑下沉 offline_stats.dedupeReviewLogs（架构评审 F5）：
     // 按 clientRequestId 与事件键两轮去重，服务端来源替换本地镜像。
     final result = dedupeReviewLogs(rows);
-    debugPrint(
-      '[KARIS-DBG] _getLogs userId=$userId since=$since '
-      'rows=${rows.length} deduped=${result.length}',
-    );
-    return result;
+return result;
   }
 
   Future<void> _updateLogStatus(
@@ -930,7 +874,7 @@ class OfflineRepository {
   DateTime _today(SyncMetaData? meta) {
     return LocalSchedulingEngine.calculateToday(
       _serverNow(meta),
-      meta?.refreshTime ?? '04:00:00',
+      meta?.refreshTime ?? SchedulingConstants.defaultRefreshTime,
     );
   }
 
