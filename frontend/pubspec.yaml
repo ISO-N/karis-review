@@ -33,6 +33,7 @@ dependencies:
   uuid: ^4.6.0
   protobuf: ^6.0.0
   fixnum: ^1.1.1
+  flutter_tts: ^4.2.5
 
 dev_dependencies:
   flutter_test:
