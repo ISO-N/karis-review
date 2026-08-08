@@ -2,13 +2,14 @@ package top.kariscode.karisreview.sync.repository;
 
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
+import top.kariscode.karisreview.common.etag.SyncEventSeqQuery;
 
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
 @Repository
-public class SyncEventRepository {
+public class SyncEventRepository implements SyncEventSeqQuery {
 
     private final JdbcTemplate jdbcTemplate;
 
@@ -16,6 +17,11 @@ public class SyncEventRepository {
         this.jdbcTemplate = jdbcTemplate;
     }
 
+    /**
+     * SyncEventSeqQuery 实现（架构评审 B2）：common 的 ETag 经本方法取最新
+     * 事件序号，SQL 唯一副本在此，禁止在 common 内重复手写。
+     */
+    @Override
     public long latestSeq(UUID userId) {
         Long seq = jdbcTemplate.queryForObject(
                 "SELECT COALESCE(MAX(event_seq), 0) FROM sync_events WHERE user_id = ?",
