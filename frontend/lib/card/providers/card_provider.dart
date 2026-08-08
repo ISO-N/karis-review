@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../offline/offline_repository.dart';
@@ -187,17 +185,14 @@ class CardListNotifier extends StateNotifier<AsyncValue<List<FlashCard>>> {
     }
   }
 
+  // 数据变更重载统一委托 reloadDataAfterChange（架构评审 F4）。
+  // 本地路径复用 _loadLocalCards（内部自带 requestVersion 防抖）。
   Future<void> reloadAfterDataChange() async {
-    if (offline == null) {
-      await loadCards();
-      return;
-    }
-    final meta = await offline!.getActiveSyncMeta();
-    if (meta == null) {
-      await loadCards();
-      return;
-    }
-    await _loadLocalCards();
+    await reloadDataAfterChange(
+      offline: offline,
+      reloadOnline: loadCards,
+      reloadLocal: (_) => _loadLocalCards(),
+    );
   }
 
   Future<List<FlashCard>> _localCards(String userId) {
@@ -222,8 +217,6 @@ final cardListProvider =
         offline: ref.watch(offlineRepositoryProvider),
         sync: ref.watch(syncServiceProvider),
       );
-      ref.listen(dataVersionProvider, (_, _) {
-        unawaited(notifier.reloadAfterDataChange());
-      });
+      listenDataVersion(ref, notifier.reloadAfterDataChange);
       return notifier;
     });
