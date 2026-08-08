@@ -7,10 +7,12 @@ import 'package:uuid/uuid.dart';
 
 import '../../card/models/card.dart';
 import '../../offline/local_scheduling_engine.dart';
+import '../../offline/offline_mappers.dart';
 import '../../offline/offline_repository.dart';
 import '../../offline/providers.dart';
 import '../../shared/providers/data_refresh_provider.dart';
 import '../../shared/scheduling/queue_composer.dart';
+import '../../shared/utils/date_utils.dart';
 import '../../sync/providers.dart';
 import '../../sync/repositories/sync_repository.dart';
 import '../../sync/sync_service.dart';
@@ -422,7 +424,7 @@ class ReviewNotifier extends StateNotifier<ReviewSessionState> {
       // 进入学习模式（FORGET / VAGUE 重学、FAMILIAR 未达标）的卡片
       // 按 2^n 位置实时插回当前队列，避免依赖退出重进复习/学习页面才出现。
       if (outcome.result.learningMode) {
-        _reinsertRelearningCard(_toReviewCard(outcome.card));
+        _reinsertRelearningCard(reviewCardFromFlash(outcome.card));
       }
       _ratingInFlight = false;
       if (state.isComplete) {
@@ -531,23 +533,6 @@ class ReviewNotifier extends StateNotifier<ReviewSessionState> {
     state = state.copyWith(cards: cards);
   }
 
-  ReviewCard _toReviewCard(FlashCard card) {
-    return ReviewCard(
-      id: card.id,
-      deckId: card.deckId,
-      front: card.front,
-      back: card.back,
-      stage: card.stage,
-      learningMode: card.learningMode,
-      consecutiveFamiliar: card.consecutiveFamiliar,
-      learningStep: card.learningStep,
-      reentryStage: card.reentryStage,
-      nextReviewDate: card.nextReviewDate,
-      reviewVersion: card.reviewVersion,
-      learningOrigin: card.learningOrigin,
-    );
-  }
-
   Future<void> removeStaleCard(String cardId) async {
     final index = state.cards.indexWhere((c) => c.id == cardId);
     if (index < 0) return;
@@ -579,7 +564,7 @@ class ReviewNotifier extends StateNotifier<ReviewSessionState> {
   }
 
   FlashCard _toFlashCard(ReviewCard card, {String? refreshTime}) {
-    final today = _formatDate(
+    final today = AppDateUtils.formatDate(
       LocalSchedulingEngine.calculateToday(
         DateTime.now().toUtc(),
         refreshTime ?? '04:00:00',
@@ -602,12 +587,6 @@ class ReviewNotifier extends StateNotifier<ReviewSessionState> {
       reviewVersion: card.reviewVersion,
       learningOrigin: card.learningOrigin,
     );
-  }
-
-  String _formatDate(DateTime date) {
-    final month = date.month.toString().padLeft(2, '0');
-    final day = date.day.toString().padLeft(2, '0');
-    return '${date.year}-$month-$day';
   }
 }
 

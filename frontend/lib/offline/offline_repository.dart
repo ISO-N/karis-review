@@ -6,9 +6,12 @@ import '../../deck/models/deck.dart';
 import '../../review/models/review_card.dart';
 import '../../shared/scheduling/queue_composer.dart';
 import '../../shared/utils/app_timezone.dart';
+import '../../shared/utils/date_utils.dart';
 import '../../stats/models/stats.dart';
 import 'database/app_database.dart';
 import 'local_scheduling_engine.dart';
+import 'offline_mappers.dart';
+import 'offline_stats.dart';
 
 class OfflineRepository {
   final AppDatabase db;
@@ -52,8 +55,8 @@ class OfflineRepository {
   Future<List<FlashCard>> getFlashCards(String userId, {String? deckId}) async {
     final cards = await getCards(userId, deckId: deckId);
     final meta = await getSyncMeta(userId);
-    final today = _formatDate(_today(meta));
-    return cards.map((c) => _toFlashCard(c, today: today)).toList();
+    final today = AppDateUtils.formatDate(_today(meta));
+    return cards.map((c) => flashCardFromLocal(c, today: today)).toList();
   }
 
   Future<List<FlashCard>> getFilteredFlashCards(
@@ -64,7 +67,7 @@ class OfflineRepository {
   }) async {
     final cards = await getCards(userId, deckId: deckId);
     final meta = await getSyncMeta(userId);
-    final today = _formatDate(_today(meta));
+    final today = AppDateUtils.formatDate(_today(meta));
     final normalizedQuery = query.trim().toLowerCase();
     // 筛选口径委托 _isNewCard/_isDueCard 单一事实源（架构评审候选 3 的闭合：
     // 此前 due 分支漏排除学新重学卡、new 分支漏含 NEW 来源重学卡，导致
@@ -87,7 +90,7 @@ class OfflineRepository {
               card.front.toLowerCase().contains(normalizedQuery) ||
               card.back.toLowerCase().contains(normalizedQuery),
         );
-    return filtered.map((c) => _toFlashCard(c, today: today)).toList();
+    return filtered.map((c) => flashCardFromLocal(c, today: today)).toList();
   }
 
   Future<List<ReviewCard>> getDueQueue(String userId, {String? deckId}) async {
@@ -102,7 +105,7 @@ class OfflineRepository {
               (c) =>
                   !c.learningMode &&
                   c.nextReviewDate != null &&
-                  c.nextReviewDate!.compareTo(_formatDate(today)) <= 0,
+                  c.nextReviewDate!.compareTo(AppDateUtils.formatDate(today)) <= 0,
             )
             .toList()
           ..sort(
@@ -125,7 +128,7 @@ class OfflineRepository {
                   c.learningMode &&
                   (c.learningOrigin == 'REVIEW' || c.learningOrigin == null) &&
                   c.nextReviewDate != null &&
-                  c.nextReviewDate!.compareTo(_formatDate(today)) <= 0,
+                  c.nextReviewDate!.compareTo(AppDateUtils.formatDate(today)) <= 0,
             )
             .toList()
           ..sort((a, b) {
@@ -149,7 +152,7 @@ class OfflineRepository {
       'due=${due.length} learning=${learning.length} '
       'learningOrigins=${learning.map((c) => c.learningOrigin).toList()}',
     );
-    return queue.map(_toReviewCard).toList();
+    return queue.map(reviewCardFromLocal).toList();
   }
 
   Future<List<ReviewCard>> getNewQueue(
@@ -159,7 +162,7 @@ class OfflineRepository {
   }) async {
     final cards = await getCards(userId, deckId: deckId);
     final meta = await getSyncMeta(userId);
-    final today = _formatDate(_today(meta));
+    final today = AppDateUtils.formatDate(_today(meta));
     // 学新队列 = 待学新卡 + 学新阶段产生的重学卡（来源 NEW，按 2^n 间距插入），
     // 口径同后端 CardQueryPredicates.NEW_QUEUE；与 OfflineRepository.getDueQueue
     // 的重学插位语义一致。
@@ -193,14 +196,14 @@ class OfflineRepository {
       'new=${newCards.length} learningNew=${learningNew.length} '
       'learningOrigins=${learningNew.map((c) => c.learningOrigin).toList()}',
     );
-    return queue.take(limit).map(_toReviewCard).toList();
+    return queue.take(limit).map(reviewCardFromLocal).toList();
   }
 
   Future<List<Deck>> getDeckSummaries(String userId) async {
     final decks = await getDecks(userId);
     final cards = await getCards(userId);
     final meta = await getSyncMeta(userId);
-    final today = _formatDate(_today(meta));
+    final today = AppDateUtils.formatDate(_today(meta));
     return decks.map((deck) {
       final deckCards = cards.where((c) => c.deckId == deck.id).toList();
       final due = deckCards
@@ -208,10 +211,10 @@ class OfflineRepository {
           .length;
       final newCount = deckCards.where(_isNewCard).length;
       final mastered = deckCards.where((c) => c.stage >= 5).length;
-      final distribution = _distribution(
+      final distribution = stageDistribution(
         deckCards.map((c) => c.stage).toList(),
       );
-      final dueDistribution = _distribution(
+      final dueDistribution = stageDistribution(
         deckCards
             .where((c) => _isDueCard(c, today))
             .map((c) => c.stage)
@@ -237,7 +240,7 @@ class OfflineRepository {
     final meta = await getSyncMeta(userId);
     final refreshTime = meta?.refreshTime ?? '04:00:00';
     final todayDate = _today(meta);
-    final today = _formatDate(todayDate);
+    final today = AppDateUtils.formatDate(todayDate);
     // 今日概览只需“今天”的日志；since 留 1 天余量覆盖刷新点偏移（业务日从
     // 刷新点开始，UTC 上可能跨前一天），SQL 层过滤避免全量加载。
     final logs = await _getLogs(
@@ -249,20 +252,20 @@ class OfflineRepository {
       ).subtract(const Duration(days: 1)),
     );
     final dueToday = cards.where((c) => _isDueCard(c, today)).length;
+    // 口径谓词下沉 offline_stats（isReviewedTodayLog/isLearnedTodayLog，
+    // 与后端 ReviewLogQueryPredicates 一致）。
     final reviewedToday = logs
         .where(
           (l) =>
-              !l.isNewCard &&
-              (l.learningOrigin == null || l.learningOrigin != 'NEW') &&
-              _onRefreshDay(l.reviewedAt, refreshTime, today),
+              isReviewedTodayLog(l) &&
+              isOnRefreshDay(l.reviewedAt, refreshTime, today),
         )
         .length;
     final learnedToday = logs
         .where(
           (l) =>
-              l.isNewCard &&
-              l.rating == 'FAMILIAR' &&
-              _onRefreshDay(l.reviewedAt, refreshTime, today),
+              isLearnedTodayLog(l) &&
+              isOnRefreshDay(l.reviewedAt, refreshTime, today),
         )
         .length;
     for (final l in logs) {
@@ -270,7 +273,7 @@ class OfflineRepository {
         '[KARIS-DBG]   log card=${l.cardId} rating=${l.rating} '
         'isNew=${l.isNewCard} origin=${l.learningOrigin} '
         'status=${l.syncStatus} at=${l.reviewedAt.toIso8601String()} '
-        'inReviewedDay=${_onRefreshDay(l.reviewedAt, refreshTime, today)}',
+        'inReviewedDay=${isOnRefreshDay(l.reviewedAt, refreshTime, today)}',
       );
     }
     debugPrint(
@@ -289,8 +292,8 @@ class OfflineRepository {
       masteredCards: stages.where((s) => s >= 5).length,
       newCards: cards.where(_isNewCard).length,
       learningCards: stages.where((s) => s < 5).length,
-      stageDistribution: _distribution(stages),
-      dueStageDistribution: _distribution(
+      stageDistribution: stageDistribution(stages),
+      dueStageDistribution: stageDistribution(
         cards
             .where((c) => _isDueCard(c, today))
             .map((c) => c.stage)
@@ -306,7 +309,7 @@ class OfflineRepository {
     final meta = await getSyncMeta(userId);
     final refreshTime = meta?.refreshTime ?? '04:00:00';
     final todayDate = _today(meta);
-    final today = _formatDate(todayDate);
+    final today = AppDateUtils.formatDate(todayDate);
     // 同 getOverviewStats：只需“今天”的日志，SQL 层过滤。
     final logs = await _getLogs(
       userId,
@@ -322,9 +325,8 @@ class OfflineRepository {
         .where(
           (l) =>
               cardIds.contains(l.cardId) &&
-              !l.isNewCard &&
-              (l.learningOrigin == null || l.learningOrigin != 'NEW') &&
-              _onRefreshDay(l.reviewedAt, refreshTime, today),
+              isReviewedTodayLog(l) &&
+              isOnRefreshDay(l.reviewedAt, refreshTime, today),
         )
         .length;
     return DeckStats(
@@ -336,8 +338,8 @@ class OfflineRepository {
       newCards: cards.where(_isNewCard).length,
       learningCards: cards.where((c) => c.learningMode).length,
       masteredCards: stages.where((s) => s >= 5).length,
-      stageDistribution: _distribution(stages),
-      dueStageDistribution: _distribution(
+      stageDistribution: stageDistribution(stages),
+      dueStageDistribution: stageDistribution(
         cards
             .where((c) => _isDueCard(c, today))
             .map((c) => c.stage)
@@ -361,7 +363,7 @@ class OfflineRepository {
     final reviewedByDay = <String, int>{};
     final learnedByDay = <String, int>{};
     for (final log in logs) {
-      final day = _formatDate(
+      final day = AppDateUtils.formatDate(
         LocalSchedulingEngine.calculateToday(log.reviewedAt, refreshTime),
       );
       if (log.isNewCard) {
@@ -374,7 +376,7 @@ class OfflineRepository {
     }
     final points = <TrendPoint>[];
     for (var i = days - 1; i >= 0; i--) {
-      final dateKey = _formatDate(today.subtract(Duration(days: i)));
+      final dateKey = AppDateUtils.formatDate(today.subtract(Duration(days: i)));
       points.add(
         TrendPoint(
           date: dateKey,
@@ -895,72 +897,14 @@ class OfflineRepository {
     }
     final rows = await query.get();
 
-    final clientDeduped = <LocalReviewLog>[];
-    final byClientId = <String, LocalReviewLog>{};
-    for (final log in rows) {
-      if (log.syncStatus == 'DISCARDED') continue;
-      final clientId = log.clientRequestId;
-      if (clientId != null) {
-        final existing = byClientId[clientId];
-        if (existing != null) {
-          if (_isLocalMirror(log) && !_isLocalMirror(existing)) continue;
-          if (!_isLocalMirror(log) && _isLocalMirror(existing)) {
-            final index = clientDeduped.indexOf(existing);
-            clientDeduped[index] = log;
-            byClientId[clientId] = log;
-          }
-          continue;
-        }
-        byClientId[clientId] = log;
-      }
-      clientDeduped.add(log);
-    }
-
-    final result = <LocalReviewLog>[];
-    final byEvent = <String, LocalReviewLog>{};
-    for (final log in clientDeduped) {
-      final eventKey = _reviewLogEventKey(log);
-      final existing = byEvent[eventKey];
-      if (existing != null) {
-        if (_isLocalMirror(log) && !_isLocalMirror(existing)) continue;
-        if (!_isLocalMirror(log) && _isLocalMirror(existing)) {
-          final index = result.indexOf(existing);
-          result[index] = log;
-          byEvent[eventKey] = log;
-        }
-        continue;
-      }
-      byEvent[eventKey] = log;
-      result.add(log);
-    }
+    // 去重逻辑下沉 offline_stats.dedupeReviewLogs（架构评审 F5）：
+    // 按 clientRequestId 与事件键两轮去重，服务端来源替换本地镜像。
+    final result = dedupeReviewLogs(rows);
     debugPrint(
       '[KARIS-DBG] _getLogs userId=$userId since=$since '
       'rows=${rows.length} deduped=${result.length}',
     );
     return result;
-  }
-
-  bool _isLocalMirror(LocalReviewLog log) =>
-      log.clientRequestId != null && log.clientRequestId == log.id;
-
-  String _reviewLogEventKey(LocalReviewLog log) {
-    final reviewedAt = log.reviewedAt.toUtc();
-    final reviewedSecond = DateTime.utc(
-      reviewedAt.year,
-      reviewedAt.month,
-      reviewedAt.day,
-      reviewedAt.hour,
-      reviewedAt.minute,
-      reviewedAt.second,
-    ).microsecondsSinceEpoch;
-    return [
-      log.cardId,
-      log.rating,
-      log.stageBefore,
-      log.stageAfter,
-      reviewedSecond,
-      log.isNewCard,
-    ].join('|');
   }
 
   Future<void> _updateLogStatus(
@@ -990,44 +934,6 @@ class OfflineRepository {
     );
   }
 
-  FlashCard _toFlashCard(LocalCard card, {required String today}) {
-    return FlashCard(
-      id: card.id,
-      deckId: card.deckId,
-      front: card.front,
-      back: card.back,
-      stage: card.stage,
-      nextReviewDate: card.nextReviewDate,
-      learningMode: card.learningMode,
-      consecutiveFamiliar: card.consecutiveFamiliar,
-      learningStep: card.learningStep,
-      reentryStage: card.reentryStage,
-      due:
-          card.nextReviewDate != null &&
-          card.nextReviewDate!.compareTo(today) <= 0,
-      createdAt: card.createdAt?.toIso8601String() ?? '',
-      reviewVersion: card.reviewVersion.toInt(),
-      learningOrigin: card.learningOrigin,
-    );
-  }
-
-  ReviewCard _toReviewCard(LocalCard card) {
-    return ReviewCard(
-      id: card.id,
-      deckId: card.deckId,
-      front: card.front,
-      back: card.back,
-      stage: card.stage,
-      learningMode: card.learningMode,
-      consecutiveFamiliar: card.consecutiveFamiliar,
-      learningStep: card.learningStep,
-      reentryStage: card.reentryStage,
-      nextReviewDate: card.nextReviewDate,
-      reviewVersion: card.reviewVersion.toInt(),
-      learningOrigin: card.learningOrigin,
-    );
-  }
-
   // 谓词单一事实源（架构评审候选 3）：对应后端
   // card/repository/CardQueryPredicates，两端口径必须一致。
   // 学新队列口径：待学新卡（stage=0 且非重学）+ 学新阶段重学卡（learning_origin='NEW'）。
@@ -1040,28 +946,6 @@ class OfflineRepository {
       c.nextReviewDate != null &&
       c.nextReviewDate!.compareTo(today) <= 0 &&
       !(c.learningMode && c.learningOrigin == 'NEW');
-
-  List<int> _distribution(List<int> stages) {
-    final result = List<int>.filled(9, 0);
-    for (final stage in stages) {
-      if (stage >= 0 && stage < 9) result[stage] += 1;
-    }
-    return result;
-  }
-
-  String _formatDate(DateTime date) {
-    final month = date.month.toString().padLeft(2, '0');
-    final day = date.day.toString().padLeft(2, '0');
-    return '${date.year}-$month-$day';
-  }
-
-  bool _onRefreshDay(DateTime reviewedAt, String refreshTime, String day) {
-    final refreshDay = LocalSchedulingEngine.calculateToday(
-      reviewedAt,
-      refreshTime,
-    );
-    return _formatDate(refreshDay) == day;
-  }
 
   DateTime? _dateTime(dynamic value) {
     return parseServerDateTime(value);

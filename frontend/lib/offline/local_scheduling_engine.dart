@@ -2,6 +2,7 @@ import '../card/models/card.dart';
 import '../review/models/review_card.dart';
 import '../shared/scheduling/scheduling_constants.dart';
 import '../shared/utils/app_timezone.dart';
+import '../shared/utils/date_utils.dart';
 
 class LocalRatingOutcome {
   final FlashCard card;
@@ -71,7 +72,7 @@ class LocalSchedulingEngine {
             }
           } else {
             learningStep += 1;
-            nextReviewDate = _formatDate(today);
+            nextReviewDate = AppDateUtils.formatDate(today);
           }
         } else if (stage == 0) {
           stage = 1;
@@ -95,7 +96,7 @@ class LocalSchedulingEngine {
         consecutiveFamiliar = 0;
         learningStep = 0;
         reentryStage = null;
-        nextReviewDate = _formatDate(today);
+        nextReviewDate = AppDateUtils.formatDate(today);
       case 'VAGUE':
         final effectiveStage = calculateEffectiveStage(stage, overdueDays);
         if (effectiveStage <= 1) {
@@ -110,7 +111,7 @@ class LocalSchedulingEngine {
           consecutiveFamiliar = 0;
           learningStep = 0;
           reentryStage = null;
-          nextReviewDate = _formatDate(today);
+          nextReviewDate = AppDateUtils.formatDate(today);
         } else {
           // VAGUE 只发生在 stage≥2 的到期卡上，来源必为 REVIEW；
           // 重学中再模糊保持原来源，历史数据兜底 REVIEW。
@@ -122,7 +123,7 @@ class LocalSchedulingEngine {
           learningMode = true;
           consecutiveFamiliar = 0;
           learningStep = 0;
-          nextReviewDate = _formatDate(today);
+          nextReviewDate = AppDateUtils.formatDate(today);
         }
       default:
         throw ArgumentError.value(rating, 'rating', 'Invalid rating');
@@ -233,12 +234,6 @@ class LocalSchedulingEngine {
   }
 
   static String _plusDays(DateTime date, int days) {
-    return _formatDate(date.add(Duration(days: days)));
-  }
-
-  static String _formatDate(DateTime date) {
-    final month = date.month.toString().padLeft(2, '0');
-    final day = date.day.toString().padLeft(2, '0');
-    return '${date.year}-$month-$day';
+    return AppDateUtils.formatDate(date.add(Duration(days: days)));
   }
 }
