@@ -372,6 +372,17 @@ log ───────► common
 - 每个模块内部按 `controller → service → repository` 单向依赖
 - 模块间**严禁循环依赖**（review 可调用 card 的 Service，但 card 不可反向调用 review）
 - `SchedulingEngine` 作为独立的核心算法类，零外部依赖，便于单元测试
+```
+
+**common 底座接口（2026-08-08 架构评审 B1/B2）**：common 包是零业务依赖底座，但部分横切能力需要业务模块提供——通过 common 内定义的接口反向依赖，编译期无环：
+
+- `common/exception/ServerErrorReporter`：500 错误上报，log 模块 `UserLogService` 实现（断 common↔log 环；GlobalExceptionHandler 以 `Optional<ServerErrorReporter>` 注入，错误上报是可选能力，slice 测试无需 log 模块）。
+- `common/etag/SyncEventSeqQuery`：最新事件序号，sync 模块 `SyncEventRepository` 实现（ETag 失效语义的 SQL 唯一副本，禁止在 common 内手写直查 sync_events）。
+- `common/etag/UserRefreshTimeQuery`：每日刷新点，auth 模块 `UserRefreshTimeService` 实现（兜底 04:00 走 `UserRefreshTime.resolve` 单一实现）。
+
+依赖方向均为 `业务模块 → 接口(common) ← 实现(业务模块)`。
+
+> **2026-08-08 架构评审 A1 落地**：排期公式跨语言等价性由测试机制保证——`docs/design/scheduling-vectors.json`（26 条向量，语言无关单一事实源），后端 `SchedulingVectorsTest` 与前端 `scheduling_vectors_test.dart` 读同一份断言。改公式必须改向量文件且两端同绿。
 
 ## 7. 离线与同步架构
 
@@ -428,6 +439,7 @@ log ───────► common
 > - **B1 评分管道单一化**：`ReviewService` 抽共享评分管道 `rateSingle`（幂等判定 → 版本冲突判定 → `computeRating`），`rateCard`/`syncRatings` 变同一管道的两个出口；幂等判定收敛 `checkIdempotency`（REPLAY/CONFLICT/NEW）、版本判定收敛 `isVersionConflict` 单函数；`applyRating` 删除。
 > - **F4 同步编排收敛（保守版）**：Deck/Stats/Card 三个 notifier 的 `reloadAfterDataChange` 统一委托 `shared/providers/data_refresh_provider.dart` 的 `reloadDataAfterChange`（离线已登录 → 本地重算；无离线或未登录 → 在线重载），provider 定义处 `ref.listen(dataVersionProvider)` 样板收敛为 `listenDataVersion`。**刻意不合并**：`SyncService` 的 cooldown/inflight（服务级并发去重）与 `StatsNotifier` 的 TTL/inFlight（页面级缓存新鲜度）语义不同层，硬合并破坏隔离（评审标注"防过度抽象"的边界）。
 > - **F5 OfflineRepository 减负**：`offline/offline_stats.dart` 下沉统计纯计算（`stageDistribution`/`isReviewedTodayLog`/`isLearnedTodayLog`/`isOnRefreshDay`/`dedupeReviewLogs`，口径同后端 ReviewLogQueryPredicates，`offline_stats_test.dart` 直接断言——接口即测试面）；`offline/offline_mappers.dart` 收敛卡片映射（`reviewCardFromLocal`/`flashCardFromLocal`/`reviewCardFromFlash`，原 offline 与 review_provider 两处 `_toReviewCard` 字段逐一重复）；日期格式化 4 份副本统一 `AppDateUtils.formatDate`。`OfflineRepository` 1078 → 962 行，回归数据访问。
+> - **C1 双通道加载骨架收敛**（2026-08-08 架构评审第三轮）：Card/Deck/Stats 三个 Notifier 的「在线/离线双路径加载骨架」整段重复（构造时 offline 分支、getActiveSyncMeta 判断、previous 保留旧值防闪、异常回退）收敛为 `shared/providers/dual_channel_loader.dart` 的 `DualChannelLoader`——调用方只提供在线/本地 fetch 与状态写入回调。Card 的 requestVersion 防抖经 `isStale` 回调保留、搜索分页渐进更新保留；Stats 的 TTL/inFlight 是页面级缓存语义，刻意不并入 loader（同 F4 边界）。
 
 ## 7.1.2 统计一致性问题复盘（2026-08 生产故障）
 

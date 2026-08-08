@@ -163,6 +163,7 @@ CREATE INDEX idx_cards_next_review ON cards(user_id, next_review_date)
 | is_new_card | BOOLEAN | NOT NULL, DEFAULT FALSE | 评分时是否处于新卡状态（Stage 0 且非重学） |
 | learning_origin | VARCHAR(10) | NULL | 评分时刻卡片 learning_origin 快照（评分前取值）；'NEW' 的评分（学新阶段重学）不计入今日复习 |
 | client_request_id | VARCHAR(64) | NULL | 客户端幂等请求 ID，同一用户内唯一 |
+| reviewed_at | TIMESTAMP | NOT NULL, DEFAULT NOW() | 评分时间（业务时区） |
 
 ```sql
 CREATE TABLE review_logs (
@@ -262,6 +263,7 @@ CREATE INDEX idx_backup_snapshots_user_id ON backup_snapshots(user_id);
 
 ## 4. Flyway 迁移脚本结构
 src/main/resources/db/migration/
+├── V1__create_users_table.sql
 ├── V2__create_decks_table.sql
 ├── V3__create_cards_table.sql
 ├── V4__create_review_logs_table.sql

@@ -24,7 +24,7 @@ mvn test                   # 全部测试
 mvn test -Dtest=SchedulingEngineTest   # 单个测试类
 ```
 
-启动后端前必须先启动 PostgreSQL。测试目前只有 `SchedulingEngineTest`（纯单元测试，无需数据库）和 `KarisreviewApplicationTests`（Spring 上下文加载，需要数据库）。
+启动后端前必须先启动 PostgreSQL。测试分三层：纯单元/部件测试（SchedulingEngineTest、SchedulingVectorsTest、QueueInterleaverTest、Service/Controller 测试等，无需数据库）、Spring 上下文加载测试（`KarisreviewApplicationTests`，需要数据库）、真实 PostgreSQL + HTTP 系统测试（含日志、会话分页、同步失效和数据量冒烟；只创建/清理 `system-test-*@example.com` 用户）。详见 `docs/design/testing.md`。
 
 ### 前端（Flutter + Riverpod + GoRouter）
 
@@ -63,13 +63,13 @@ Android release 包名为 `top.kariscode.karisreview`，debug 包名为 `top.kar
 - **权限边界**：`SecurityConfig` 放行 `/api/auth/register`、`/api/auth/login` 以及 OpenAPI 文档路径（`/v3/api-docs/**`、`/swagger-ui/**`、`/swagger-ui.html`），其余全部要求认证。跨域配置在 `CorsConfig`（全放开）。
 - **API 文档**：集成 Springdoc OpenAPI 3，配置了 JWT Bearer 安全方案；登录/注册接口豁免认证要求，生产 profile 关闭文档。
 - **"今天"的定义**：不是自然日。`common/util/DateUtils.calculateToday(refreshTime)` 依据用户设置的 `refresh_time`（默认 04:00）计算"今天"范围——当前时间在刷新点之前时算前一天。**刷新点解析统一走 `auth/util/UserRefreshTime.resolve`（兜底 04:00 单一实现，2026-08 架构评审候选 4）**。业务时区全局固定为 `app.timezone`（默认 `Asia/Shanghai`，UTC+8），前端离线排程同样按该时区计算；`server_time` 仍为 UTC。所有到期判断（due、stats、学习模式插入位置）都基于此。
-- **数据库变更**：`ddl-auto=none`，schema 由 Flyway 迁移管理（`src/main/resources/db/migration/V1~V10`）。改表必须新增迁移脚本，不能改已提交的脚本。
+- **数据库变更**：`ddl-auto=none`，schema 由 Flyway 迁移管理（`src/main/resources/db/migration/V1~V15`，清单以 docs/design/database.md §4 为准）。改表必须新增迁移脚本，不能改已提交的脚本。
 - **统计口径**：`review_logs.is_new_card` 标记评分时是否为 Stage 0 且非重学的新卡；`learning_origin`（cards/review_logs，V15 迁移）标记重学卡来源——学新阶段（新卡）忘记进入重学为 `NEW`，复习阶段（到期卡）忘记/模糊为 `REVIEW`，非重学为 null（历史重学数据按 `REVIEW` 处理）。**队列归属按来源定**：学新队列 = 待学新卡 + `NEW` 重学卡；复习队列 = 到期卡 + `REVIEW` 重学卡（`buildNewQueue`/`buildDueQueue`，本地 `getNewQueue`/`getDueQueue` 一致）。**今日复习不含新学**：`reviewed_today` 统计今日 `is_new_card=false` 且 `learning_origin <> 'NEW'` 的评分（即到期卡复习 + 复习阶段重学，学新阶段的重学评分不计入）；今日新学只统计新卡上的 FAMILIAR；`due_today`（待复习）与 `due_stage_distribution` 统计已排期（`next_review_date` 非空且 ≤ 今日）且非 `NEW` 重学的卡，不含未学新卡与学新阶段重学卡；今日页记忆刻度在 `due_stage_distribution` 基础上把 `new_cards`（含 `NEW` 重学卡，即学新队列规模）并入 stage 0，口径 = 今日任务（复习队列 + 学新队列）。**注意**：日志经 protobuf 同步时，`proto_mappers.dart` 的 `reviewLogToMap` 必须携带 `learning_origin`（曾有漏映射导致本地统计把学新重学计入今日复习，复盘见 docs/design/architecture.md §7.1.2）。**2026-08-08 起该映射已机制化**：`shared/proto/proto_mappers.dart` 为声明式投影——键集合由生成代码 `info_.byIndex` 推导（新增 proto 字段自动进入映射，不手写字面量键），值函数对未处理字段抛 `UnsupportedError`，字段对账测试（`frontend/test/proto_mappers_test.dart`）保证加字段漏映射在测试期红；新增同步字段只需在对应值函数补一行。**due/new 口径谓词已单一化**（2026-08-08 架构评审候选 3）：后端集中在 `card/repository/CardQueryPredicates`（JPQL/SQL 双变体），`CardRepository` 的 `@Query` 全部拼接该常量；前端离线过滤收敛为 `OfflineRepository._isNewCard/_isDueCard`；改口径必须两端同步。**2026-08-08 第二轮评审闭合**：`CardQueryPredicates` 拆分支常量（`DUE_BASE`/`DUE_RELEARNING`/`NEW_BASE`/`NEW_RELEARNING`），四个队列查询（findDueCards/findLearningModeCardsForReview/findNewCards/findLearningModeCardsForNew）全部拼接分支常量；卡列表 `getFilteredFlashCards` 的 `due`/`new` 筛选直接委托 `_isDueCard`/`_isNewCard`（此前手写谓词：due 漏排除学新重学卡、new 漏含 NEW 重学卡，与计数口径不一致——重学卡 `next_review_date` 恒为评分当天，`nextReviewDate<=today` 必然命中）。**统计侧同步收敛**：`review/repository/ReviewLogQueryPredicates` 集中「今日复习/今日新学」口径（JPQL/native SQL 双变体），`ReviewLogRepository` 的 countReviewedToday/countReviewedTodayForDeck/findDailyTrend/countLearnedToday 全部引用；`StatsService.getDeckStats` 复用 `getDeckCounters` 补字段、分布累加收敛 `accumulateStage`。
 - **卡片快捷导入**：`card/service/CardImportParser` 负责解析 JSON 数组，`CardImportService` 校验卡组归属并批量写入新卡；`CardImportController` 暴露 `/api/decks/{deckId}/cards/import/preview` 与 `/api/decks/{deckId}/cards/import`，不写复习记录和排期状态；导入响应携带 `imported_card_ids`，卡片列表支持 `new` 筛选与 `/api/cards/batch-delete` 批量删除。列表接口 `GET /api/decks/{deckId}/cards` 支持 `q` 参数按正反面即时搜索，与现有筛选叠加，`%`、`_`、`\` 按字面值转义。
 
 #### 排期算法（核心业务逻辑）
 
-`review/service/SchedulingEngine.java` 是零依赖的纯算法类（便于单测），`ReviewService` 负责编排。**前端排期常量与公式单一数据源**：`shared/scheduling/scheduling_constants.dart`（间隔表 / maxStage / 3·5 阈值 / familiar·vague 间隔公式 / 2^n 插位偏移），`LocalSchedulingEngine` 与 `ReviewCard` 委托其公式，UI（`theme.dart`）不持有业务常量（2026-08 架构评审候选 5）；与后端为跨语言独立副本，改公式必须两端同步：
+`review/service/SchedulingEngine.java` 是零依赖的纯算法类（便于单测），`ReviewService` 负责编排。**前端排期常量与公式单一数据源**：`shared/scheduling/scheduling_constants.dart`（间隔表 / maxStage / 3·5 阈值 / familiar·vague 间隔公式 / 2^n 插位偏移），`LocalSchedulingEngine` 与 `ReviewCard` 委托其公式，UI（`theme.dart`）不持有业务常量（2026-08 架构评审候选 5）；与后端为跨语言独立副本，改公式必须两端同步。**跨语言等价性由测试机制保证**（2026-08-08 架构评审 A1）：`docs/design/scheduling-vectors.json` 是语言无关的排期测试向量单一事实源（26 条，覆盖 FAMILIAR/FORGET/VAGUE/逾期惩罚/来源归属），后端 `SchedulingVectorsTest` 与前端 `scheduling_vectors_test.dart` 读同一份向量断言——**改公式必须：1) 改向量文件；2) 两端测试同绿**：
 
 - **Stage 0-8**，间隔为 `{0, 1, 2, 4, 7, 15, 30, 90, 180}` 天。
 - **FAMILIAR**：非重学模式升级 1 级；Stage 0 → 1（1 天后）。
@@ -101,6 +101,8 @@ Android release 包名为 `top.kariscode.karisreview`，debug 包名为 `top.kar
 - **评分流程**：`review/providers/review_provider.dart` 维护 `ReviewSessionState`（卡片队列、当前索引、是否翻面、cursor、hasMore、待同步数）。在线通过复习会话 cursor 分页；离线回退到 Drift 本地队列；评分先写本地并自动同步。
 - **离线数据层**：`frontend/lib/offline/` 使用 Drift/SQLite 缓存卡组、卡片、复习日志与同步元数据；`SyncService` 通过 `/api/sync/bootstrap` 全量或 `event_cursor` 增量同步，提交 `/api/review/sync`，冲突默认按服务器刷新。`sync_events` 由数据库触发器写入，客户端保存事件游标并支持删除同步。**纯计算已下沉**（2026-08-08 架构评审 F5）：统计口径/阶段分布/日志去重在 `offline/offline_stats.dart`（纯函数，口径同后端 ReviewLogQueryPredicates，`offline_stats_test.dart` 直接断言），卡片映射在 `offline/offline_mappers.dart`（LocalCard→FlashCard/ReviewCard 与会话 FlashCard→ReviewCard 单一实现），日期格式化统一 `shared/utils/date_utils.dart` 的 `AppDateUtils.formatDate`（原 4 份副本）；`OfflineRepository` 回归数据访问（1078 → 962 行）。
 - **数据变更自动重载**（2026-08-08 架构评审 F4 收敛）：Deck/Stats/Card 三个 notifier 的 `reloadAfterDataChange` 统一委托 `shared/providers/data_refresh_provider.dart` 的 `reloadDataAfterChange`（离线已登录 → 本地重算；无离线或未登录 → 在线重载），provider 定义处监听统一 `listenDataVersion(ref, ...)`——原各自实现 + `ref.listen(dataVersionProvider)` 样板删除。注意：`SyncService` 的 cooldown/inflight 与 `StatsNotifier` 的 TTL/inFlight 是不同层级的状态（服务级并发去重 vs 页面级缓存新鲜度），**不合并**（F4 防过度抽象的边界）。
+- **双通道加载骨架**（2026-08-08 架构评审 C1）：Card/Deck/Stats 的「在线/离线双路径加载骨架」收敛为 `shared/providers/dual_channel_loader.dart` 的 `DualChannelLoader`（调用方只提供在线/本地 fetch 与状态回调；Card 的 requestVersion 防抖经 `isStale` 保留、Stats 的 TTL/inFlight 刻意不并入）。
+- **评分语义单一源**（2026-08-08 架构评审 E2/D1）：评分值 `shared/scheduling/rating.dart` 的 `Rating` 常量（'FORGET'/'VAGUE'/'FAMILIAR'，代码内一律引用，DB/API 线格式不变）；复习页评分文案/键盘映射/间隔标签收敛为 `review/models/rating_labels.dart` 纯函数（`ratingDisplayLabel`/`ratingOf`/`ratingNextLabel`，`rating_labels_test.dart` 断言）。
 - **跨设备评分锁**：`cards.review_version` 是 JPA 乐观锁版本；队列响应携带该值，评分/同步必须校验，旧设备提交会收到冲突。
 - **TTS 朗读**：`frontend/lib/tts/` 纯客户端系统 TTS，不碰后端。`TtsEngine` 抽象接口 + 双实现：`SystemTtsEngine`（flutter_tts 4.x，Android/iOS/Windows；`FLUTTER_TEST` 环境下全部短路为 no-op——flutter_tts 的 MethodChannel 在测试 fake async 里挂起而非抛 MissingPluginException）、`LinuxTtsEngine`（spd-say 子进程，**flutter_tts 官方不支持 Linux**，需系统安装 `speech-dispatcher` + `espeak-ng`，未安装时 `isAvailable` 返回 false 按钮隐藏）。`tts_text_extractor.dart` 是纯函数：Delta/Markdown → 朗读文本（正则剥离代码围栏、`$..$`/`$$..$$` 公式，embed 跳过），`splitForSpeech` 按句切分 + CJK 占比判 `zh-CN`/`en-US` 逐段换语言。`ttsProvider` 独立状态（是否在播/读哪面），偏好（开关/语速）存 SharedPreferences 不进后端；换卡/翻面/评分/离页都调 `stop()` 防叠音，复习页 `dispose()` 阶段 ref 不可用需在 `initState` 缓存 notifier 实例。复习页正反面 header 有 `TtsButton`，键盘 `V` 朗读当前面；设置页「朗读」块管开关与语速。Android 的 `<queries>` 已声明 `TTS_SERVICE`（Android 11+ 需要）。
 - **音标显示**：`tts/phonetic_dict.dart` 内置美式 IPA 词库（`assets/ipa/en_US_ipa.txt`，open-dict-data/ipa-dict CC0 许可，约 12.5 万词 3.1MB），纯客户端离线查询。只对**纯英文单词/短语**（无中文/数字/标点，允许 `'`/`-`/空格，≤40 字符）显示：`isEnglishPhrase` 判定 → `phoneticFor` 查询（词库惰性加载 + LRU 缓存 256；多音标取第一个；多词逐词拼接；连字符词按 `-` 拆段回退；查不到返回 null）。`widgets/phonetic_line.dart` 渲染到复习页正反面内容下方，非英文/未收录静默不显示。测试注意：`rootBundle.loadString` 是真实 IO，testWidgets 的 fake async 下会挂起，须用 `tester.runAsync` 或构造注入 `seedWords` 词库。
@@ -109,11 +111,11 @@ Android release 包名为 `top.kariscode.karisreview`，debug 包名为 `top.kar
 
 - 后端：`mvn test` 会运行纯算法/工具测试（含 `QueueInterleaverTest` 插位规则、`SchedulingEngineTest`）、Service/Controller 部件测试，以及真实 PostgreSQL + HTTP 的系统测试，包含日志、会话分页、同步失效和数据量冒烟；系统测试只创建/清理 `system-test-*@example.com` 测试用户，不清理其他用户数据。
 - 前端：`flutter test` 覆盖模型、Repository、Provider、离线调度/Drift、ApiClient、同步服务、操作日志和主要页面 Widget；`queue_composer_test.dart` 直接断言插位规则（不依赖 Drift）；`offline_stats_test.dart` 直接断言统计口径/分布/日志去重（不依赖 Drift）；`offline_repository_test.dart` 含卡列表筛选口径断言（学新重学卡归学新、复习重学卡归复习）；`flutter analyze` 需保持无警告；`flutter test --coverage` 和 release Web 构建用于 CI 验证。
-- 数据库当前已有 V9 同步事件、V10 搜索索引和 V11 `user_logs`，新增表结构必须继续追加迁移。
+- 数据库迁移已到 V15（V1 用户表 → V15 `learning_origin`，含 V9 同步事件、V10 搜索索引、V11 `user_logs`、V12 验证码表、V13 性能优化、V14 触发器修复），清单与字段见 `docs/design/database.md`；新增表结构必须继续追加迁移。
 - 测试层级、运行命令和数据隔离说明见 `docs/design/testing.md`。
 
 ## 文档
 
-`docs/README.md` 是文档索引：需求（`docs/requirements/`）、架构/数据库/API 设计（`docs/design/`）、架构决策记录（`docs/adr/`，2026-08 起）。需求文档里有 28 条用户需求，改功能前先对照。API 细节以 `docs/design/api.md` 为准（含所有接口的请求/响应示例）。
+`docs/README.md` 是文档索引：领域词汇（`docs/CONTEXT.md`，架构评审/设计共用术语）、需求（`docs/requirements/`）、架构/数据库/API 设计（`docs/design/`）。需求文档里有 28 条用户需求，改功能前先对照。API 细节以 `docs/design/api.md` 为准（含所有接口的请求/响应示例）。
 
 代码语义变更（字段、算法、接口、表结构等）时，须同步更新对应文档（本文件、docs/ 下相关文档、迁移脚本）。
