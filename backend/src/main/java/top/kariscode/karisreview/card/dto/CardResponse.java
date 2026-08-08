@@ -22,13 +22,14 @@ public class CardResponse {
     private boolean due;
     private LocalDateTime createdAt;
     private long reviewVersion;
+    private String learningOrigin;
 
     public CardResponse(UUID id, UUID deckId, String front, String back, int stage,
                         LocalDate nextReviewDate, boolean learningMode,
                         int consecutiveFamiliar, int learningStep, Integer reentryStage,
                         boolean due, LocalDateTime createdAt) {
         this(id, deckId, front, back, stage, nextReviewDate, learningMode,
-                consecutiveFamiliar, learningStep, reentryStage, due, createdAt, 0);
+                consecutiveFamiliar, learningStep, reentryStage, due, createdAt, 0, null);
     }
 
     public CardResponse(UUID id, UUID deckId, String front, String back, int stage,
@@ -36,6 +37,16 @@ public class CardResponse {
                         int consecutiveFamiliar, int learningStep, Integer reentryStage,
                         boolean due, LocalDateTime createdAt,
                         long reviewVersion) {
+        this(id, deckId, front, back, stage, nextReviewDate, learningMode,
+                consecutiveFamiliar, learningStep, reentryStage, due, createdAt,
+                reviewVersion, null);
+    }
+
+    public CardResponse(UUID id, UUID deckId, String front, String back, int stage,
+                        LocalDate nextReviewDate, boolean learningMode,
+                        int consecutiveFamiliar, int learningStep, Integer reentryStage,
+                        boolean due, LocalDateTime createdAt,
+                        long reviewVersion, String learningOrigin) {
         this.id = id;
         this.deckId = deckId;
         this.front = front;
@@ -49,6 +60,7 @@ public class CardResponse {
         this.due = due;
         this.createdAt = createdAt;
         this.reviewVersion = reviewVersion;
+        this.learningOrigin = learningOrigin;
     }
 
     public UUID getId() { return id; }
@@ -77,4 +89,6 @@ public class CardResponse {
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
     public long getReviewVersion() { return reviewVersion; }
     public void setReviewVersion(long reviewVersion) { this.reviewVersion = reviewVersion; }
+    public String getLearningOrigin() { return learningOrigin; }
+    public void setLearningOrigin(String learningOrigin) { this.learningOrigin = learningOrigin; }
 }

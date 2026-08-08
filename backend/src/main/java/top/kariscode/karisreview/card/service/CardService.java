@@ -8,13 +8,14 @@ import top.kariscode.karisreview.card.dto.CardCreateRequest;
 import top.kariscode.karisreview.card.dto.CardResponse;
 import top.kariscode.karisreview.card.dto.CardUpdateRequest;
 import top.kariscode.karisreview.card.entity.Card;
+import top.kariscode.karisreview.card.entity.SchedulingState;
 import top.kariscode.karisreview.card.repository.CardRepository;
 import top.kariscode.karisreview.common.exception.BusinessException;
 import top.kariscode.karisreview.common.util.DateUtils;
 import top.kariscode.karisreview.deck.entity.Deck;
 import top.kariscode.karisreview.deck.repository.DeckRepository;
-import top.kariscode.karisreview.auth.entity.User;
 import top.kariscode.karisreview.auth.repository.UserRepository;
+import top.kariscode.karisreview.auth.util.UserRefreshTime;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -144,19 +145,18 @@ public class CardService {
     }
 
     private CardResponse toCardResponse(Card card, LocalDate today) {
-        boolean due = card.getNextReviewDate() != null && !card.getNextReviewDate().isAfter(today);
+        SchedulingState s = card.getSchedulingState();
+        boolean due = s.getNextReviewDate() != null && !s.getNextReviewDate().isAfter(today);
         return new CardResponse(
                 card.getId(), card.getDeckId(), card.getFront(), card.getBack(),
-                card.getStage(), card.getNextReviewDate(), card.isLearningMode(),
-                card.getConsecutiveFamiliar(), card.getLearningStep(),
-                card.getReentryStage(), due, card.getCreatedAt(),
-                card.getReviewVersion());
+                s.getStage(), s.getNextReviewDate(), s.isLearningMode(),
+                s.getConsecutiveFamiliar(), s.getLearningStep(),
+                s.getReentryStage(), due, card.getCreatedAt(),
+                card.getReviewVersion(), s.getLearningOrigin());
     }
 
     private LocalDate todayFor(UUID userId) {
-        LocalTime refreshTime = userRepository.findById(userId)
-                .map(User::getRefreshTime)
-                .orElse(LocalTime.of(4, 0));
-        return DateUtils.calculateToday(refreshTime);
+        return DateUtils.calculateToday(
+                UserRefreshTime.resolve(userRepository, userId));
     }
 }

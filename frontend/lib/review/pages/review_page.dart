@@ -161,7 +161,7 @@ class _ReviewStage extends ConsumerWidget {
     final colors = context.karisColors;
     final isTablet = MediaQuery.sizeOf(context).width >= 600;
     // 进度条只依赖 currentIndex / sessionTotal：评分换卡时才重建本层骨架。
-    final current = ref.watch(reviewProvider.select((s) => s.currentIndex + 1));
+    final current = ref.watch(reviewProvider.select((s) => s.currentNumber));
     final total = ref.watch(reviewProvider.select((s) => s.sessionTotal));
     final progress = total == 0 ? 0.0 : current / total;
 
@@ -318,7 +318,7 @@ class _FlipCardArea extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final card = ref.watch(reviewProvider.select((s) => s.currentCard));
     if (card == null) return const SizedBox.shrink();
-    final current = ref.watch(reviewProvider.select((s) => s.currentIndex + 1));
+    final current = ref.watch(reviewProvider.select((s) => s.currentNumber));
     final total = ref.watch(reviewProvider.select((s) => s.sessionTotal));
     final isFlipped = ref.watch(reviewProvider.select((s) => s.isFlipped));
     // 只读上次评分的 rating 字段：决定换卡时旧卡向哪个方向离场。

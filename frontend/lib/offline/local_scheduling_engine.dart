@@ -1,5 +1,6 @@
 import '../card/models/card.dart';
 import '../review/models/review_card.dart';
+import '../shared/scheduling/scheduling_constants.dart';
 import '../shared/utils/app_timezone.dart';
 
 class LocalRatingOutcome {
@@ -17,10 +18,11 @@ class LocalRatingOutcome {
 }
 
 class LocalSchedulingEngine {
-  static const List<int> stageIntervals = [0, 1, 2, 4, 7, 15, 30, 90, 180];
-  static const int maxStage = 8;
-  static const int forgetThreshold = 5;
-  static const int vagueThreshold = 3;
+  // 常量与公式单一数据源（架构评审候选 5）：见 shared/scheduling/scheduling_constants.dart。
+  static const List<int> stageIntervals = SchedulingConstants.stageIntervals;
+  static const int maxStage = SchedulingConstants.maxStage;
+  static const int forgetThreshold = SchedulingConstants.forgetThreshold;
+  static const int vagueThreshold = SchedulingConstants.vagueThreshold;
 
   LocalRatingOutcome rate(
     FlashCard card,
@@ -164,37 +166,24 @@ class LocalSchedulingEngine {
     );
   }
 
-  static int stageInterval(int stage) {
-    if (stage < 0 || stage > maxStage) return stageIntervals[maxStage];
-    return stageIntervals[stage];
-  }
+  static int stageInterval(int stage) =>
+      SchedulingConstants.stageInterval(stage);
 
   static int familiarIntervalAfterRating({
     required int stage,
     required bool learningMode,
     required int consecutiveFamiliar,
     required int? reentryStage,
-  }) {
-    if (learningMode) {
-      final threshold = reentryStage != null && reentryStage > 0
-          ? vagueThreshold
-          : forgetThreshold;
-      if (consecutiveFamiliar + 1 >= threshold) {
-        if (reentryStage != null && reentryStage > 0) {
-          return _vagueInterval(reentryStage);
-        }
-        return stageIntervals[1];
-      }
-      return 0;
-    }
-    if (stage >= maxStage) return stageIntervals[maxStage];
-    return stageIntervals[stage + 1];
-  }
+  }) =>
+      SchedulingConstants.familiarIntervalAfterRating(
+        stage: stage,
+        learningMode: learningMode,
+        consecutiveFamiliar: consecutiveFamiliar,
+        reentryStage: reentryStage,
+      );
 
-  static int vagueIntervalAfterRating(int stage) {
-    if (stage <= 1) return 0;
-    return stageIntervals[stage];
-  }
+  static int vagueIntervalAfterRating(int stage) =>
+      SchedulingConstants.vagueIntervalAfterRating(stage);
 
   /// 计算逾期卡的等效 stage。
   ///
@@ -222,9 +211,8 @@ class LocalSchedulingEngine {
     return _calculateToday(nowUtc, refreshTime);
   }
 
-  static int _vagueInterval(int targetStage) {
-    return stageIntervals[targetStage] - stageIntervals[targetStage - 1];
-  }
+  static int _vagueInterval(int targetStage) =>
+      SchedulingConstants.vagueIntervalForTarget(targetStage);
 
   static DateTime _calculateToday(DateTime nowUtc, String refreshTime) {
     final businessNow = serverUtcToBusiness(nowUtc);

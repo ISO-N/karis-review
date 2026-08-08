@@ -1,17 +1,19 @@
 package top.kariscode.karisreview.stats.service;
 
 import org.springframework.stereotype.Service;
+import top.kariscode.karisreview.auth.entity.User;
+import top.kariscode.karisreview.auth.repository.UserRepository;
+import top.kariscode.karisreview.auth.util.UserRefreshTime;
 import top.kariscode.karisreview.card.repository.CardRepository;
 import top.kariscode.karisreview.common.exception.BusinessException;
 import top.kariscode.karisreview.common.util.DateUtils;
 import top.kariscode.karisreview.deck.entity.Deck;
 import top.kariscode.karisreview.deck.repository.DeckRepository;
 import top.kariscode.karisreview.review.repository.ReviewLogRepository;
+import top.kariscode.karisreview.stats.dto.DeckCounters;
 import top.kariscode.karisreview.stats.dto.DeckStatsResponse;
 import top.kariscode.karisreview.stats.dto.OverviewStatsResponse;
 import top.kariscode.karisreview.stats.dto.TrendStatsResponse;
-import top.kariscode.karisreview.auth.entity.User;
-import top.kariscode.karisreview.auth.repository.UserRepository;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -40,8 +42,28 @@ public class StatsService {
         this.userRepository = userRepository;
     }
 
+    /**
+     * 卡组计数唯一出口（架构评审候选 4）：DeckService.toDeckResponse 与
+     * getDeckStats 共用。due/new 口径见 CardQueryPredicates。
+     */
+    public DeckCounters getDeckCounters(UUID userId, UUID deckId) {
+        LocalTime refreshTime = UserRefreshTime.resolve(userRepository, userId);
+        LocalDate today = DateUtils.calculateToday(refreshTime);
+
+        DeckCounters counters = new DeckCounters();
+        counters.setCardCount((int) cardRepository.countByDeckId(deckId));
+        counters.setDueCount(cardRepository.countDueByDeckId(deckId, today));
+        counters.setNewCount((int) cardRepository.countNewByDeckId(deckId));
+        counters.setMasteredCount((int) cardRepository.countByDeckIdAndStageGreaterThanEqual(deckId, 5));
+        counters.setStageDistribution(distributionFromRows(
+                cardRepository.countByStageGroupedByDeck(deckId)));
+        counters.setDueStageDistribution(distributionFromRows(
+                cardRepository.countDueByStageGroupedByDeck(deckId, today)));
+        return counters;
+    }
+
     public OverviewStatsResponse getOverview(UUID userId) {
-        LocalTime refreshTime = getRefreshTime(userId);
+        LocalTime refreshTime = UserRefreshTime.resolve(userRepository, userId);
         LocalDate today = DateUtils.calculateToday(refreshTime);
 
         LocalDateTime refreshStart = today.atTime(refreshTime);
@@ -93,7 +115,7 @@ public class StatsService {
         Deck deck = deckRepository.findByIdAndUserId(deckId, userId)
                 .orElseThrow(() -> new BusinessException(404, "stats.deck.notfound"));
 
-        LocalTime refreshTime = getRefreshTime(userId);
+        LocalTime refreshTime = UserRefreshTime.resolve(userRepository, userId);
         LocalDate today = DateUtils.calculateToday(refreshTime);
         LocalDateTime refreshStart = today.atTime(refreshTime);
         LocalDateTime refreshEnd = today.plusDays(1).atTime(refreshTime);
@@ -115,7 +137,7 @@ public class StatsService {
     }
 
     public List<TrendStatsResponse> getTrend(UUID userId, int days) {
-        LocalTime refreshTime = getRefreshTime(userId);
+        LocalTime refreshTime = UserRefreshTime.resolve(userRepository, userId);
         LocalDate today = DateUtils.calculateToday(refreshTime);
         LocalDateTime start = today.minusDays(days).atTime(refreshTime);
 
@@ -150,11 +172,5 @@ public class StatsService {
             }
         }
         return distribution;
-    }
-
-    private LocalTime getRefreshTime(UUID userId) {
-        return userRepository.findById(userId)
-                .map(User::getRefreshTime)
-                .orElse(LocalTime.of(4, 0));
     }
 }

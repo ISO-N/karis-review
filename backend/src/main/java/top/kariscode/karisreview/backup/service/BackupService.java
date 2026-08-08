@@ -13,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 import top.kariscode.karisreview.backup.entity.BackupSnapshot;
 import top.kariscode.karisreview.backup.repository.BackupRepository;
 import top.kariscode.karisreview.card.entity.Card;
+import top.kariscode.karisreview.card.entity.SchedulingState;
 import top.kariscode.karisreview.card.repository.CardRepository;
 import top.kariscode.karisreview.deck.entity.Deck;
 import top.kariscode.karisreview.deck.repository.DeckRepository;
@@ -22,7 +23,6 @@ import top.kariscode.karisreview.review.repository.ReviewLogRepository;
 import top.kariscode.karisreview.auth.entity.User;
 import top.kariscode.karisreview.auth.repository.UserRepository;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -86,11 +86,11 @@ public class BackupService {
                 ObjectNode cardNode = cardsArray.addObject();
                 cardNode.put("front", card.getFront());
                 cardNode.put("back", card.getBack());
-                cardNode.put("stage", card.getStage());
-                cardNode.put("consecutive_familiar", card.getConsecutiveFamiliar());
-                cardNode.put("next_review_date", card.getNextReviewDate() != null ? card.getNextReviewDate().toString() : null);
-                cardNode.put("learning_mode", card.isLearningMode());
-                cardNode.put("reentry_stage", card.getReentryStage());
+                // 排期状态经 SchedulingState 全字段投影（架构评审候选 2）：
+                // 曾漏 learning_step/learning_origin/review_version 导致恢复后
+                // 队列归属退化与重学插位丢失。
+                card.getSchedulingState().writeTo(cardNode);
+                cardNode.put("review_version", card.getReviewVersion());
             }
         }
 
@@ -182,19 +182,10 @@ public class BackupService {
                         card.setUserId(userId);
                         card.setFront(cardNode.has("front") ? cardNode.get("front").asText() : "");
                         card.setBack(cardNode.has("back") ? cardNode.get("back").asText() : "");
-                        card.setStage(cardNode.has("stage") ? cardNode.get("stage").asInt() : 0);
-                        card.setConsecutiveFamiliar(
-                                cardNode.has("consecutive_familiar") ? cardNode.get("consecutive_familiar").asInt() : 0);
-                        if (cardNode.has("next_review_date") && !cardNode.get("next_review_date").isNull()) {
-                            card.setNextReviewDate(LocalDate.parse(cardNode.get("next_review_date").asText()));
-                        }
-                        card.setLearningMode(
-                                cardNode.has("learning_mode") && cardNode.get("learning_mode").asBoolean());
-                        if (cardNode.has("reentry_stage") && !cardNode.get("reentry_stage").isNull()) {
-                            card.setReentryStage(cardNode.get("reentry_stage").asInt());
-                        }
-                        if (cardNode.has("learning_origin") && !cardNode.get("learning_origin").isNull()) {
-                            card.setLearningOrigin(cardNode.get("learning_origin").asText());
+                        // 排期状态整体恢复（架构评审候选 2）；旧备份缺键自动回退默认。
+                        card.applySchedulingState(SchedulingState.fromJson(cardNode));
+                        if (cardNode.has("review_version")) {
+                            card.setReviewVersion(cardNode.get("review_version").asLong());
                         }
                         cardsToSave.add(card);
                     }

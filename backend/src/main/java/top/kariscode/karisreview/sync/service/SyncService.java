@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 import top.kariscode.karisreview.auth.entity.User;
 import top.kariscode.karisreview.auth.repository.UserRepository;
 import top.kariscode.karisreview.card.entity.Card;
+import top.kariscode.karisreview.card.entity.SchedulingState;
 import top.kariscode.karisreview.card.repository.CardRepository;
 import top.kariscode.karisreview.common.exception.BusinessException;
 import top.kariscode.karisreview.deck.entity.Deck;
@@ -239,11 +240,12 @@ public class SyncService {
     }
 
     private BootstrapCard toBootstrapCard(Card card) {
+        SchedulingState s = card.getSchedulingState();
         return new BootstrapCard(
                 card.getId(), card.getDeckId(), card.getFront(), card.getBack(),
-                card.getStage(), card.getConsecutiveFamiliar(), card.getNextReviewDate(),
-                card.isLearningMode(), card.getReentryStage(), card.getLearningStep(),
-                card.getReviewVersion(), card.getLearningOrigin(),
+                s.getStage(), s.getConsecutiveFamiliar(), s.getNextReviewDate(),
+                s.isLearningMode(), s.getReentryStage(), s.getLearningStep(),
+                card.getReviewVersion(), s.getLearningOrigin(),
                 card.getCreatedAt(), card.getUpdatedAt());
     }
 

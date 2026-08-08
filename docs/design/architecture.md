@@ -409,6 +409,14 @@ log ───────► common
 
 `learning_origin` 经同步载荷（Bootstrap/复习会话 protobuf 与 JSON）与备份导出导入全链路传递。
 
+> **2026-08-08 架构评审候选 2 落地**：排期状态统一经 `card/entity/SchedulingState` 值对象投影——`Card.getSchedulingState()`/`applySchedulingState()`，`CardResponse`/`ReviewCardResponse`/`BootstrapCard`/备份 JSON 四类出口都从它取排期字段，禁止逐字段散落读取。修复备份缺口：`BackupService.exportData` 曾漏导出 `learning_step`/`learning_origin`/`review_version`（导入却读取 `learning_origin`），恢复后 NEW 重学卡队列归属退化为 REVIEW 兜底、重学插位间距全丢；现导出/导入均经 `SchedulingState` 全字段 round-trip（旧备份缺键自动回退默认）。`CardResponse` 随之补充 `review_version`/`learning_origin`（JSON 卡片列表通道字段补齐，`new` 筛选仍由服务端 `filter=new` 计算）。
+
+> **2026-08-08 架构评审候选 3 落地**：due/new 查询谓词单一化——`card/repository/CardQueryPredicates` 集中声明两种口径的 JPQL 与 native SQL 变体（`NEW_QUEUE` 学新队列 / `DUE_EXCLUDING_NEW` 复习队列与统计），`CardRepository` 9 处 `@Query` 全部拼接常量，前端 `offline_repository.dart` 收敛为 `_isNewCard`/`_isDueCard` 两函数（10+ 处调用点），两端注释互相引用。**修复口径 bug**：卡片列表 `filter=due` 原用派生查询未排除 NEW 重学卡，与「待复习」badge 计数（统计口径含排除）不一致，现改用 `DUE_EXCLUDING_NEW`。删除无调用死方法 `countNewByUserId`/`countDueToday`。后端全量 286 测试（含系统测试）、前端全量 228 测试通过。
+
+> **2026-08-08 架构评审候选 4 落地**：统计口径收敛——`StatsService.getDeckCounters` 成为卡组计数唯一出口（`DeckCounters` DTO），`DeckService.toDeckResponse` 改调它并删除本类 6 项计数与 `distributionFromRows` 重复实现；模块依赖新增 `deck → stats`（仅 service 层，包级无环）。刷新点解析统一收口 `auth/util/UserRefreshTime.resolve`（兜底 04:00 原复制 4 份）。业务日边界权威定义写入 `DateUtils.calculateToday` javadoc（区间法 `[today@refresh, +1d)` 与 SQL 截断法 `(reviewed_at-refresh)::date` 两种等价写法，禁止第三种）。
+
+> **2026-08-08 架构评审候选 5 落地**：排期公式单一数据源——前端新建 `shared/scheduling/scheduling_constants.dart`（间隔表 / maxStage / 3·5 阈值 / familiar·vague 间隔公式 / 2^n 插位偏移），此前间隔表在 `local_scheduling_engine.dart`、`review_card.dart`、`app/theme.dart`（业务常量混入 UI 间距类）三处副本，公式双份实现；现引擎与 `ReviewCard` 委托本类公式，`theme.dart` 不再持有排期常量（`stageLabels`/`stageName` 引用单一源），插位统一走 `relearningInsertOffset`（原前端 3 处 `1 << step`）。与后端 `SchedulingEngine.java` 为跨语言独立副本，改公式必须两端同步（由 `LocalSchedulingEngineTest` 与系统测试保障）。
+
 ## 7.1.2 统计一致性问题复盘（2026-08 生产故障）
 
 ### 现象
@@ -437,6 +445,7 @@ log ───────► common
 
 - `reviewLogToMap` 补充 `'learning_origin': log.hasLearningOrigin() ? log.learningOrigin : null`；新增回归测试 `frontend/test/proto_mappers_test.dart`。
 - **防回归红线**：新增同步字段时，protobuf 路径（`proto_mappers.dart` 与重新生成的 `*.pb.dart`）与 JSON 路径必须同步覆盖；统计口径的 NULL 兜底会把"字段缺失"静默翻译成"复习"，宁可少算不可错算。
+- **2026-08-08 架构评审候选 1 落地（机制化防回归）**：`proto_mappers.dart` 重构为声明式投影——映射键集合由生成代码 `BuilderInfo.info_.byIndex` 推导（新增 proto 字段自动进入映射，不再手写字面量键），值函数对未处理字段抛 `UnsupportedError`，`test/proto_mappers_test.dart` 的字段对账用例保证"加字段漏映射"在测试期直接红；同时收敛 `review_repository`/`sync_repository` 两份重复的 `_unsupported()` 为 `ApiClient.isProtoUnsupported`，并修复 `reviewSyncItemResultToMap` 内联映射遗漏 `card_id` 的问题。此后本红线的执行不再依赖人工对照。
 - **存量用户处置**：修复只影响之后同步的数据；存量本地日志需触发「设置 → 以服务器数据为准」（`forceServerAuthoritative` → 全量 bootstrap 重灌）修正，发布 release 时应在更新说明引导。
 
 ### 已知限制
@@ -448,6 +457,7 @@ log ───────► common
 
 - `reviewLogToMap` 漏映射 `learning_origin`（本小节「根因」）。
 - `_rateRemote` 在线评分插回重学卡丢失 `learningOrigin`/`reentryStage`：`RateResponse` 新增 `reentry_stage`/`learning_origin`（`ReviewService.toRateResponse` 与幂等分支填充），前端 `ReviewResult` 解析并用于插回（`review_provider.dart`），避免会话内再次评分时来源快照丢失与重学类型判定错误。配套：`frontend/test/models_test.dart` 重学字段解析断言；`docs/design/api.md` 评分接口响应补充字段。
+- `proto_mappers.dart` 声明式投影重构（本小节「防回归」机制化）：消灭手写字面量键，漏映射由测试期 `UnsupportedError` 拦截；`reviewSyncItemResultToMap` 补上内联映射遗漏的 `card_id`；`review_repository`/`sync_repository` 的 `_unsupported()` 收敛为 `ApiClient.isProtoUnsupported`。
 
 ## 7.2 自动刷新与关键时机同步
 

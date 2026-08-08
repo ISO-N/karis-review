@@ -582,7 +582,9 @@
         "learning_step": 0,
         "reentry_stage": null,
         "due": false,
-        "created_at": "2025-07-01T10:00:00Z"
+        "created_at": "2025-07-01T10:00:00Z",
+        "review_version": 0,
+        "learning_origin": null
       }
     ],
     "page": 0,
@@ -592,6 +594,8 @@
   }
 }
 ```
+
+> 2026-08-08（架构评审候选 2）起 `CardResponse` 补充 `review_version` 与 `learning_origin`（排期状态经 `SchedulingState` 值对象统一投影）；`learning_origin`：`NEW`（学新阶段重学）/ `REVIEW`（复习阶段重学）/ null（非重学），与服务端 `new` 筛选口径一致。
 
 ---
 

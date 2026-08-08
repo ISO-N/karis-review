@@ -4,9 +4,10 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import top.kariscode.karisreview.auth.entity.User;
 import top.kariscode.karisreview.auth.repository.UserRepository;
+import top.kariscode.karisreview.auth.util.UserRefreshTime;
 import top.kariscode.karisreview.card.entity.Card;
+import top.kariscode.karisreview.card.entity.SchedulingState;
 import top.kariscode.karisreview.card.repository.CardRepository;
 import top.kariscode.karisreview.common.exception.BusinessException;
 import top.kariscode.karisreview.common.util.DateUtils;
@@ -175,7 +176,7 @@ public class ReviewService {
         int missing = 0;
 
         // refresh_time 只取一次，避免循环内每条评分都点查 users 表
-        LocalTime refreshTime = getRefreshTime(userId);
+        LocalTime refreshTime = UserRefreshTime.resolve(userRepository, userId);
         LocalDate today = DateUtils.calculateToday(refreshTime);
 
         // 1) 幂等检查批量化：一次 IN 查询替代逐条查询
@@ -299,7 +300,7 @@ public class ReviewService {
             throw new BusinessException(409, "review.conflict.version");
         }
 
-        LocalTime refreshTime = getRefreshTime(userId);
+        LocalTime refreshTime = UserRefreshTime.resolve(userRepository, userId);
         LocalDate today = DateUtils.calculateToday(refreshTime);
         return applyRating(userId, cardId, card, request.getRating(),
                 clientRequestId, DateUtils.now(), refreshTime, today);
@@ -380,7 +381,7 @@ public class ReviewService {
     private record RatingOutcome(ReviewLog log, SchedulingEngine.RatingResult result) {}
 
     private List<Card> buildDueQueue(UUID userId, UUID deckId) {
-        LocalTime refreshTime = getRefreshTime(userId);
+        LocalTime refreshTime = UserRefreshTime.resolve(userRepository, userId);
         LocalDate today = DateUtils.calculateToday(refreshTime);
         List<Card> dueCards = cardRepository.findDueCards(userId, today, deckId);
         List<Card> learningCards = cardRepository.findLearningModeCardsForReview(userId, today, deckId);
@@ -392,7 +393,7 @@ public class ReviewService {
      * 重学卡按 2^n 间距插入。退出重进学新页仍能继续刷到忘记/模糊的卡。
      */
     private List<Card> buildNewQueue(UUID userId, UUID deckId) {
-        LocalTime refreshTime = getRefreshTime(userId);
+        LocalTime refreshTime = UserRefreshTime.resolve(userRepository, userId);
         LocalDate today = DateUtils.calculateToday(refreshTime);
         List<Card> newCards = cardRepository.findNewCards(userId, deckId);
         List<Card> learningNew = cardRepository.findLearningModeCardsForNew(userId, today, deckId);
@@ -451,21 +452,16 @@ public class ReviewService {
     }
 
     private ReviewCardResponse toReviewCardResponse(Card card) {
+        SchedulingState s = card.getSchedulingState();
         return new ReviewCardResponse(
                 card.getId(), card.getDeckId(),
                 card.getFront(), card.getBack(),
-                card.getStage(), card.isLearningMode(),
-                card.getConsecutiveFamiliar(),
-                card.getReentryStage(),
-                card.getNextReviewDate(),
-                card.getLearningStep(),
+                s.getStage(), s.isLearningMode(),
+                s.getConsecutiveFamiliar(),
+                s.getReentryStage(),
+                s.getNextReviewDate(),
+                s.getLearningStep(),
                 card.getReviewVersion(),
-                card.getLearningOrigin());
-    }
-
-    private LocalTime getRefreshTime(UUID userId) {
-        return userRepository.findById(userId)
-                .map(User::getRefreshTime)
-                .orElse(LocalTime.of(4, 0));
+                s.getLearningOrigin());
     }
 }

@@ -50,7 +50,7 @@ Android release 包名为 `top.kariscode.karisreview`，debug 包名为 `top.kar
 
 ### 后端（backend/src/main/java/top/kariscode/karisreview/）
 
-按业务模块分包（`auth`、`deck`、`card`、`review`、`stats`、`backup`、`settings`），每个模块内部单向依赖 `controller → service → repository`。模块间严禁循环依赖：`card → deck`、`review → card/deck`、`stats → review/deck`、`backup` 依赖全部模块。
+按业务模块分包（`auth`、`deck`、`card`、`review`、`stats`、`backup`、`settings`），每个模块内部单向依赖 `controller → service → repository`。模块间严禁循环依赖：`card → deck`、`review → card/deck`、`stats → review/deck`、`backup` 依赖全部模块；**`deck → stats` 仅 service 层**（`DeckService` 调 `StatsService.getDeckCounters` 取卡组计数，包级无环，2026-08 架构评审候选 4）。
 
 关键点：
 
@@ -62,14 +62,14 @@ Android release 包名为 `top.kariscode.karisreview`，debug 包名为 `top.kar
 - **API 文档**：集成 Springdoc OpenAPI 3，配置了 JWT Bearer 安全方案；登录/注册/注册配置接口豁免认证要求，生产 profile 关闭文档。
 - **权限边界**：`SecurityConfig` 放行 `/api/auth/register`、`/api/auth/login` 以及 OpenAPI 文档路径（`/v3/api-docs/**`、`/swagger-ui/**`、`/swagger-ui.html`），其余全部要求认证。跨域配置在 `CorsConfig`（全放开）。
 - **API 文档**：集成 Springdoc OpenAPI 3，配置了 JWT Bearer 安全方案；登录/注册接口豁免认证要求，生产 profile 关闭文档。
-- **"今天"的定义**：不是自然日。`common/util/DateUtils.calculateToday(refreshTime)` 依据用户设置的 `refresh_time`（默认 04:00）计算"今天"范围——当前时间在刷新点之前时算前一天。业务时区全局固定为 `app.timezone`（默认 `Asia/Shanghai`，UTC+8），前端离线排程同样按该时区计算；`server_time` 仍为 UTC。所有到期判断（due、stats、学习模式插入位置）都基于此。
+- **"今天"的定义**：不是自然日。`common/util/DateUtils.calculateToday(refreshTime)` 依据用户设置的 `refresh_time`（默认 04:00）计算"今天"范围——当前时间在刷新点之前时算前一天。**刷新点解析统一走 `auth/util/UserRefreshTime.resolve`（兜底 04:00 单一实现，2026-08 架构评审候选 4）**。业务时区全局固定为 `app.timezone`（默认 `Asia/Shanghai`，UTC+8），前端离线排程同样按该时区计算；`server_time` 仍为 UTC。所有到期判断（due、stats、学习模式插入位置）都基于此。
 - **数据库变更**：`ddl-auto=none`，schema 由 Flyway 迁移管理（`src/main/resources/db/migration/V1~V10`）。改表必须新增迁移脚本，不能改已提交的脚本。
-- **统计口径**：`review_logs.is_new_card` 标记评分时是否为 Stage 0 且非重学的新卡；`learning_origin`（cards/review_logs，V15 迁移）标记重学卡来源——学新阶段（新卡）忘记进入重学为 `NEW`，复习阶段（到期卡）忘记/模糊为 `REVIEW`，非重学为 null（历史重学数据按 `REVIEW` 处理）。**队列归属按来源定**：学新队列 = 待学新卡 + `NEW` 重学卡；复习队列 = 到期卡 + `REVIEW` 重学卡（`buildNewQueue`/`buildDueQueue`，本地 `getNewQueue`/`getDueQueue` 一致）。**今日复习不含新学**：`reviewed_today` 统计今日 `is_new_card=false` 且 `learning_origin <> 'NEW'` 的评分（即到期卡复习 + 复习阶段重学，学新阶段的重学评分不计入）；今日新学只统计新卡上的 FAMILIAR；`due_today`（待复习）与 `due_stage_distribution` 统计已排期（`next_review_date` 非空且 ≤ 今日）且非 `NEW` 重学的卡，不含未学新卡与学新阶段重学卡；今日页记忆刻度在 `due_stage_distribution` 基础上把 `new_cards`（含 `NEW` 重学卡，即学新队列规模）并入 stage 0，口径 = 今日任务（复习队列 + 学新队列）。**注意**：日志经 protobuf 同步时，`proto_mappers.dart` 的 `reviewLogToMap` 必须携带 `learning_origin`（曾有漏映射导致本地统计把学新重学计入今日复习，复盘见 docs/design/architecture.md §7.1.2）。
+- **统计口径**：`review_logs.is_new_card` 标记评分时是否为 Stage 0 且非重学的新卡；`learning_origin`（cards/review_logs，V15 迁移）标记重学卡来源——学新阶段（新卡）忘记进入重学为 `NEW`，复习阶段（到期卡）忘记/模糊为 `REVIEW`，非重学为 null（历史重学数据按 `REVIEW` 处理）。**队列归属按来源定**：学新队列 = 待学新卡 + `NEW` 重学卡；复习队列 = 到期卡 + `REVIEW` 重学卡（`buildNewQueue`/`buildDueQueue`，本地 `getNewQueue`/`getDueQueue` 一致）。**今日复习不含新学**：`reviewed_today` 统计今日 `is_new_card=false` 且 `learning_origin <> 'NEW'` 的评分（即到期卡复习 + 复习阶段重学，学新阶段的重学评分不计入）；今日新学只统计新卡上的 FAMILIAR；`due_today`（待复习）与 `due_stage_distribution` 统计已排期（`next_review_date` 非空且 ≤ 今日）且非 `NEW` 重学的卡，不含未学新卡与学新阶段重学卡；今日页记忆刻度在 `due_stage_distribution` 基础上把 `new_cards`（含 `NEW` 重学卡，即学新队列规模）并入 stage 0，口径 = 今日任务（复习队列 + 学新队列）。**注意**：日志经 protobuf 同步时，`proto_mappers.dart` 的 `reviewLogToMap` 必须携带 `learning_origin`（曾有漏映射导致本地统计把学新重学计入今日复习，复盘见 docs/design/architecture.md §7.1.2）。**2026-08-08 起该映射已机制化**：`shared/proto/proto_mappers.dart` 为声明式投影——键集合由生成代码 `info_.byIndex` 推导（新增 proto 字段自动进入映射，不手写字面量键），值函数对未处理字段抛 `UnsupportedError`，字段对账测试（`frontend/test/proto_mappers_test.dart`）保证加字段漏映射在测试期红；新增同步字段只需在对应值函数补一行。**due/new 口径谓词已单一化**（2026-08-08 架构评审候选 3）：后端集中在 `card/repository/CardQueryPredicates`（JPQL/SQL 双变体），`CardRepository` 的 `@Query` 全部拼接该常量；前端离线过滤收敛为 `OfflineRepository._isNewCard/_isDueCard`；改口径必须两端同步。
 - **卡片快捷导入**：`card/service/CardImportParser` 负责解析 JSON 数组，`CardImportService` 校验卡组归属并批量写入新卡；`CardImportController` 暴露 `/api/decks/{deckId}/cards/import/preview` 与 `/api/decks/{deckId}/cards/import`，不写复习记录和排期状态；导入响应携带 `imported_card_ids`，卡片列表支持 `new` 筛选与 `/api/cards/batch-delete` 批量删除。列表接口 `GET /api/decks/{deckId}/cards` 支持 `q` 参数按正反面即时搜索，与现有筛选叠加，`%`、`_`、`\` 按字面值转义。
 
 #### 排期算法（核心业务逻辑）
 
-`review/service/SchedulingEngine.java` 是零依赖的纯算法类（便于单测），`ReviewService` 负责编排：
+`review/service/SchedulingEngine.java` 是零依赖的纯算法类（便于单测），`ReviewService` 负责编排。**前端排期常量与公式单一数据源**：`shared/scheduling/scheduling_constants.dart`（间隔表 / maxStage / 3·5 阈值 / familiar·vague 间隔公式 / 2^n 插位偏移），`LocalSchedulingEngine` 与 `ReviewCard` 委托其公式，UI（`theme.dart`）不持有业务常量（2026-08 架构评审候选 5）；与后端为跨语言独立副本，改公式必须两端同步：
 
 - **Stage 0-8**，间隔为 `{0, 1, 2, 4, 7, 15, 30, 90, 180}` 天。
 - **FAMILIAR**：非重学模式升级 1 级；Stage 0 → 1（1 天后）。
@@ -79,12 +79,12 @@ Android release 包名为 `top.kariscode.karisreview`，debug 包名为 `top.kar
 - **重学插入**：重学中的卡片按 `learning_step`（2^n 间距）插入所属队列（第 1 次隔 1 张、第 2 次隔 2 张、第 3 次隔 4 张……），`ReviewService.interleaveLearningCards` / 前端 `OfflineRepository.getNewQueue`、`getDueQueue` 实现。**重学卡按 `learning_origin` 归属队列**：学新阶段忘记（`NEW`）归学新队列，复习阶段忘记/模糊（`REVIEW`）归复习队列；重学中再忘记/模糊保持原来源，脱离重学（连续 Familiar 达标）清除来源。前端会话内 `_reinsertRelearningCard` 按同规则把重学卡实时插回当前队列，退出重进后仍由队列按来源重建，两处行为一致。
 - **到期队列排序**：逾期优先——按逾期天数（`calculateToday` − `next_review_date`）降序，同逾期天数内按 `next_review_date` 升序；服务端 `CardRepository.findDueCards` 与前端离线 `OfflineRepository.getDueQueue` 保持一致。重学卡不参与逾期排序。
 
-`Card` 实体新增了 `learning_step`（V6）与 `learning_origin`（V15）字段，`review_logs` 也新增了 `learning_origin` 快照（V15）；数据库文档中的表结构需同步。
+`Card` 实体新增了 `learning_step`（V6）与 `learning_origin`（V15）字段，`review_logs` 也新增了 `learning_origin` 快照（V15）；数据库文档中的表结构需同步。**排期状态统一经 `card/entity/SchedulingState` 值对象投影**（2026-08 架构评审候选 2）：`Card.getSchedulingState()`/`applySchedulingState()`，CardResponse/ReviewCardResponse/BootstrapCard/备份 JSON 四类出口都从它取排期字段，禁止逐字段散落读取。
 
 #### 备份（backup/）
 
-- `BackupService.exportData`：导出用户全量数据（decks/cards/review_logs）为 JSON，同时存一份 `backup_snapshots` 快照。
-- `BackupService.importData`：**先删光该用户现有数据再导入**（不可逆）。导入的卡片获得新 ID，复习日志靠 `card_front`（front+back 组合键，front 可能重复时取首个匹配）重新关联。
+- `BackupService.exportData`：导出用户全量数据（decks/cards/review_logs）为 JSON，同时存一份 `backup_snapshots` 快照。卡片排期状态经 `card/entity/SchedulingState` 值对象**全字段导出**（stage/consecutive_familiar/next_review_date/learning_mode/reentry_stage/learning_step/learning_origin，另带 review_version）——2026-08 架构评审候选 2 修复了曾漏导出 learning_step/learning_origin/review_version 导致恢复后队列归属退化与重学插位丢失的问题。
+- `BackupService.importData`：**先删光该用户现有数据再导入**（不可逆）。导入的卡片获得新 ID，复习日志靠 `card_front`（front+back 组合键，front 可能重复时取首个匹配）重新关联；排期状态整体恢复（`SchedulingState.fromJson`，旧备份缺键自动回退默认）。
 - `BackupScheduler`：`@Scheduled(cron = "0 10 4 * * *")` 每天 04:10 为所有用户做应用级备份（`SchedulingConfig` 开启调度）。
 
 ### 前端（frontend/lib/）
@@ -92,7 +92,7 @@ Android release 包名为 `top.kariscode.karisreview`，debug 包名为 `top.kar
 按业务模块分包，每个模块统一为 `repositories/`（Dio 调用）→ `providers/`（Riverpod StateNotifier，持有不可变 state 类）→ `pages/`（ConsumerWidget/ConsumerStatefulWidget）→ `models/`（序列化类）。
 
 - **API 客户端**：`shared/api/api_client.dart` 的 Dio 单例，Token 内存缓存并持久化到 SharedPreferences；401 通过回调清 token、更新 Auth 状态并跳登录；GET 对连接/超时类错误做有限重试，并对稳定 GET 接口保存 ETag 复用 304。基础 URL 与端点常量在 `shared/api/api_endpoints.dart`。
-- **传输优化**：服务端开启 gzip；同步/复习高流量接口支持同 URL Protobuf 内容协商（`Accept`/`Content-Type: application/x-protobuf`），默认仍为 JSON。复习响应不再传输可由 `stage` 推导的间隔字段。
+- **传输优化**：服务端开启 gzip；同步/复习高流量接口支持同 URL Protobuf 内容协商（`Accept`/`Content-Type: application/x-protobuf`），默认仍为 JSON。协商失败（401/406/415）回退 JSON 的判定统一在 `shared/api/api_client.dart` 的 `isProtoUnsupported`（review/sync repository 共用，2026-08 架构评审候选 1 收敛）。复习响应不再传输可由 `stage` 推导的间隔字段。
 - **路由/鉴权**：`app/router.dart` 的 GoRouter 监听 `authProvider` 做重定向（未登录 → `/login`，已登录访问登录页 → `/decks`）。`/review/due` 与 `/review/new` 共用 `ReviewPage`，用 `filter` 参数区分学习/复习模式，卡组筛选走 `deck_id` query 参数。
 - **富文本**：卡片正反面存 Quill Delta JSON 字符串（`flutter_quill` 编辑器，LaTeX 和代码块是自定义 custom block embed）。`shared/widgets/rich_card_content.dart` 渲染时自动识别——内容以 `[` 开头且可解析为 JSON 列表则按 Delta 渲染，否则按轻量 Markdown 解析（`**粗体**`、`*斜体*`、`` `行内代码` ``、`# 标题`、`- 列表`、`$$...$$` 行间公式、`$...$` 行内公式、` ``` 代码块 ````），并对 Delta/普通文本两种格式都做了容错处理。
 - **卡片编辑**：`card/pages/card_editor_page.dart` 为独立页面，正面/反面通过分段切换编辑，不把两面同时堆在一个界面里。
@@ -113,6 +113,6 @@ Android release 包名为 `top.kariscode.karisreview`，debug 包名为 `top.kar
 
 ## 文档
 
-`docs/README.md` 是文档索引：需求（`docs/requirements/`）、架构/数据库/API 设计（`docs/design/`）。需求文档里有 28 条用户需求，改功能前先对照。API 细节以 `docs/design/api.md` 为准（含所有接口的请求/响应示例）。
+`docs/README.md` 是文档索引：需求（`docs/requirements/`）、架构/数据库/API 设计（`docs/design/`）、架构决策记录（`docs/adr/`，2026-08 起）。需求文档里有 28 条用户需求，改功能前先对照。API 细节以 `docs/design/api.md` 为准（含所有接口的请求/响应示例）。
 
 代码语义变更（字段、算法、接口、表结构等）时，须同步更新对应文档（本文件、docs/ 下相关文档、迁移脚本）。
