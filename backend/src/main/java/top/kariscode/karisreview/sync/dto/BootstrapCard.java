@@ -20,6 +20,7 @@ public class BootstrapCard {
     private Integer reentryStage;
     private int learningStep;
     private long reviewVersion;
+    private String learningOrigin;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -29,6 +30,16 @@ public class BootstrapCard {
                          int stage, int consecutiveFamiliar, LocalDate nextReviewDate,
                          boolean learningMode, Integer reentryStage, int learningStep,
                          long reviewVersion, LocalDateTime createdAt, LocalDateTime updatedAt) {
+        this(id, deckId, front, back, stage, consecutiveFamiliar, nextReviewDate,
+                learningMode, reentryStage, learningStep, reviewVersion, null,
+                createdAt, updatedAt);
+    }
+
+    public BootstrapCard(UUID id, UUID deckId, String front, String back,
+                         int stage, int consecutiveFamiliar, LocalDate nextReviewDate,
+                         boolean learningMode, Integer reentryStage, int learningStep,
+                         long reviewVersion, String learningOrigin,
+                         LocalDateTime createdAt, LocalDateTime updatedAt) {
         this.id = id;
         this.deckId = deckId;
         this.front = front;
@@ -40,6 +51,7 @@ public class BootstrapCard {
         this.reentryStage = reentryStage;
         this.learningStep = learningStep;
         this.reviewVersion = reviewVersion;
+        this.learningOrigin = learningOrigin;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
     }
@@ -66,6 +78,8 @@ public class BootstrapCard {
     public void setLearningStep(int learningStep) { this.learningStep = learningStep; }
     public long getReviewVersion() { return reviewVersion; }
     public void setReviewVersion(long reviewVersion) { this.reviewVersion = reviewVersion; }
+    public String getLearningOrigin() { return learningOrigin; }
+    public void setLearningOrigin(String learningOrigin) { this.learningOrigin = learningOrigin; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }

@@ -48,7 +48,7 @@ class ReviewStatsSystemTest extends SystemTestSupport {
     }
 
     @Test
-    void overviewNewCardsCountsOnlyStageZeroNonLearningCards() {
+    void overviewNewCardsIsNewQueueSizeIncludingNewOriginRelearning() {
         TestAccount user = register("overview-new");
         String deckId = text(createDeck(user.token(), "新卡统计"), "id");
         String learningId = text(createCard(user.token(), deckId, "学习卡", "反面"), "id");
@@ -68,10 +68,16 @@ class ReviewStatsSystemTest extends SystemTestSupport {
         assertEquals(1, jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM cards WHERE user_id = ? AND stage = 0 AND learning_mode = false",
                 Integer.class, ownerId));
-
+        // 学新阶段忘记的卡进入重学（learning_origin='NEW'），计入 new_cards（学新队列规模）
+        assertEquals(1, jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM cards WHERE user_id = ? AND learning_mode = true AND learning_origin = 'NEW'",
+                Integer.class, ownerId));
 
         JsonNode overview = data("GET", "/stats/overview", user.token(), null);
-        assertEquals(1, overview.get("new_cards").asInt());
+        assertEquals(2, overview.get("new_cards").asInt());
+        // 学新阶段重学卡不计入「今日待复习」（复习队列）；三张卡均非到期：复习卡已排到明天、
+        // 重学卡属学新队列、新卡未排期 → due_today = 0
+        assertEquals(0, overview.get("due_today").asInt());
     }
 
     @Test
@@ -120,7 +126,9 @@ class ReviewStatsSystemTest extends SystemTestSupport {
                 text(completedVague, "next_review_date"));
 
         JsonNode overview = data("GET", "/stats/overview", user.token(), null);
-        assertEquals(9, overview.get("reviewed_today").asInt());
+        // 新口径：stage 0 卡（本测试用回填日期的方式使其出现在复习队列）忘记 → 学新阶段来源（NEW），
+        // 其重学评分不计入今日复习；仅 VAGUE 路径（1 次 VAGUE + 3 次重学 FAMILIAR，来源 REVIEW）计入 = 4
+        assertEquals(4, overview.get("reviewed_today").asInt());
         assertEquals(0, overview.get("learned_today").asInt());
     }
 

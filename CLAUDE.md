@@ -64,7 +64,7 @@ Android release 包名为 `top.kariscode.karisreview`，debug 包名为 `top.kar
 - **API 文档**：集成 Springdoc OpenAPI 3，配置了 JWT Bearer 安全方案；登录/注册接口豁免认证要求，生产 profile 关闭文档。
 - **"今天"的定义**：不是自然日。`common/util/DateUtils.calculateToday(refreshTime)` 依据用户设置的 `refresh_time`（默认 04:00）计算"今天"范围——当前时间在刷新点之前时算前一天。业务时区全局固定为 `app.timezone`（默认 `Asia/Shanghai`，UTC+8），前端离线排程同样按该时区计算；`server_time` 仍为 UTC。所有到期判断（due、stats、学习模式插入位置）都基于此。
 - **数据库变更**：`ddl-auto=none`，schema 由 Flyway 迁移管理（`src/main/resources/db/migration/V1~V10`）。改表必须新增迁移脚本，不能改已提交的脚本。
-- **统计口径**：`review_logs.is_new_card` 标记评分时是否为 Stage 0 且非重学的新卡；今日复习不含新学，今日新学只统计新卡上的 FAMILIAR。`due_stage_distribution` 只统计已排期（`next_review_date` 非空且 ≤ 今日）的卡，不含未学新卡（`next_review_date` 为空）；今日页记忆刻度在其基础上把 `new_cards` 并入 stage 0，口径 = 今日任务（到期复习 + 待学新卡）。
+- **统计口径**：`review_logs.is_new_card` 标记评分时是否为 Stage 0 且非重学的新卡；`learning_origin`（cards/review_logs，V15 迁移）标记重学卡来源——学新阶段（新卡）忘记进入重学为 `NEW`，复习阶段（到期卡）忘记/模糊为 `REVIEW`，非重学为 null（历史重学数据按 `REVIEW` 处理）。**队列归属按来源定**：学新队列 = 待学新卡 + `NEW` 重学卡；复习队列 = 到期卡 + `REVIEW` 重学卡（`buildNewQueue`/`buildDueQueue`，本地 `getNewQueue`/`getDueQueue` 一致）。**今日复习不含新学**：`reviewed_today` 统计今日 `is_new_card=false` 且 `learning_origin <> 'NEW'` 的评分（即到期卡复习 + 复习阶段重学，学新阶段的重学评分不计入）；今日新学只统计新卡上的 FAMILIAR；`due_today`（待复习）与 `due_stage_distribution` 统计已排期（`next_review_date` 非空且 ≤ 今日）且非 `NEW` 重学的卡，不含未学新卡与学新阶段重学卡；今日页记忆刻度在 `due_stage_distribution` 基础上把 `new_cards`（含 `NEW` 重学卡，即学新队列规模）并入 stage 0，口径 = 今日任务（复习队列 + 学新队列）。
 - **卡片快捷导入**：`card/service/CardImportParser` 负责解析 JSON 数组，`CardImportService` 校验卡组归属并批量写入新卡；`CardImportController` 暴露 `/api/decks/{deckId}/cards/import/preview` 与 `/api/decks/{deckId}/cards/import`，不写复习记录和排期状态；导入响应携带 `imported_card_ids`，卡片列表支持 `new` 筛选与 `/api/cards/batch-delete` 批量删除。列表接口 `GET /api/decks/{deckId}/cards` 支持 `q` 参数按正反面即时搜索，与现有筛选叠加，`%`、`_`、`\` 按字面值转义。
 
 #### 排期算法（核心业务逻辑）
@@ -76,10 +76,10 @@ Android release 包名为 `top.kariscode.karisreview`，debug 包名为 `top.kar
 - **FORGET**：重置 Stage 0 并进入重学模式（`learning_mode=true`），需连续 5 次 Familiar 才脱离（回 Stage 1）。
 - **VAGUE**：降 1 级并进入重学模式，`reentry_stage` 记录目标级别，只需连续 3 次 Familiar 脱离并回到该级别（复习间隔 = 该级间隔 − 上一级间隔）；Stage 1 的 VAGUE 视同 FORGET。
 - **逾期惩罚**：VAGUE 评分时按遗忘曲线估计等效 stage——逾期率 ρ = (间隔+逾期天数)/间隔，降级数 k = floor(log₂(ρ))，等效 stage = max(1, stage−k)，从等效 stage 回退 1 级并以其为 reentry 目标；逾期 ≤ 2 天或 ρ < 2 免罚；FAMILIAR/FORGET 不受逾期影响。前后端公式一致（`SchedulingEngine.calculateEffectiveStage` 与 `LocalSchedulingEngine.calculateEffectiveStage`）。
-- **重学插入**：重学中的卡片按 `learning_step`（2^n 间距）插入到期队列，`ReviewService.interleaveLearningCards` 实现（第 1 次隔 1 张、第 2 次隔 2 张、第 3 次隔 4 张……）。
+- **重学插入**：重学中的卡片按 `learning_step`（2^n 间距）插入所属队列（第 1 次隔 1 张、第 2 次隔 2 张、第 3 次隔 4 张……），`ReviewService.interleaveLearningCards` / 前端 `OfflineRepository.getNewQueue`、`getDueQueue` 实现。**重学卡按 `learning_origin` 归属队列**：学新阶段忘记（`NEW`）归学新队列，复习阶段忘记/模糊（`REVIEW`）归复习队列；重学中再忘记/模糊保持原来源，脱离重学（连续 Familiar 达标）清除来源。前端会话内 `_reinsertRelearningCard` 按同规则把重学卡实时插回当前队列，退出重进后仍由队列按来源重建，两处行为一致。
 - **到期队列排序**：逾期优先——按逾期天数（`calculateToday` − `next_review_date`）降序，同逾期天数内按 `next_review_date` 升序；服务端 `CardRepository.findDueCards` 与前端离线 `OfflineRepository.getDueQueue` 保持一致。重学卡不参与逾期排序。
 
-`Card` 实体新增了 `learning_step` 字段（V6 迁移），数据库文档中的表结构没有它，改卡字段时注意同步。
+`Card` 实体新增了 `learning_step`（V6）与 `learning_origin`（V15）字段，`review_logs` 也新增了 `learning_origin` 快照（V15）；数据库文档中的表结构需同步。
 
 #### 备份（backup/）
 
@@ -96,12 +96,13 @@ Android release 包名为 `top.kariscode.karisreview`，debug 包名为 `top.kar
 - **路由/鉴权**：`app/router.dart` 的 GoRouter 监听 `authProvider` 做重定向（未登录 → `/login`，已登录访问登录页 → `/decks`）。`/review/due` 与 `/review/new` 共用 `ReviewPage`，用 `filter` 参数区分学习/复习模式，卡组筛选走 `deck_id` query 参数。
 - **富文本**：卡片正反面存 Quill Delta JSON 字符串（`flutter_quill` 编辑器，LaTeX 和代码块是自定义 custom block embed）。`shared/widgets/rich_card_content.dart` 渲染时自动识别——内容以 `[` 开头且可解析为 JSON 列表则按 Delta 渲染，否则按轻量 Markdown 解析（`**粗体**`、`*斜体*`、`` `行内代码` ``、`# 标题`、`- 列表`、`$$...$$` 行间公式、`$...$` 行内公式、` ``` 代码块 ````），并对 Delta/普通文本两种格式都做了容错处理。
 - **卡片编辑**：`card/pages/card_editor_page.dart` 为独立页面，正面/反面通过分段切换编辑，不把两面同时堆在一个界面里。
-- **卡片快捷导入**：`card/pages/card_import_page.dart` 为独立页面，支持粘贴 JSON 或选择 `.json` 文件；解析和最终导入都走后端，预览阶段可编辑/删除行，不支持新增和排序。导入接口返回 `imported_card_ids`，导入完成后弹**常驻 MaterialBanner**（文案写明"撤销将删除这批卡片且不可恢复"）承载撤销入口，点击撤销先弹确认对话框再调批量删除，成功后反馈删除数量；卡片列表支持 `new` 筛选（Stage 0 非重学、最新在前）、正反面即时搜索（300ms 防抖、搜索时分页拉取完整结果）和多选批量删除（`POST /api/cards/batch-delete`）。
+- **卡片快捷导入**：`card/pages/card_import_page.dart` 为独立页面，支持粘贴 JSON 或选择 `.json` 文件；解析和最终导入都走后端，预览阶段可编辑/删除行，不支持新增和排序。导入接口返回 `imported_card_ids`，导入完成后弹**常驻 MaterialBanner**（文案写明"撤销将删除这批卡片且不可恢复"）承载撤销入口，点击撤销先弹确认对话框再调批量删除，成功后反馈删除数量；卡片列表支持 `new` 筛选（待学新卡 + 学新阶段重学卡，最新在前）、正反面即时搜索（300ms 防抖、搜索时分页拉取完整结果）和多选批量删除（`POST /api/cards/batch-delete`）。
 - **全局滚动行为**：`shared/widgets/karis_scroll_behavior.dart` 作为 `MaterialApp.router` 的 `scrollBehavior` 全局生效——桌面/Web 纵向滚动常驻可拖拽滚动条（`scrollbarTheme` 配 `minThumbLength: 48` 兜底，防卡片过多时滚动块过小），触屏保持默认 overlay，横向滚动区域不显示。
 - **评分流程**：`review/providers/review_provider.dart` 维护 `ReviewSessionState`（卡片队列、当前索引、是否翻面、cursor、hasMore、待同步数）。在线通过复习会话 cursor 分页；离线回退到 Drift 本地队列；评分先写本地并自动同步。
 - **离线数据层**：`frontend/lib/offline/` 使用 Drift/SQLite 缓存卡组、卡片、复习日志与同步元数据；`SyncService` 通过 `/api/sync/bootstrap` 全量或 `event_cursor` 增量同步，提交 `/api/review/sync`，冲突默认按服务器刷新。`sync_events` 由数据库触发器写入，客户端保存事件游标并支持删除同步。
 - **跨设备评分锁**：`cards.review_version` 是 JPA 乐观锁版本；队列响应携带该值，评分/同步必须校验，旧设备提交会收到冲突。
 - **TTS 朗读**：`frontend/lib/tts/` 纯客户端系统 TTS，不碰后端。`TtsEngine` 抽象接口 + 双实现：`SystemTtsEngine`（flutter_tts 4.x，Android/iOS/Windows；`FLUTTER_TEST` 环境下全部短路为 no-op——flutter_tts 的 MethodChannel 在测试 fake async 里挂起而非抛 MissingPluginException）、`LinuxTtsEngine`（spd-say 子进程，**flutter_tts 官方不支持 Linux**，需系统安装 `speech-dispatcher` + `espeak-ng`，未安装时 `isAvailable` 返回 false 按钮隐藏）。`tts_text_extractor.dart` 是纯函数：Delta/Markdown → 朗读文本（正则剥离代码围栏、`$..$`/`$$..$$` 公式，embed 跳过），`splitForSpeech` 按句切分 + CJK 占比判 `zh-CN`/`en-US` 逐段换语言。`ttsProvider` 独立状态（是否在播/读哪面），偏好（开关/语速）存 SharedPreferences 不进后端；换卡/翻面/评分/离页都调 `stop()` 防叠音，复习页 `dispose()` 阶段 ref 不可用需在 `initState` 缓存 notifier 实例。复习页正反面 header 有 `TtsButton`，键盘 `V` 朗读当前面；设置页「朗读」块管开关与语速。Android 的 `<queries>` 已声明 `TTS_SERVICE`（Android 11+ 需要）。
+- **音标显示**：`tts/phonetic_dict.dart` 内置美式 IPA 词库（`assets/ipa/en_US_ipa.txt`，open-dict-data/ipa-dict CC0 许可，约 12.5 万词 3.1MB），纯客户端离线查询。只对**纯英文单词/短语**（无中文/数字/标点，允许 `'`/`-`/空格，≤40 字符）显示：`isEnglishPhrase` 判定 → `phoneticFor` 查询（词库惰性加载 + LRU 缓存 256；多音标取第一个；多词逐词拼接；连字符词按 `-` 拆段回退；查不到返回 null）。`widgets/phonetic_line.dart` 渲染到复习页正反面内容下方，非英文/未收录静默不显示。测试注意：`rootBundle.loadString` 是真实 IO，testWidgets 的 fake async 下会挂起，须用 `tester.runAsync` 或构造注入 `seedWords` 词库。
 
 ## 测试
 

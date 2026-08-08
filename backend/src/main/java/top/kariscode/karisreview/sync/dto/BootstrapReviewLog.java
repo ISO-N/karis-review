@@ -13,6 +13,8 @@ public class BootstrapReviewLog {
     private int stageAfter;
     @JsonProperty("is_new_card")
     private boolean isNewCard;
+    @JsonProperty("learning_origin")
+    private String learningOrigin;
     private LocalDateTime reviewedAt;
     @JsonProperty("client_request_id")
     private String clientRequestId;
@@ -22,12 +24,18 @@ public class BootstrapReviewLog {
     public BootstrapReviewLog(UUID id, UUID cardId, String rating,
                               int stageBefore, int stageAfter, LocalDateTime reviewedAt,
                               boolean isNewCard) {
-        this(id, cardId, rating, stageBefore, stageAfter, reviewedAt, isNewCard, null);
+        this(id, cardId, rating, stageBefore, stageAfter, reviewedAt, isNewCard, null, null);
     }
 
     public BootstrapReviewLog(UUID id, UUID cardId, String rating,
                               int stageBefore, int stageAfter, LocalDateTime reviewedAt,
                               boolean isNewCard, String clientRequestId) {
+        this(id, cardId, rating, stageBefore, stageAfter, reviewedAt, isNewCard, clientRequestId, null);
+    }
+
+    public BootstrapReviewLog(UUID id, UUID cardId, String rating,
+                              int stageBefore, int stageAfter, LocalDateTime reviewedAt,
+                              boolean isNewCard, String clientRequestId, String learningOrigin) {
         this.id = id;
         this.cardId = cardId;
         this.rating = rating;
@@ -36,6 +44,7 @@ public class BootstrapReviewLog {
         this.reviewedAt = reviewedAt;
         this.isNewCard = isNewCard;
         this.clientRequestId = clientRequestId;
+        this.learningOrigin = learningOrigin;
     }
 
     public UUID getId() { return id; }
@@ -50,6 +59,8 @@ public class BootstrapReviewLog {
     public void setStageAfter(int stageAfter) { this.stageAfter = stageAfter; }
     public boolean isNewCard() { return isNewCard; }
     public void setNewCard(boolean isNewCard) { this.isNewCard = isNewCard; }
+    public String getLearningOrigin() { return learningOrigin; }
+    public void setLearningOrigin(String learningOrigin) { this.learningOrigin = learningOrigin; }
     public LocalDateTime getReviewedAt() { return reviewedAt; }
     public void setReviewedAt(LocalDateTime reviewedAt) { this.reviewedAt = reviewedAt; }
     public String getClientRequestId() { return clientRequestId; }

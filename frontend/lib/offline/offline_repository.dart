@@ -120,6 +120,7 @@ class OfflineRepository {
             .where(
               (c) =>
                   c.learningMode &&
+                  (c.learningOrigin == 'REVIEW' || c.learningOrigin == null) &&
                   c.nextReviewDate != null &&
                   c.nextReviewDate!.compareTo(_formatDate(today)) <= 0,
             )
@@ -148,11 +149,36 @@ class OfflineRepository {
     int limit = 10,
   }) async {
     final cards = await getCards(userId, deckId: deckId);
-    final queue = cards.where((c) => c.stage == 0 && !c.learningMode).toList()
+    final meta = await getSyncMeta(userId);
+    final today = _formatDate(_today(meta));
+    // 学新队列 = 待学新卡 + 学新阶段产生的重学卡（来源 NEW，按 2^n 间距插入）。
+    // 与 OfflineRepository.getDueQueue 的重学插位语义一致。
+    final newCards = cards.where((c) => c.stage == 0 && !c.learningMode).toList()
       ..sort(
         (a, b) => (a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0))
             .compareTo(b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0)),
       );
+    final learningNew = cards
+        .where(
+          (c) =>
+              c.learningMode &&
+              c.learningOrigin == 'NEW' &&
+              c.nextReviewDate != null &&
+              c.nextReviewDate!.compareTo(today) <= 0,
+        )
+        .toList()
+      ..sort((a, b) {
+        final step = a.learningStep.compareTo(b.learningStep);
+        if (step != 0) return step;
+        return (a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0))
+            .compareTo(b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0));
+      });
+    final queue = List<LocalCard>.from(newCards);
+    for (final card in learningNew) {
+      final offset = 1 << card.learningStep;
+      final position = offset.clamp(0, queue.length).toInt();
+      queue.insert(position, card);
+    }
     return queue.take(limit).map(_toReviewCard).toList();
   }
 
@@ -167,11 +193,16 @@ class OfflineRepository {
           .where(
             (c) =>
                 c.nextReviewDate != null &&
-                c.nextReviewDate!.compareTo(today) <= 0,
+                c.nextReviewDate!.compareTo(today) <= 0 &&
+                !(c.learningMode && c.learningOrigin == 'NEW'),
           )
           .length;
       final newCount = deckCards
-          .where((c) => c.stage == 0 && !c.learningMode)
+          .where(
+            (c) =>
+                (c.stage == 0 && !c.learningMode) ||
+                (c.learningMode && c.learningOrigin == 'NEW'),
+          )
           .length;
       final mastered = deckCards.where((c) => c.stage >= 5).length;
       final distribution = _distribution(
@@ -182,7 +213,8 @@ class OfflineRepository {
             .where(
               (c) =>
                   c.nextReviewDate != null &&
-                  c.nextReviewDate!.compareTo(today) <= 0,
+                  c.nextReviewDate!.compareTo(today) <= 0 &&
+                  !(c.learningMode && c.learningOrigin == 'NEW'),
             )
             .map((c) => c.stage)
             .toList(),
@@ -222,13 +254,17 @@ class OfflineRepository {
         .where(
           (c) =>
               c.nextReviewDate != null &&
-              c.nextReviewDate!.compareTo(today) <= 0,
+              c.nextReviewDate!.compareTo(today) <= 0 &&
+              // 学新阶段的重学卡属于学习队列，不计入「今日待复习」
+              !(c.learningMode && c.learningOrigin == 'NEW'),
         )
         .length;
     final reviewedToday = logs
         .where(
           (l) =>
-              !l.isNewCard && _onRefreshDay(l.reviewedAt, refreshTime, today),
+              !l.isNewCard &&
+              (l.learningOrigin == null || l.learningOrigin != 'NEW') &&
+              _onRefreshDay(l.reviewedAt, refreshTime, today),
         )
         .length;
     final learnedToday = logs
@@ -247,7 +283,13 @@ class OfflineRepository {
       reviewedToday: reviewedToday,
       learnedToday: learnedToday,
       masteredCards: stages.where((s) => s >= 5).length,
-      newCards: cards.where((c) => c.stage == 0 && !c.learningMode).length,
+      newCards: cards
+          .where(
+            (c) =>
+                (c.stage == 0 && !c.learningMode) ||
+                (c.learningMode && c.learningOrigin == 'NEW'),
+          )
+          .length,
       learningCards: stages.where((s) => s < 5).length,
       stageDistribution: _distribution(stages),
       dueStageDistribution: _distribution(
@@ -255,7 +297,8 @@ class OfflineRepository {
             .where(
               (c) =>
                   c.nextReviewDate != null &&
-                  c.nextReviewDate!.compareTo(today) <= 0,
+                  c.nextReviewDate!.compareTo(today) <= 0 &&
+                  !(c.learningMode && c.learningOrigin == 'NEW'),
             )
             .map((c) => c.stage)
             .toList(),
@@ -287,6 +330,7 @@ class OfflineRepository {
           (l) =>
               cardIds.contains(l.cardId) &&
               !l.isNewCard &&
+              (l.learningOrigin == null || l.learningOrigin != 'NEW') &&
               _onRefreshDay(l.reviewedAt, refreshTime, today),
         )
         .length;
@@ -298,11 +342,18 @@ class OfflineRepository {
           .where(
             (c) =>
                 c.nextReviewDate != null &&
-                c.nextReviewDate!.compareTo(today) <= 0,
+                c.nextReviewDate!.compareTo(today) <= 0 &&
+                !(c.learningMode && c.learningOrigin == 'NEW'),
           )
           .length,
       reviewedToday: reviewedToday,
-      newCards: cards.where((c) => c.stage == 0 && !c.learningMode).length,
+      newCards: cards
+          .where(
+            (c) =>
+                (c.stage == 0 && !c.learningMode) ||
+                (c.learningMode && c.learningOrigin == 'NEW'),
+          )
+          .length,
       learningCards: cards.where((c) => c.learningMode).length,
       masteredCards: stages.where((s) => s >= 5).length,
       stageDistribution: _distribution(stages),
@@ -311,7 +362,8 @@ class OfflineRepository {
             .where(
               (c) =>
                   c.nextReviewDate != null &&
-                  c.nextReviewDate!.compareTo(today) <= 0,
+                  c.nextReviewDate!.compareTo(today) <= 0 &&
+                  !(c.learningMode && c.learningOrigin == 'NEW'),
             )
             .map((c) => c.stage)
             .toList(),
@@ -416,6 +468,7 @@ class OfflineRepository {
                   learningMode: Value(map['learning_mode'] as bool? ?? false),
                   reentryStage: Value(_intOrNull(map['reentry_stage'])),
                   learningStep: Value(_int(map['learning_step'])),
+                  learningOrigin: Value(map['learning_origin'] as String?),
                   reviewVersion: Value(
                     BigInt.from(_int(map['review_version'])),
                   ),
@@ -453,6 +506,7 @@ class OfflineRepository {
                 stageBefore: _int(map['stage_before']),
                 stageAfter: _int(map['stage_after']),
                 isNewCard: Value(isNewCard),
+                learningOrigin: Value(map['learning_origin'] as String?),
                 reviewedAt:
                     _dateTime(map['reviewed_at']) ?? DateTime.now().toUtc(),
                 clientRequestId: Value(clientRequestId),
@@ -545,6 +599,7 @@ class OfflineRepository {
                 stageBefore: _int(map['stage_before']),
                 stageAfter: _int(map['stage_after']),
                 isNewCard: Value(isNewCard),
+                learningOrigin: Value(map['learning_origin'] as String?),
                 reviewedAt:
                     _dateTime(map['reviewed_at']) ?? DateTime.now().toUtc(),
                 clientRequestId: Value(clientRequestId),
@@ -635,6 +690,7 @@ class OfflineRepository {
             learningMode: Value(map['learning_mode'] as bool? ?? false),
             reentryStage: Value(_intOrNull(map['reentry_stage'])),
             learningStep: Value(_int(map['learning_step'])),
+            learningOrigin: Value(map['learning_origin'] as String?),
             reviewVersion: Value(serverVersion),
             createdAt: Value(
               existing?.createdAt ?? _dateTime(map['created_at']),
@@ -661,6 +717,7 @@ class OfflineRepository {
     required DateTime ratedAt,
     required int reviewVersionBefore,
     required bool isNewCard,
+    String? learningOrigin,
   }) async {
     await db.transaction(() async {
       await db
@@ -678,6 +735,7 @@ class OfflineRepository {
               learningMode: Value(card.learningMode),
               reentryStage: Value(card.reentryStage),
               learningStep: Value(card.learningStep),
+              learningOrigin: Value(card.learningOrigin),
               reviewVersion: Value(BigInt.from(card.reviewVersion)),
               createdAt: Value(_dateTimeFromString(card.createdAt)),
               updatedAt: Value(ratedAt),
@@ -694,6 +752,7 @@ class OfflineRepository {
               stageBefore: result.stageBefore,
               stageAfter: result.stageAfter,
               isNewCard: Value(isNewCard),
+              learningOrigin: Value(learningOrigin),
               reviewedAt: ratedAt,
               clientRequestId: Value(clientRequestId),
               reviewVersion: Value(BigInt.from(reviewVersionBefore)),
@@ -760,6 +819,7 @@ class OfflineRepository {
             learningMode: Value(card.learningMode),
             reentryStage: Value(card.reentryStage),
             learningStep: Value(card.learningStep),
+            learningOrigin: Value(card.learningOrigin),
             reviewVersion: Value(BigInt.from(card.reviewVersion)),
             createdAt: Value(created),
             updatedAt: Value(DateTime.now().toUtc()),
@@ -962,6 +1022,7 @@ class OfflineRepository {
           card.nextReviewDate!.compareTo(today) <= 0,
       createdAt: card.createdAt?.toIso8601String() ?? '',
       reviewVersion: card.reviewVersion.toInt(),
+      learningOrigin: card.learningOrigin,
     );
   }
 
@@ -978,6 +1039,7 @@ class OfflineRepository {
       reentryStage: card.reentryStage,
       nextReviewDate: card.nextReviewDate,
       reviewVersion: card.reviewVersion.toInt(),
+      learningOrigin: card.learningOrigin,
     );
   }
 

@@ -78,6 +78,9 @@ public class SyncProtoMapper {
         if (card.getReentryStage() != null) {
             builder.setReentryStage(card.getReentryStage().toString());
         }
+        if (card.getLearningOrigin() != null) {
+            builder.setLearningOrigin(card.getLearningOrigin());
+        }
         return builder.build();
     }
 
@@ -92,6 +95,9 @@ public class SyncProtoMapper {
                 .setIsNewCard(log.isNewCard());
         if (log.getClientRequestId() != null) {
             builder.setClientRequestId(log.getClientRequestId());
+        }
+        if (log.getLearningOrigin() != null) {
+            builder.setLearningOrigin(log.getLearningOrigin());
         }
         return builder.build();
     }

@@ -845,20 +845,21 @@
       "reentry_stage": null,
       "next_review_date": "2025-08-02",
       "learning_step": 0,
-      "review_version": 0
+      "review_version": 0,
+      "learning_origin": null
     }
   ]
 }
 ```
 
-> 复习队列中**处于重学模式**的卡片（FORGET/VAGUE 后以 2^n 间距插入的卡片）也会出现在此列表中。
+> 复习队列中**处于重学模式**的卡片（复习阶段 FORGET/VAGUE 后以 2^n 间距插入的卡片，`learning_origin` 为 `REVIEW`）也会出现在此列表中。
 > 前端根据 `stage`、`learning_mode`、`consecutive_familiar`、`reentry_stage` 本地推导 `learning_goal` 与熟悉/模糊/当前间隔，接口不再重复传输这些字段。
 
 ---
 
 ### GET /api/review/new
 
-获取所选范围内的全部待学习新卡（Stage 0 且未进入学习模式）。
+获取学新队列：全部待学习新卡（Stage 0 且未进入学习模式）+ 学新阶段忘记后进入重学的卡片（`learning_origin` 为 `NEW`，按 2^n 间距插入）。
 
 **Headers:** `Authorization: Bearer <token>`
 
@@ -886,7 +887,8 @@
       "reentry_stage": null,
       "next_review_date": null,
       "learning_step": 0,
-      "review_version": 0
+      "review_version": 0,
+      "learning_origin": null
     }
   ]
 }
@@ -1195,7 +1197,7 @@
 
 ### POST /api/review/sessions
 
-创建复习队列快照，首次返回一页卡片。
+创建复习队列快照，首次返回一页卡片。`mode=new` 时队列为学新队列（待学新卡 + `learning_origin=NEW` 的重学卡）；`mode=due` 时为复习队列（到期卡 + `learning_origin=REVIEW`/null 的重学卡）。卡片字段含 `learning_origin`。
 
 **Request Body:**
 

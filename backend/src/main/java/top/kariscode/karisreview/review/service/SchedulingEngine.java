@@ -32,6 +32,11 @@ public class SchedulingEngine {
     /** 绝对宽限天数：逾期不超过该天数不触发惩罚。 */
     private static final int OVERDUE_GRACE_DAYS = 2;
 
+    /** 学习来源：学新阶段（新卡）忘记进入重学。 */
+    public static final String NEW_ORIGIN = "NEW";
+    /** 学习来源：复习阶段（到期卡）忘记/模糊进入重学。 */
+    public static final String REVIEW_ORIGIN = "REVIEW";
+
     /**
      * Process a FAMILIAR rating.
      * Card advances to the next stage, next review date is calculated.
@@ -56,6 +61,8 @@ public class SchedulingEngine {
                 card.setLearningMode(false);
                 card.setConsecutiveFamiliar(0);
                 card.setLearningStep(0);
+                // 脱离重学：清除学习来源标记
+                card.setLearningOrigin(null);
 
                 // Determine the stage to go to
                 if (card.getReentryStage() != null && card.getReentryStage() > 0) {
@@ -113,6 +120,7 @@ public class SchedulingEngine {
      */
     public RatingResult rateForget(Card card, LocalTime refreshTime) {
         int originalStage = card.getStage();
+        boolean wasLearning = card.isLearningMode();
         RatingResult result = new RatingResult();
         result.stageBefore = originalStage;
 
@@ -121,6 +129,15 @@ public class SchedulingEngine {
         card.setConsecutiveFamiliar(0);
         card.setLearningStep(0);
         card.setReentryStage(null);
+        // 学习来源归属：非学习状态进入重学 → 按原状态定来源（新卡=NEW，到期卡=REVIEW）；
+        // 重学中再次忘记 → 保持原来源；历史数据（来源为空）兜底按 REVIEW（旧行为归复习队列）。
+        if (wasLearning) {
+            if (card.getLearningOrigin() == null) {
+                card.setLearningOrigin(REVIEW_ORIGIN);
+            }
+        } else {
+            card.setLearningOrigin(originalStage == 0 ? NEW_ORIGIN : REVIEW_ORIGIN);
+        }
         card.setNextReviewDate(DateUtils.calculateToday(refreshTime));
         result.stageAfter = 0;
         result.learningMode = true;
@@ -191,6 +208,7 @@ public class SchedulingEngine {
             return rateForget(card, refreshTime);
         }
 
+        boolean wasLearning = card.isLearningMode();
         RatingResult result = new RatingResult();
         result.stageBefore = currentStage;
 
@@ -201,6 +219,11 @@ public class SchedulingEngine {
         card.setLearningStep(0);
         // Set reentry stage to the effective stage (the one we'll return to after relearning)
         card.setReentryStage(effectiveStage);
+        // VAGUE 只可能发生在 stage≥2 的到期卡上，来源必为 REVIEW；
+        // 重学中再模糊保持原来源（重学卡此时来源必为 REVIEW），历史数据兜底 REVIEW。
+        if (!wasLearning || card.getLearningOrigin() == null) {
+            card.setLearningOrigin(REVIEW_ORIGIN);
+        }
         card.setNextReviewDate(DateUtils.calculateToday(refreshTime));
         result.stageAfter = previousStage;
         result.learningMode = true;

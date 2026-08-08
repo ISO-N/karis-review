@@ -86,8 +86,7 @@ public class ReviewService {
     }
 
     public List<ReviewCardResponse> getNewCards(UUID userId, UUID deckId, int limit) {
-        List<Card> queue = cardRepository.findNewCards(userId, deckId);
-        return toLimitedQueue(queue, limit);
+        return toLimitedQueue(buildNewQueue(userId, deckId), limit);
     }
 
     @Transactional
@@ -99,7 +98,7 @@ public class ReviewService {
                 : Math.max(1, Math.min(MAX_PAGE_SIZE, request.getBatchSize()));
 
         List<Card> queue = "new".equals(mode)
-                ? cardRepository.findNewCards(userId, deckId)
+                ? buildNewQueue(userId, deckId)
                 : buildDueQueue(userId, deckId);
 
         ReviewSession session = new ReviewSession();
@@ -331,6 +330,9 @@ public class ReviewService {
                                         LocalDateTime reviewedAt,
                                         LocalTime refreshTime, LocalDate today) {
         boolean wasNewCard = card.getStage() == 0 && !card.isLearningMode();
+        // 评分时刻的学习来源快照（排程算法会就地修改卡片状态，必须先取值）：
+        // 学新阶段产生的重学（NEW）评分不计入「今日复习」。
+        String originAtRating = card.getLearningOrigin();
         int overdueDays = card.getNextReviewDate() == null
                 ? 0
                 : (int) Math.max(0, ChronoUnit.DAYS.between(card.getNextReviewDate(), today));
@@ -349,6 +351,7 @@ public class ReviewService {
         log.setStageBefore(result.getStageBefore());
         log.setStageAfter(result.getStageAfter());
         log.setNewCard(wasNewCard);
+        log.setLearningOrigin(originAtRating);
         log.setClientRequestId(clientRequestId);
         log.setReviewedAt(reviewedAt == null ? DateUtils.now() : reviewedAt);
 
@@ -377,8 +380,20 @@ public class ReviewService {
         LocalTime refreshTime = getRefreshTime(userId);
         LocalDate today = DateUtils.calculateToday(refreshTime);
         List<Card> dueCards = cardRepository.findDueCards(userId, today, deckId);
-        List<Card> learningCards = cardRepository.findLearningModeCards(userId, today, deckId);
+        List<Card> learningCards = cardRepository.findLearningModeCardsForReview(userId, today, deckId);
         return interleaveLearningCards(dueCards, learningCards);
+    }
+
+    /**
+     * 学新队列 = 待学新卡 + 学新阶段产生的重学卡（来源 NEW），
+     * 重学卡按 2^n 间距插入。退出重进学新页仍能继续刷到忘记/模糊的卡。
+     */
+    private List<Card> buildNewQueue(UUID userId, UUID deckId) {
+        LocalTime refreshTime = getRefreshTime(userId);
+        LocalDate today = DateUtils.calculateToday(refreshTime);
+        List<Card> newCards = cardRepository.findNewCards(userId, deckId);
+        List<Card> learningNew = cardRepository.findLearningModeCardsForNew(userId, today, deckId);
+        return interleaveLearningCards(newCards, learningNew);
     }
 
     private List<Card> interleaveLearningCards(List<Card> dueCards, List<Card> learningCards) {
@@ -441,7 +456,8 @@ public class ReviewService {
                 card.getReentryStage(),
                 card.getNextReviewDate(),
                 card.getLearningStep(),
-                card.getReviewVersion());
+                card.getReviewVersion(),
+                card.getLearningOrigin());
     }
 
     private LocalTime getRefreshTime(UUID userId) {
