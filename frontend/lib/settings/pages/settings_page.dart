@@ -18,6 +18,7 @@ import '../../shared/widgets/loading_widget.dart';
 import '../../shared/widgets/section_widgets.dart';
 import '../../shared/widgets/settings_action_tile.dart';
 import '../../sync/providers.dart';
+import '../../tts/tts_provider.dart';
 import '../providers/settings_provider.dart';
 import '../repositories/settings_repository.dart';
 
@@ -68,7 +69,13 @@ class SettingsPage extends ConsumerWidget {
                           ),
                           SizedBox(width: 28),
                           Expanded(
-                            child: _DataBlock(context: context, ref: ref),
+                            child: Column(
+                              children: [
+                                _TtsSettingsBlock(),
+                                SizedBox(height: 22),
+                                _DataBlock(context: context, ref: ref),
+                              ],
+                            ),
                           ),
                         ],
                       )
@@ -77,6 +84,8 @@ class SettingsPage extends ConsumerWidget {
                         settingsState: settingsState,
                         ref: ref,
                       ),
+                      SizedBox(height: 22),
+                      _TtsSettingsBlock(),
                       SizedBox(height: 22),
                       _DataBlock(context: context, ref: ref),
                     ],
@@ -349,6 +358,104 @@ class _ReviewSettingsBlock extends StatelessWidget {
     final controller = ref.read(dataRefreshControllerProvider);
     controller.notifyLocalChanged();
     await controller.armDailyRefresh();
+  }
+}
+
+/// 朗读设置块：开关 + 语速。偏好存本地 SharedPreferences，不进后端。
+class _TtsSettingsBlock extends ConsumerWidget {
+  const _TtsSettingsBlock();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colors = context.karisColors;
+    final tts = ref.watch(ttsProvider);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SectionHeader(title: '朗读'),
+        Container(
+          width: double.infinity,
+          margin: const EdgeInsets.only(top: 10),
+          decoration: BoxDecoration(
+            color: colors.surface,
+            border: Border.all(color: colors.hairline),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Column(
+            children: [
+              SwitchListTile(
+                value: tts.enabled,
+                onChanged: tts.available
+                    ? (v) => ref.read(ttsProvider.notifier).setEnabled(v)
+                    : null,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 4,
+                ),
+                secondary: Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    color: colors.jadeSoft,
+                    borderRadius: BorderRadius.circular(7),
+                  ),
+                  child: Icon(
+                    Icons.volume_up_outlined,
+                    size: 17,
+                    color: colors.jade,
+                  ),
+                ),
+                title: const Text(
+                  '朗读卡片内容',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                ),
+                subtitle: Text(
+                  tts.available
+                      ? '复习页点喇叭或按 V 键朗读'
+                      : '未检测到系统语音引擎（Linux 需安装 speech-dispatcher）',
+                  style: const TextStyle(fontSize: 11),
+                ),
+              ),
+              if (tts.enabled && tts.available) ...[
+                Divider(height: 1, indent: 14, endIndent: 14),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 6, 16, 10),
+                  child: Row(
+                    children: [
+                      const Text(
+                        '语速',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      Expanded(
+                        child: Slider(
+                          value: tts.rate,
+                          min: 0.5,
+                          max: 1.5,
+                          divisions: 10,
+                          label: '${tts.rate.toStringAsFixed(1)}x',
+                          onChanged: (v) =>
+                              ref.read(ttsProvider.notifier).setRate(v),
+                        ),
+                      ),
+                      Text(
+                        '${tts.rate.toStringAsFixed(1)}x',
+                        style: karisMono(
+                          fontSize: 11,
+                          color: colors.stone,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
   }
 }
 
