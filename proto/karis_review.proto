@@ -25,6 +25,7 @@ message Card {
   int64 review_version = 11;
   string created_at = 12;
   string updated_at = 13;
+  optional string learning_origin = 14;
 }
 
 message Deck {
@@ -44,6 +45,7 @@ message ReviewLog {
   string reviewed_at = 6;
   bool is_new_card = 7;
   optional string client_request_id = 8;
+  optional string learning_origin = 9;
 }
 
 message SyncResponse {
@@ -72,6 +74,7 @@ message ReviewCard {
   optional string reentry_stage = 9;
   optional string next_review_date = 10;
   int64 review_version = 11;
+  optional string learning_origin = 12;
 }
 
 message ReviewCardListResponse {
