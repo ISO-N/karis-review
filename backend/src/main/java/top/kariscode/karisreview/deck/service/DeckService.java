@@ -2,20 +2,15 @@ package top.kariscode.karisreview.deck.service;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import top.kariscode.karisreview.card.repository.CardRepository;
 import top.kariscode.karisreview.common.exception.BusinessException;
-import top.kariscode.karisreview.common.util.DateUtils;
 import top.kariscode.karisreview.deck.dto.DeckCreateRequest;
 import top.kariscode.karisreview.deck.dto.DeckResponse;
 import top.kariscode.karisreview.deck.dto.DeckUpdateRequest;
 import top.kariscode.karisreview.deck.entity.Deck;
 import top.kariscode.karisreview.deck.repository.DeckRepository;
-import top.kariscode.karisreview.auth.entity.User;
-import top.kariscode.karisreview.auth.repository.UserRepository;
+import top.kariscode.karisreview.stats.dto.DeckCounters;
+import top.kariscode.karisreview.stats.service.StatsService;
 
-import java.time.LocalDate;
-import java.time.LocalTime;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -23,21 +18,17 @@ import java.util.UUID;
 public class DeckService {
 
     private final DeckRepository deckRepository;
-    private final CardRepository cardRepository;
-    private final UserRepository userRepository;
+    private final StatsService statsService;
 
     public DeckService(DeckRepository deckRepository,
-                       CardRepository cardRepository,
-                       UserRepository userRepository) {
+                       StatsService statsService) {
         this.deckRepository = deckRepository;
-        this.cardRepository = cardRepository;
-        this.userRepository = userRepository;
+        this.statsService = statsService;
     }
 
     public List<DeckResponse> getUserDecks(UUID userId) {
-        LocalTime refreshTime = getRefreshTime(userId);
         return deckRepository.findByUserIdOrderByCreatedAtAsc(userId).stream()
-                .map(deck -> toDeckResponse(deck, refreshTime))
+                .map(deck -> toDeckResponse(userId, deck))
                 .toList();
     }
 
@@ -47,8 +38,7 @@ public class DeckService {
         deck.setUserId(userId);
         deck.setName(request.getName());
         deck = deckRepository.save(deck);
-        LocalTime refreshTime = getRefreshTime(userId);
-        return toDeckResponse(deck, refreshTime);
+        return toDeckResponse(userId, deck);
     }
 
     @Transactional
@@ -57,8 +47,7 @@ public class DeckService {
                 .orElseThrow(() -> new BusinessException(404, "deck.notfound"));
         deck.setName(request.getName());
         deck = deckRepository.save(deck);
-        LocalTime refreshTime = getRefreshTime(userId);
-        return toDeckResponse(deck, refreshTime);
+        return toDeckResponse(userId, deck);
     }
 
     @Transactional
@@ -73,36 +62,13 @@ public class DeckService {
                 .orElseThrow(() -> new BusinessException(404, "deck.notfound"));
     }
 
-    private DeckResponse toDeckResponse(Deck deck, LocalTime refreshTime) {
-        LocalDate today = DateUtils.calculateToday(refreshTime);
-        UUID deckId = deck.getId();
-        int cardCount = (int) cardRepository.countByDeckId(deckId);
-        int dueCount = cardRepository.countDueByDeckId(deckId, today);
-        int newCount = (int) cardRepository.countNewByDeckId(deckId);
-        int masteredCount = (int) cardRepository.countByDeckIdAndStageGreaterThanEqual(deckId, 5);
-        List<Long> stageDistribution = distributionFromRows(
-                cardRepository.countByStageGroupedByDeck(deckId));
-        List<Long> dueStageDistribution = distributionFromRows(
-                cardRepository.countDueByStageGroupedByDeck(deckId, today));
-        return new DeckResponse(deck.getId(), deck.getName(), cardCount, dueCount,
-                newCount, masteredCount, stageDistribution, dueStageDistribution,
+    // 卡组计数统一经 StatsService.getDeckCounters（架构评审候选 4）——
+    // 曾在本类重复实现 6 项计数与 distributionFromRows。
+    private DeckResponse toDeckResponse(UUID userId, Deck deck) {
+        DeckCounters counters = statsService.getDeckCounters(userId, deck.getId());
+        return new DeckResponse(deck.getId(), deck.getName(), counters.getCardCount(),
+                counters.getDueCount(), counters.getNewCount(), counters.getMasteredCount(),
+                counters.getStageDistribution(), counters.getDueStageDistribution(),
                 deck.getCreatedAt());
-    }
-
-    private List<Long> distributionFromRows(List<Object[]> rows) {
-        List<Long> distribution = new ArrayList<>(List.of(0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L));
-        for (Object[] row : rows) {
-            int stage = ((Number) row[0]).intValue();
-            if (stage >= 0 && stage <= 8) {
-                distribution.set(stage, distribution.get(stage) + ((Number) row[1]).longValue());
-            }
-        }
-        return distribution;
-    }
-
-    private LocalTime getRefreshTime(UUID userId) {
-        return userRepository.findById(userId)
-                .map(User::getRefreshTime)
-                .orElse(LocalTime.of(4, 0));
     }
 }

@@ -13,6 +13,7 @@ import top.kariscode.karisreview.common.util.DateUtils;
 import top.kariscode.karisreview.deck.entity.Deck;
 import top.kariscode.karisreview.deck.repository.DeckRepository;
 import top.kariscode.karisreview.review.repository.ReviewLogRepository;
+import top.kariscode.karisreview.stats.dto.DeckCounters;
 import top.kariscode.karisreview.stats.dto.DeckStatsResponse;
 import top.kariscode.karisreview.stats.dto.OverviewStatsResponse;
 import top.kariscode.karisreview.stats.dto.TrendStatsResponse;
@@ -178,6 +179,33 @@ class StatsServiceTest {
         OverviewStatsResponse stats = service.getOverview(userId);
 
         assertEquals(0, stats.getTotalCards());
+    }
+
+    @Test
+    void getDeckCountersBuildsSixCounters() {
+        UUID userId = UUID.randomUUID();
+        UUID deckId = UUID.randomUUID();
+        LocalTime refreshTime = LocalTime.of(4, 0);
+        LocalDate today = DateUtils.calculateToday(refreshTime);
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user()));
+        when(cardRepository.countByDeckId(deckId)).thenReturn(5L);
+        when(cardRepository.countDueByDeckId(deckId, today)).thenReturn(2);
+        when(cardRepository.countNewByDeckId(deckId)).thenReturn(1L);
+        when(cardRepository.countByDeckIdAndStageGreaterThanEqual(deckId, 5)).thenReturn(1L);
+        when(cardRepository.countByStageGroupedByDeck(deckId)).thenReturn(
+                List.<Object[]>of(new Object[]{3, 4L}, new Object[]{5, 1L}));
+        when(cardRepository.countDueByStageGroupedByDeck(deckId, today)).thenReturn(
+                List.<Object[]>of(new Object[]{0, 2L}));
+
+        DeckCounters counters = service.getDeckCounters(userId, deckId);
+
+        assertEquals(5, counters.getCardCount());
+        assertEquals(2, counters.getDueCount());
+        assertEquals(1, counters.getNewCount());
+        assertEquals(1, counters.getMasteredCount());
+        assertEquals(4L, counters.getStageDistribution().get(3));
+        assertEquals(1L, counters.getStageDistribution().get(5));
+        assertEquals(2L, counters.getDueStageDistribution().get(0));
     }
 
     private User user() {

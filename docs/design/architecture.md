@@ -413,6 +413,8 @@ log ───────► common
 
 > **2026-08-08 架构评审候选 3 落地**：due/new 查询谓词单一化——`card/repository/CardQueryPredicates` 集中声明两种口径的 JPQL 与 native SQL 变体（`NEW_QUEUE` 学新队列 / `DUE_EXCLUDING_NEW` 复习队列与统计），`CardRepository` 9 处 `@Query` 全部拼接常量，前端 `offline_repository.dart` 收敛为 `_isNewCard`/`_isDueCard` 两函数（10+ 处调用点），两端注释互相引用。**修复口径 bug**：卡片列表 `filter=due` 原用派生查询未排除 NEW 重学卡，与「待复习」badge 计数（统计口径含排除）不一致，现改用 `DUE_EXCLUDING_NEW`。删除无调用死方法 `countNewByUserId`/`countDueToday`。后端全量 286 测试（含系统测试）、前端全量 228 测试通过。
 
+> **2026-08-08 架构评审候选 4 落地**：统计口径收敛——`StatsService.getDeckCounters` 成为卡组计数唯一出口（`DeckCounters` DTO），`DeckService.toDeckResponse` 改调它并删除本类 6 项计数与 `distributionFromRows` 重复实现；模块依赖新增 `deck → stats`（仅 service 层，包级无环）。刷新点解析统一收口 `auth/util/UserRefreshTime.resolve`（兜底 04:00 原复制 4 份）。业务日边界权威定义写入 `DateUtils.calculateToday` javadoc（区间法 `[today@refresh, +1d)` 与 SQL 截断法 `(reviewed_at-refresh)::date` 两种等价写法，禁止第三种）。
+
 ## 7.1.2 统计一致性问题复盘（2026-08 生产故障）
 
 ### 现象

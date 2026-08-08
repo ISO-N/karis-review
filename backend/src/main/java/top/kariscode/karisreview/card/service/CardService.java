@@ -14,8 +14,8 @@ import top.kariscode.karisreview.common.exception.BusinessException;
 import top.kariscode.karisreview.common.util.DateUtils;
 import top.kariscode.karisreview.deck.entity.Deck;
 import top.kariscode.karisreview.deck.repository.DeckRepository;
-import top.kariscode.karisreview.auth.entity.User;
 import top.kariscode.karisreview.auth.repository.UserRepository;
+import top.kariscode.karisreview.auth.util.UserRefreshTime;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -156,9 +156,7 @@ public class CardService {
     }
 
     private LocalDate todayFor(UUID userId) {
-        LocalTime refreshTime = userRepository.findById(userId)
-                .map(User::getRefreshTime)
-                .orElse(LocalTime.of(4, 0));
-        return DateUtils.calculateToday(refreshTime);
+        return DateUtils.calculateToday(
+                UserRefreshTime.resolve(userRepository, userId));
     }
 }

@@ -5,18 +5,15 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import top.kariscode.karisreview.auth.entity.User;
-import top.kariscode.karisreview.auth.repository.UserRepository;
-import top.kariscode.karisreview.card.repository.CardRepository;
 import top.kariscode.karisreview.common.exception.BusinessException;
-import top.kariscode.karisreview.common.util.DateUtils;
 import top.kariscode.karisreview.deck.dto.DeckCreateRequest;
 import top.kariscode.karisreview.deck.dto.DeckResponse;
 import top.kariscode.karisreview.deck.dto.DeckUpdateRequest;
 import top.kariscode.karisreview.deck.entity.Deck;
 import top.kariscode.karisreview.deck.repository.DeckRepository;
+import top.kariscode.karisreview.stats.dto.DeckCounters;
+import top.kariscode.karisreview.stats.service.StatsService;
 
-import java.time.LocalTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -25,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -36,16 +34,13 @@ class DeckServiceTest {
     private DeckRepository deckRepository;
 
     @Mock
-    private CardRepository cardRepository;
-
-    @Mock
-    private UserRepository userRepository;
+    private StatsService statsService;
 
     private DeckService service;
 
     @BeforeEach
     void setUp() {
-        service = new DeckService(deckRepository, cardRepository, userRepository);
+        service = new DeckService(deckRepository, statsService);
     }
 
     @Test
@@ -53,17 +48,10 @@ class DeckServiceTest {
         UUID userId = UUID.randomUUID();
         UUID deckId = UUID.randomUUID();
         Deck deck = deck(deckId, "日语 N5", userId);
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user(userId)));
         when(deckRepository.findByUserIdOrderByCreatedAtAsc(userId)).thenReturn(List.of(deck));
-        when(cardRepository.countByDeckId(deckId)).thenReturn(3L);
-        when(cardRepository.countDueByDeckId(deckId, DateUtils.calculateToday(LocalTime.of(4, 0))))
-                .thenReturn(1);
-        when(cardRepository.countNewByDeckId(deckId)).thenReturn(2L);
-        when(cardRepository.countByDeckIdAndStageGreaterThanEqual(deckId, 5)).thenReturn(1L);
-        when(cardRepository.countByStageGroupedByDeck(deckId)).thenReturn(
-                List.<Object[]>of(new Object[]{3, 2L}, new Object[]{5, 1L}));
-        when(cardRepository.countDueByStageGroupedByDeck(deckId, DateUtils.calculateToday(LocalTime.of(4, 0))))
-                .thenReturn(List.<Object[]>of(new Object[]{0, 1L}));
+        when(statsService.getDeckCounters(userId, deckId)).thenReturn(counters(
+                3, 1, 2, 1, List.of(0L, 0L, 0L, 2L, 0L, 1L, 0L, 0L, 0L),
+                List.of(1L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L)));
 
         List<DeckResponse> decks = service.getUserDecks(userId);
 
@@ -77,6 +65,8 @@ class DeckServiceTest {
         assertEquals(1, response.getMasteredCount());
         assertEquals(2L, response.getStageDistribution().get(3));
         assertEquals(1L, response.getDueStageDistribution().get(0));
+        // 计数唯一出口：DeckService 不再直查 repository（架构评审候选 4）
+        verify(statsService).getDeckCounters(userId, deckId);
     }
 
     @Test
@@ -85,12 +75,14 @@ class DeckServiceTest {
         UUID deckId = UUID.randomUUID();
         DeckCreateRequest request = new DeckCreateRequest();
         request.setName("新牌组");
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user(userId)));
         when(deckRepository.save(any(Deck.class))).thenAnswer(invocation -> {
             Deck deck = invocation.getArgument(0);
             deck.setId(deckId);
             return deck;
         });
+        when(statsService.getDeckCounters(eq(userId), eq(deckId))).thenReturn(counters(
+                0, 0, 0, 0, List.of(0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L),
+                List.of(0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L)));
 
         DeckResponse response = service.createDeck(userId, request);
 
@@ -105,9 +97,11 @@ class DeckServiceTest {
         UUID userId = UUID.randomUUID();
         UUID deckId = UUID.randomUUID();
         Deck deck = deck(deckId, "旧名", userId);
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user(userId)));
         when(deckRepository.findByIdAndUserId(deckId, userId)).thenReturn(Optional.of(deck));
         when(deckRepository.save(deck)).thenReturn(deck);
+        when(statsService.getDeckCounters(userId, deckId)).thenReturn(counters(
+                0, 0, 0, 0, List.of(0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L),
+                List.of(0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L)));
         DeckUpdateRequest request = new DeckUpdateRequest();
         request.setName("新名");
 
@@ -159,10 +153,16 @@ class DeckServiceTest {
         assertNotNull(exception.getMessage());
     }
 
-    private User user(UUID userId) {
-        User user = new User();
-        user.setId(userId);
-        return user;
+    private DeckCounters counters(int cardCount, int dueCount, int newCount, int masteredCount,
+                                  List<Long> stage, List<Long> dueStage) {
+        DeckCounters counters = new DeckCounters();
+        counters.setCardCount(cardCount);
+        counters.setDueCount(dueCount);
+        counters.setNewCount(newCount);
+        counters.setMasteredCount(masteredCount);
+        counters.setStageDistribution(stage);
+        counters.setDueStageDistribution(dueStage);
+        return counters;
     }
 
     private Deck deck(UUID id, String name, UUID userId) {
