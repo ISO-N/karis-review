@@ -121,6 +121,7 @@ CREATE INDEX idx_decks_user_id ON decks(user_id);
 | learning_mode | BOOLEAN | NOT NULL, DEFAULT FALSE | 是否处于重学模式 |
 | reentry_stage | INTEGER | NULL | VAGUE 重学完成后需回到的 Stage |
 | learning_step | INTEGER | NOT NULL, DEFAULT 0 | 重学队列插入间距步数（2^n） |
+| learning_origin | VARCHAR(10) | NULL | 重学来源：'NEW'（学新阶段忘记，重学卡归学新队列）/ 'REVIEW'（复习阶段忘记/模糊，归复习队列）/ NULL（非重学或旧数据，旧数据按 REVIEW 处理） |
 | review_version | BIGINT | NOT NULL, DEFAULT 0 | 评分锁版本，任何评分/内容更新自动递增 |
 | updated_at | TIMESTAMP | NOT NULL, DEFAULT NOW() | 更新时间 |
 
@@ -137,6 +138,7 @@ CREATE TABLE cards (
     learning_mode BOOLEAN NOT NULL DEFAULT FALSE,
     reentry_stage INTEGER NULL,
     learning_step INTEGER NOT NULL DEFAULT 0,
+    learning_origin VARCHAR(10) NULL,
     review_version BIGINT NOT NULL DEFAULT 0,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP NOT NULL DEFAULT NOW()
@@ -159,6 +161,7 @@ CREATE INDEX idx_cards_next_review ON cards(user_id, next_review_date)
 | stage_before | INTEGER | NOT NULL | 复习前的 Stage |
 | stage_after | INTEGER | NOT NULL | 复习后的 Stage |
 | is_new_card | BOOLEAN | NOT NULL, DEFAULT FALSE | 评分时是否处于新卡状态（Stage 0 且非重学） |
+| learning_origin | VARCHAR(10) | NULL | 评分时刻卡片 learning_origin 快照（评分前取值）；'NEW' 的评分（学新阶段重学）不计入今日复习 |
 | client_request_id | VARCHAR(64) | NULL | 客户端幂等请求 ID，同一用户内唯一 |
 
 ```sql
@@ -170,6 +173,7 @@ CREATE TABLE review_logs (
     stage_before INTEGER NOT NULL,
     stage_after INTEGER NOT NULL,
     is_new_card BOOLEAN NOT NULL DEFAULT FALSE,
+    learning_origin VARCHAR(10) NULL,
     client_request_id VARCHAR(64) NULL,
     reviewed_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
@@ -270,7 +274,8 @@ src/main/resources/db/migration/
 ├── V11__create_user_logs.sql
 ├── V12__create_email_verification_codes.sql
 ├── V13__performance_optimizations.sql       # 索引 + 触发器优化 + 清理策略
-└── V14__fix_sync_trigger_existence_check.sql # 修复 V13 触发器的级联删除外键问题
+├── V14__fix_sync_trigger_existence_check.sql # 修复 V13 触发器的级联删除外键问题
+└── V15__add_learning_origin.sql             # cards/review_logs 增加 learning_origin（重学来源）
 
 迁移约定：
 - `ddl-auto=none`，schema 完全由 Flyway 管理；改表必须新增迁移脚本，不能修改已提交脚本。

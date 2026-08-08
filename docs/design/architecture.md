@@ -295,7 +295,10 @@ lib/
 │   ├── linux_tts_engine.dart            # spd-say 子进程实现（Linux）
 │   ├── tts_text_extractor.dart          # Delta/Markdown → 朗读文本 + 语言分段
 │   ├── tts_provider.dart                # 朗读状态与本地偏好（开关/语速）
-│   └── widgets/tts_button.dart          # 复习页正反面朗读按钮
+│   ├── phonetic_dict.dart               # 美式 IPA 词库加载/判定/查询（离线）
+│   └── widgets/
+│       ├── tts_button.dart              # 复习页正反面朗读按钮
+│       └── phonetic_line.dart           # 单词音标行（纯英文内容显示）
 │
 └── settings/
     ├── providers/settings_provider.dart
@@ -347,6 +350,7 @@ lib/
 - **中英混读**：`splitForSpeech` 按句末标点切分，CJK ≥ 2 字符判 `zh-CN` 否则 `en-US`，相邻同语言段合并；引擎逐段 `setLanguage` 后朗读，实现中英混合卡片的正确发音。
 - **状态与生命周期**：`ttsProvider` 独立于 `reviewProvider`，管三件事——是否在播、读哪面、本地偏好（开关/语速，存 SharedPreferences，不进后端不参与同步）。换卡、翻面、评分、离开复习页均调用 `stop()` 防叠音。复习页 `dispose()` 阶段 ref 不可用，故在 `initState` 缓存 notifier 实例再调 stop。
 - **UI**：复习页正反面 header 各有 `TtsButton`（引擎不可用或关闭时不占位），键盘 `V` 朗读当前面；设置页「朗读」块含开关与语速滑块（0.5–1.5x）。
+- **音标显示**（`phonetic_dict.dart` + `widgets/phonetic_line.dart`）：卡片某面为**纯英文单词/短语**时（无中文/数字/标点，允许撇号、连字符、空格，≤40 字符），内容下方显示美式 IPA 音标。词库 `assets/ipa/en_US_ipa.txt` 源自 `open-dict-data/ipa-dict`（CC0 许可），约 12.5 万词、3.1MB（已过滤缩写词、去除音标包裹斜杠）；首次查询惰性加载进内存，结果 LRU 缓存（容量 256）。规则：一词多音标（record 名词/动词重音不同）取第一个主要发音；多词按空格逐词拼接；连字符合成词整体查不到按 `-` 拆段回退；未收录或非纯英文一律返回 null，UI 静默不显示。纯客户端离线查询，不碰后端、不动表结构。
 
 平台配置要求：
 
@@ -385,6 +389,25 @@ log ───────► common
 - 同步 Bootstrap、复习会话/分页、复习队列、评分同步支持同 URL Protobuf 内容协商；默认 JSON，客户端生产请求优先使用 Protobuf。
 - 前端 `SyncService` 对刷新做单飞行与冷却，评分同步做防抖批量提交，避免重复下载和重复请求。
 - `review_logs` 同步回传时携带 `client_request_id`，Drift 用它替换本地待同步镜像，统计层对旧重复数据去重，避免同一评分被计两次。
+
+## 7.1.1 队列归属与统计口径（learning_origin）
+
+重学卡（`learning_mode=true`）按进入重学时的阶段决定归属，`cards.learning_origin`（V15 迁移）记录来源：
+
+- `NEW`：学新阶段（新卡）忘记进入重学 → 归**学新队列**（新卡 + `NEW` 重学卡按 2^n 间距插入）。
+- `REVIEW`：复习阶段（到期卡）忘记/模糊进入重学 → 归**复习队列**（到期卡 + `REVIEW` 重学卡按 2^n 间距插入）。
+- null：非重学或历史数据（旧数据按 `REVIEW` 处理，保持原行为）。
+
+服务端 `ReviewService.buildNewQueue/buildDueQueue` 与前端离线 `OfflineRepository.getNewQueue/getDueQueue` 按同一来源规则构建队列，因此学新页忘记/模糊的卡退出重进后仍能在学新队列遇到；重学中再忘记/模糊保持原来源，脱离重学（连续 Familiar 达标）清除来源。
+
+统计口径随之调整（前后端一致）：
+
+- `reviewed_today`（已复习）：今日 `is_new_card=false` 且 `learning_origin <> 'NEW'` 的评分——到期卡复习 + 复习阶段重学计入；学新阶段的重学评分不计入。
+- `due_today` / `due_stage_distribution`（待复习）：已排期且非 `NEW` 重学的卡；学新阶段重学卡不计入。
+- `new_cards`（待学习/学新队列规模）：待学新卡 + `NEW` 重学卡。
+- `review_logs.learning_origin` 是评分时刻的卡片来源快照（评分前取值），用于统计与历史回溯。
+
+`learning_origin` 经同步载荷（Bootstrap/复习会话 protobuf 与 JSON）与备份导出导入全链路传递。
 
 ## 7.2 自动刷新与关键时机同步
 
