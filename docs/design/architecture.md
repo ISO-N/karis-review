@@ -417,6 +417,18 @@ log ───────► common
 
 > **2026-08-08 架构评审候选 5 落地**：排期公式单一数据源——前端新建 `shared/scheduling/scheduling_constants.dart`（间隔表 / maxStage / 3·5 阈值 / familiar·vague 间隔公式 / 2^n 插位偏移），此前间隔表在 `local_scheduling_engine.dart`、`review_card.dart`、`app/theme.dart`（业务常量混入 UI 间距类）三处副本，公式双份实现；现引擎与 `ReviewCard` 委托本类公式，`theme.dart` 不再持有排期常量（`stageLabels`/`stageName` 引用单一源），插位统一走 `relearningInsertOffset`（原前端 3 处 `1 << step`）。与后端 `SchedulingEngine.java` 为跨语言独立副本，改公式必须两端同步（由 `LocalSchedulingEngineTest` 与系统测试保障）。
 
+> **2026-08-08 架构评审第二轮落地（B1-B4/F1-F3；候选 6 结论见 ADR-0001）**：
+>
+> - **F2 卡列表筛选委托收敛谓词**：`getFilteredFlashCards` 的 `due`/`new` 分支原手写谓词——`due` 漏排除学新重学卡（重学卡 `next_review_date` 恒为评分当天，`nextReviewDate<=today` 必然命中）、`new` 漏含 `NEW` 来源重学卡，与筛选计数（DeckStats 走 `_isDueCard`/`_isNewCard`）不一致；现直接委托收敛谓词，计数=列表=队列=统计四处口径一致（候选 3 的未完成延伸闭合）。
+> - **B3 谓词常量闭合**：`CardQueryPredicates` 拆出分支常量（`DUE_BASE`/`DUE_RELEARNING`/`NEW_BASE`/`NEW_RELEARNING`），完整口径常量由分支组成，`CardRepository` 四个队列查询（findDueCards/findLearningModeCardsForReview/findNewCards/findLearningModeCardsForNew）全部拼接分支常量，删除手写谓词——"注释声称的一致"变"代码保证的一致"。
+> - **F1 插位单一化**：重学 2^n 插位三处复制（`getDueQueue`/`getNewQueue`/`_reinsertRelearningCard`）收敛为前端 `shared/scheduling/queue_composer.dart`（`QueueComposer.interleave`，baseOffset 区分离线重建与会话内插回）；后端 `ReviewService.interleaveLearningCards` 同步抽为 `review/service/QueueInterleaver` 零依赖纯模块，可独立单测（`QueueInterleaverTest`，此前需 stub 三个依赖间接测）。与前端为跨语言对应实现。
+> - **B2 统计谓词常量**：`review/repository/ReviewLogQueryPredicates` 集中「今日复习/今日新学」口径（JPQL + native SQL 双变体），`countReviewedToday`/`countReviewedTodayForDeck`/`findDailyTrend`/`countLearnedToday` 全部引用常量；`StatsService.getDeckStats` 复用 `getDeckCounters` 补字段、分布累加收敛 `accumulateStage` 单函数。
+> - **F3 内容协商统一**：`ApiClient` 新增 `getData`/`postData` 统一 proto/JSON 协商（proto 优先、401/406/415 自动回退 JSON 取 `data['data']`），`sync_repository` 4 方法 + `review_repository` 2 方法 6 份回退骨架收敛为声明式调用。
+> - **B4 备份直连恢复**：`BackupService.exportData` 卡片与日志携带原 `card_id`（日志另保留 `card_front` 兼容旧版），`importData` 按备份 card_id → 新 id 直连恢复，旧备份回退 front 文本匹配兜底——同 front 多卡不再错挂第一张；`exported_at` 改用 `DateUtils.now()`（业务时区，原 `LocalDateTime.now()` 用 JVM 时区）。
+> - **B1 评分管道单一化**：`ReviewService` 抽共享评分管道 `rateSingle`（幂等判定 → 版本冲突判定 → `computeRating`），`rateCard`/`syncRatings` 变同一管道的两个出口；幂等判定收敛 `checkIdempotency`（REPLAY/CONFLICT/NEW）、版本判定收敛 `isVersionConflict` 单函数；`applyRating` 删除。
+> - **F4 同步编排收敛（保守版）**：Deck/Stats/Card 三个 notifier 的 `reloadAfterDataChange` 统一委托 `shared/providers/data_refresh_provider.dart` 的 `reloadDataAfterChange`（离线已登录 → 本地重算；无离线或未登录 → 在线重载），provider 定义处 `ref.listen(dataVersionProvider)` 样板收敛为 `listenDataVersion`。**刻意不合并**：`SyncService` 的 cooldown/inflight（服务级并发去重）与 `StatsNotifier` 的 TTL/inFlight（页面级缓存新鲜度）语义不同层，硬合并破坏隔离（评审标注"防过度抽象"的边界）。
+> - **F5 OfflineRepository 减负**：`offline/offline_stats.dart` 下沉统计纯计算（`stageDistribution`/`isReviewedTodayLog`/`isLearnedTodayLog`/`isOnRefreshDay`/`dedupeReviewLogs`，口径同后端 ReviewLogQueryPredicates，`offline_stats_test.dart` 直接断言——接口即测试面）；`offline/offline_mappers.dart` 收敛卡片映射（`reviewCardFromLocal`/`flashCardFromLocal`/`reviewCardFromFlash`，原 offline 与 review_provider 两处 `_toReviewCard` 字段逐一重复）；日期格式化 4 份副本统一 `AppDateUtils.formatDate`。`OfflineRepository` 1078 → 962 行，回归数据访问。
+
 ## 7.1.2 统计一致性问题复盘（2026-08 生产故障）
 
 ### 现象

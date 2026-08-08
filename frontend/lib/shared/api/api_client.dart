@@ -135,6 +135,61 @@ class ApiClient {
     return parse(_bytes(response.data));
   }
 
+  /// 统一 proto/JSON 内容协商 GET（架构评审 F3）。
+  ///
+  /// 优先 protobuf：消息经 [parse] 解析后由 [toData] 转业务结构；
+  /// 服务端不支持（401/406/415，见 [isProtoUnsupported]）时自动回退 JSON，
+  /// 返回响应体 data['data']（Map 或 List，由调用方断言类型）。
+  /// 收敛 sync/review repository 各方法逐份复制的回退骨架，新接口零样板。
+  Future<dynamic> getData<T extends pb.GeneratedMessage>(
+    String path, {
+    Map<String, dynamic>? queryParameters,
+    required T Function(List<int>) parse,
+    required dynamic Function(T) toData,
+  }) async {
+    try {
+      final message = await getProto<T>(
+        path,
+        queryParameters: queryParameters,
+        parse: parse,
+      );
+      return toData(message);
+    } on DioException catch (e) {
+      if (isProtoUnsupported(e)) {
+        final response = await get(path, queryParameters: queryParameters);
+        return response.data['data'];
+      }
+      rethrow;
+    }
+  }
+
+  /// 统一 proto/JSON 内容协商 POST（架构评审 F3）。
+  ///
+  /// [protoData] 走 protobuf；服务端不支持时回退 [jsonData]。
+  /// 语义同 [getData]。
+  Future<dynamic> postData<T extends pb.GeneratedMessage>(
+    String path, {
+    required List<int> protoData,
+    required T Function(List<int>) parse,
+    required dynamic Function(T) toData,
+    required Map<String, dynamic> jsonData,
+  }) async {
+    try {
+      final message = await postProto<T>(
+        path,
+        data: protoData,
+        parse: parse,
+      );
+      return toData(message);
+    } on DioException catch (e) {
+      if (isProtoUnsupported(e)) {
+        final response = await post(path, data: jsonData);
+        return response.data['data'];
+      }
+      rethrow;
+    }
+  }
+
   Future<Response> put(String path, {dynamic data}) {
     return _dio.put(path, data: data);
   }

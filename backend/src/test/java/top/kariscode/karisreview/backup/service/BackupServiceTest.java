@@ -29,6 +29,7 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -201,6 +202,48 @@ class BackupServiceTest {
     }
 
     @Test
+    void importDataDirectlyReattachesLogByCardIdEvenWithDuplicateFront() {
+        // 架构评审 B4：导出携带 card_id 后，同 front 多卡也能直连恢复，
+        // 不再依赖 front 文本猜测（此前会错挂第一张匹配卡）。
+        UUID userId = UUID.randomUUID();
+        String backupCardIdA = UUID.randomUUID().toString();
+        String backupCardIdB = UUID.randomUUID().toString();
+        when(deckRepository.save(any(Deck.class))).thenAnswer(invocation -> {
+            Deck deck = invocation.getArgument(0);
+            deck.setId(UUID.randomUUID());
+            return deck;
+        });
+        when(cardRepository.saveAll(any())).thenAnswer(invocation -> {
+            List<Card> cards = invocation.getArgument(0);
+            cards.forEach(c -> c.setId(UUID.randomUUID()));
+            return cards;
+        });
+
+        // 两张卡 front 完全相同（重复 front 场景），日志只挂卡 B。
+        Map<String, Object> data = Map.of(
+                "decks", List.of(Map.of(
+                        "name", "牌组",
+                        "cards", List.of(
+                                Map.of("id", backupCardIdA, "front", "重复正面", "back", "A"),
+                                Map.of("id", backupCardIdB, "front", "重复正面", "back", "B")))),
+                "review_logs", List.of(Map.of(
+                        "card_id", backupCardIdB,
+                        "card_front", "重复正面",
+                        "rating", "FORGET",
+                        "stage_before", 3,
+                        "stage_after", 0)));
+
+        Map<String, Object> result = service.importData(userId, data);
+
+        assertEquals(2, result.get("imported_cards"));
+        assertEquals(1, result.get("imported_review_logs"));
+        ArgumentCaptor<List<ReviewLog>> logCaptor = ArgumentCaptor.forClass(List.class);
+        verify(reviewLogRepository).saveAll(logCaptor.capture());
+        // 直连挂到 B 卡（第二条导入卡），而非 front 匹配的第一张 A。
+        assertNotEquals(backupCardIdA, logCaptor.getValue().get(0).getCardId().toString());
+    }
+
+    @Test
     void importDataIgnoresMissingDecksAndLogsWithoutError() {
         UUID userId = UUID.randomUUID();
 
@@ -251,6 +294,7 @@ class BackupServiceTest {
         deck.setUserId(userId);
         deck.setName("日语");
         Card card = new Card();
+        card.setId(UUID.randomUUID());
         card.setDeckId(deckId);
         card.setFront("正面");
         card.setBack("反面");
@@ -287,6 +331,8 @@ class BackupServiceTest {
         assertTrue(data.contains("\"review_version\":7"), data);
         assertTrue(data.contains("\"learning_mode\":true"), data);
         assertTrue(data.contains("\"reentry_stage\":1"), data);
+        // 架构评审 B4：导出携带 card_id，导入可直连恢复（此前只写 front 文本）。
+        assertTrue(data.contains("\"id\":\"" + card.getId() + "\""), data);
     }
 
     @Test

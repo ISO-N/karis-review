@@ -109,10 +109,10 @@ public interface CardRepository extends JpaRepository<Card, UUID> {
     List<Object[]> countDueByStageGroupedByDeck(@Param("deckId") UUID deckId, @Param("today") LocalDate today);
 
     // 复习队列 = 本查询（非重学到期卡）+ findLearningModeCardsForReview（REVIEW/null 重学卡），
-    // 口径同 CardQueryPredicates.DUE_EXCLUDING_NEW_JPQL 的 learningMode=false 分支。
+    // 谓词引用 CardQueryPredicates 分支常量（DUE_BASE_JPQL + DUE_RELEARNING_JPQL = DUE_EXCLUDING_NEW）。
     @Query("SELECT c FROM Card c WHERE c.userId = :userId " +
            "AND c.nextReviewDate IS NOT NULL AND c.nextReviewDate <= :today " +
-           "AND c.learningMode = false " +
+           "AND " + CardQueryPredicates.DUE_BASE_JPQL + " " +
            "AND (:deckId IS NULL OR c.deckId = :deckId) " +
            // 逾期优先（逾期天数降序）在数学上等价于 next_review_date 升序，
            // 直接按列排序可命中 idx_cards_next_review 部分索引，消除 Sort 节点。
@@ -122,30 +122,28 @@ public interface CardRepository extends JpaRepository<Card, UUID> {
                             @Param("deckId") UUID deckId);
 
     // 学新队列 = 本查询（待学新卡）+ findLearningModeCardsForNew（NEW 重学卡），
-    // 口径同 CardQueryPredicates.NEW_QUEUE_JPQL。
+    // 谓词引用 CardQueryPredicates 分支常量（NEW_BASE_JPQL + NEW_RELEARNING_JPQL = NEW_QUEUE）。
     @Query("SELECT c FROM Card c WHERE c.userId = :userId " +
-           "AND c.stage = 0 AND c.learningMode = false " +
+           "AND " + CardQueryPredicates.NEW_BASE_JPQL + " " +
            "AND (:deckId IS NULL OR c.deckId = :deckId) " +
            "ORDER BY c.createdAt ASC")
     List<Card> findNewCards(@Param("userId") UUID userId,
                             @Param("deckId") UUID deckId);
 
-    // 学新队列中的 NEW 重学卡（CardQueryPredicates.NEW_QUEUE 的 learningMode=true 分支）。
+    // 学新队列中的 NEW 重学卡（CardQueryPredicates.NEW_RELEARNING_JPQL）。
     @Query("SELECT c FROM Card c WHERE c.userId = :userId " +
-           "AND c.learningMode = true " +
+           "AND " + CardQueryPredicates.NEW_RELEARNING_JPQL + " " +
            "AND c.nextReviewDate IS NOT NULL AND c.nextReviewDate <= :today " +
-           "AND c.learningOrigin = 'NEW' " +
            "AND (:deckId IS NULL OR c.deckId = :deckId) " +
            "ORDER BY c.nextReviewDate ASC")
     List<Card> findLearningModeCardsForNew(@Param("userId") UUID userId,
                                            @Param("today") LocalDate today,
                                            @Param("deckId") UUID deckId);
 
-    // 复习队列中的 REVIEW/null 重学卡（CardQueryPredicates.DUE_EXCLUDING_NEW 的 learningMode=true 分支）。
+    // 复习队列中的 REVIEW/null 重学卡（CardQueryPredicates.DUE_RELEARNING_JPQL）。
     @Query("SELECT c FROM Card c WHERE c.userId = :userId " +
-           "AND c.learningMode = true " +
+           "AND " + CardQueryPredicates.DUE_RELEARNING_JPQL + " " +
            "AND c.nextReviewDate IS NOT NULL AND c.nextReviewDate <= :today " +
-           "AND (c.learningOrigin = 'REVIEW' OR c.learningOrigin IS NULL) " +
            "AND (:deckId IS NULL OR c.deckId = :deckId) " +
            "ORDER BY c.nextReviewDate ASC")
     List<Card> findLearningModeCardsForReview(@Param("userId") UUID userId,

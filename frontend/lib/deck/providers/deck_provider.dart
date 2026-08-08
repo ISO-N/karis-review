@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../offline/offline_repository.dart';
@@ -88,23 +86,27 @@ class DeckListNotifier extends StateNotifier<AsyncValue<List<Deck>>> {
     try {
       final meta = await offline!.getActiveSyncMeta();
       if (meta == null) return;
-      state = AsyncValue.data(await offline!.getDeckSummaries(meta.userId));
+      await _loadLocalFor(meta.userId);
     } catch (e, st) {
       state = AsyncValue.error(e, st);
     }
   }
 
+  Future<void> _loadLocalFor(String userId) async {
+    try {
+      state = AsyncValue.data(await offline!.getDeckSummaries(userId));
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+    }
+  }
+
+  // 数据变更重载统一委托 reloadDataAfterChange（架构评审 F4）。
   Future<void> reloadAfterDataChange() async {
-    if (offline == null) {
-      await loadDecks();
-      return;
-    }
-    final meta = await offline!.getActiveSyncMeta();
-    if (meta == null) {
-      await loadDecks();
-      return;
-    }
-    await _loadLocal();
+    await reloadDataAfterChange(
+      offline: offline,
+      reloadOnline: loadDecks,
+      reloadLocal: _loadLocalFor,
+    );
   }
 }
 
@@ -115,8 +117,6 @@ final deckListProvider =
         offline: ref.watch(offlineRepositoryProvider),
         sync: ref.watch(syncServiceProvider),
       );
-      ref.listen(dataVersionProvider, (_, _) {
-        unawaited(notifier.reloadAfterDataChange());
-      });
+      listenDataVersion(ref, notifier.reloadAfterDataChange);
       return notifier;
     });
