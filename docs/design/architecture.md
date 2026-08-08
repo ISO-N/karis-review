@@ -409,6 +409,46 @@ log ───────► common
 
 `learning_origin` 经同步载荷（Bootstrap/复习会话 protobuf 与 JSON）与备份导出导入全链路传递。
 
+## 7.1.2 统计一致性问题复盘（2026-08 生产故障）
+
+### 现象
+
+「今日复习」持续把「今日新学」（学新阶段重学评分）计入，复习卡/学习卡语义不清；统计页与今日页数字与服务器不一致，多次修复后仍复现。
+
+### 根因（精确到行）
+
+- 后端 `SyncProtoMapper.toReviewLog` **正确**填充 `learning_origin`；
+- 前端 `lib/shared/proto/proto_mappers.dart` 的 **`reviewLogToMap` 漏映射 `learning_origin`**（`cardToMap`/`reviewCardToMap` 均有，唯独日志没有）→ 本地 Drift `local_review_logs.learning_origin` 恒 NULL；
+- 本地 `OfflineRepository.getOverviewStats` 对 `learning_origin IS NULL` 兜底计入「今日复习」→ 学新重学评分（origin 本应为 `NEW`）全部误计；
+- 生产前后端走 protobuf 内容协商，JSON 路径正常、protobuf 路径丢字段，故线上症状"玄学"。
+
+### 实测证据（生产 API vs 真机本地 Drift）
+
+| 指标 | 服务器 | 本地（修复前） | 本地（修复后） |
+|---|---|---|---|
+| 今日复习 reviewedToday | 31 | 149 | 31 |
+| 今日新学 learnedToday | 123 | 123 | 123 |
+| 待复习 dueToday | 0 | 1062（旧卡状态未同步） | 0 |
+| 学新队列 new_cards | 4102 | 4625 | 4102 |
+
+差值 118 = 当日学新重学评分数。修复后本地日志 `learning_origin` 分布与服务器一致（`NEW: 118`）。
+
+### 修复与防回归
+
+- `reviewLogToMap` 补充 `'learning_origin': log.hasLearningOrigin() ? log.learningOrigin : null`；新增回归测试 `frontend/test/proto_mappers_test.dart`。
+- **防回归红线**：新增同步字段时，protobuf 路径（`proto_mappers.dart` 与重新生成的 `*.pb.dart`）与 JSON 路径必须同步覆盖；统计口径的 NULL 兜底会把"字段缺失"静默翻译成"复习"，宁可少算不可错算。
+- **存量用户处置**：修复只影响之后同步的数据；存量本地日志需触发「设置 → 以服务器数据为准」（`forceServerAuthoritative` → 全量 bootstrap 重灌）修正，发布 release 时应在更新说明引导。
+
+### 已知限制
+
+- **存量历史日志来源不可回填**：V15 前写入的 `review_logs` 无 `learning_origin` 概念（服务器与本地均无），按 `REVIEW` 兜底，无法区分学新/复习重学——属历史数据限制，非代码缺陷。
+- **首页进度环为复习完成度口径**：进度环分母 `reviewed + due` 只含复习队列，不含学新队列——这是设计语义（新学是独立队列），非缺陷；记忆刻度展示的是「今日任务」全量（含学新），两者表达不同指标。
+
+### 已修复（2026-08-08）
+
+- `reviewLogToMap` 漏映射 `learning_origin`（本小节「根因」）。
+- `_rateRemote` 在线评分插回重学卡丢失 `learningOrigin`/`reentryStage`：`RateResponse` 新增 `reentry_stage`/`learning_origin`（`ReviewService.toRateResponse` 与幂等分支填充），前端 `ReviewResult` 解析并用于插回（`review_provider.dart`），避免会话内再次评分时来源快照丢失与重学类型判定错误。配套：`frontend/test/models_test.dart` 重学字段解析断言；`docs/design/api.md` 评分接口响应补充字段。
+
 ## 7.2 自动刷新与关键时机同步
 
 前端通过 `dataVersionProvider` 与 `DataRefreshController` 统一触发数据重算：本地写操作只递增版本号，相关 Provider 从 Drift 重新计算；服务端刷新先调用 `SyncService.refresh()`，成功后再递增版本号。

@@ -17,6 +17,8 @@ public class RateResponse {
     private int consecutiveFamiliar;
     private int nextIntervalDays;
     private long reviewVersion;
+    private Integer reentryStage;
+    private String learningOrigin;
 
     public RateResponse() {}
 
@@ -30,6 +32,14 @@ public class RateResponse {
     public RateResponse(UUID cardId, String rating, int stageBefore, int stageAfter,
                         LocalDate nextReviewDate, boolean learningMode, int consecutiveFamiliar,
                         int nextIntervalDays, long reviewVersion) {
+        this(cardId, rating, stageBefore, stageAfter, nextReviewDate, learningMode,
+                consecutiveFamiliar, nextIntervalDays, reviewVersion, null, null);
+    }
+
+    public RateResponse(UUID cardId, String rating, int stageBefore, int stageAfter,
+                        LocalDate nextReviewDate, boolean learningMode, int consecutiveFamiliar,
+                        int nextIntervalDays, long reviewVersion,
+                        Integer reentryStage, String learningOrigin) {
         this.cardId = cardId;
         this.rating = rating;
         this.stageBefore = stageBefore;
@@ -39,6 +49,8 @@ public class RateResponse {
         this.consecutiveFamiliar = consecutiveFamiliar;
         this.nextIntervalDays = nextIntervalDays;
         this.reviewVersion = reviewVersion;
+        this.reentryStage = reentryStage;
+        this.learningOrigin = learningOrigin;
     }
 
     public UUID getCardId() { return cardId; }
@@ -59,4 +71,8 @@ public class RateResponse {
     public void setNextIntervalDays(int nextIntervalDays) { this.nextIntervalDays = nextIntervalDays; }
     public long getReviewVersion() { return reviewVersion; }
     public void setReviewVersion(long reviewVersion) { this.reviewVersion = reviewVersion; }
+    public Integer getReentryStage() { return reentryStage; }
+    public void setReentryStage(Integer reentryStage) { this.reentryStage = reentryStage; }
+    public String getLearningOrigin() { return learningOrigin; }
+    public void setLearningOrigin(String learningOrigin) { this.learningOrigin = learningOrigin; }
 }

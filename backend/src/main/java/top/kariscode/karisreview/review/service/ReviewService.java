@@ -283,7 +283,8 @@ public class ReviewService {
                         .orElseThrow(() -> new BusinessException(404, "review.card.notfound"));
                 return new RateResponse(
                         cardId, log.getRating(), log.getStageBefore(), log.getStageAfter(),
-                        null, false, 0, 0, current.getReviewVersion());
+                        null, false, 0, 0, current.getReviewVersion(),
+                        current.getReentryStage(), current.getLearningOrigin());
             }
         }
 
@@ -371,7 +372,9 @@ public class ReviewService {
                 result.isLearningMode(),
                 result.getConsecutiveFamiliar(),
                 nextIntervalDays,
-                card.getReviewVersion());
+                card.getReviewVersion(),
+                card.getReentryStage(),
+                card.getLearningOrigin());
     }
 
     private record RatingOutcome(ReviewLog log, SchedulingEngine.RatingResult result) {}

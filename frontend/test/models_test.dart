@@ -77,6 +77,15 @@ void main() {
       expect(result.nextIntervalDays, 1);
     });
 
+    test('parses relearning fields from rating result', () {
+      final result = ReviewResult.fromJson(
+        reviewResultJson(rating: 'VAGUE', reentryStage: 4, learningOrigin: 'NEW'),
+      );
+
+      expect(result.reentryStage, 4);
+      expect(result.learningOrigin, 'NEW');
+    });
+
     test('defaults missing review fields', () {
       final result = ReviewResult.fromJson({
         'card_id': 'c',
