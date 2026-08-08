@@ -20,6 +20,7 @@ class MemoryRing extends StatelessWidget {
     this.strokeWidth = 3,
     this.tickLength = 3,
     this.tickCount = 32,
+    this.tickProgress = 1,
     this.color,
     this.trackColor,
     this.tickColor,
@@ -28,6 +29,12 @@ class MemoryRing extends StatelessWidget {
 
   /// 进度 0.0 ~ 1.0，会被 clamp。
   final double progress;
+
+  /// 刻度点亮进度 0.0 ~ 1.0：只点亮前 [tickProgress] 比例的刻度线。
+  ///
+  /// 默认 1 全部点亮；完成场景可驱动它让刻度依次亮起（如复习完成页
+  /// 外缘刻度级联点亮后落章）。非 0..1 值会被 clamp。
+  final double tickProgress;
 
   /// 外径（直径）。
   final double size;
@@ -60,6 +67,7 @@ class MemoryRing extends StatelessWidget {
     final track = trackColor ?? colors.hairline;
     final tick = tickColor ?? colors.stone.withValues(alpha: 0.5);
     final clamped = progress.clamp(0.0, 1.0);
+    final litTicks = tickProgress.clamp(0.0, 1.0);
 
     return SizedBox(
       width: size,
@@ -74,6 +82,7 @@ class MemoryRing extends StatelessWidget {
             strokeWidth: strokeWidth,
             tickLength: tickLength,
             tickCount: tickCount,
+            tickProgress: litTicks,
             color: c,
             trackColor: track,
             tickColor: tick,
@@ -90,6 +99,7 @@ class _MemoryRingPainter extends CustomPainter {
     required this.strokeWidth,
     required this.tickLength,
     required this.tickCount,
+    required this.tickProgress,
     required this.color,
     required this.trackColor,
     required this.tickColor,
@@ -99,6 +109,9 @@ class _MemoryRingPainter extends CustomPainter {
   final double strokeWidth;
   final double tickLength;
   final int tickCount;
+
+  /// 刻度点亮进度：只绘制前 tickCount * tickProgress 根刻度。
+  final double tickProgress;
   final Color color;
   final Color trackColor;
   final Color tickColor;
@@ -134,13 +147,16 @@ class _MemoryRingPainter extends CustomPainter {
       canvas.drawArc(arcRect, _startAngle, sweep, false, arcPaint);
     }
 
-    // 外缘刻度线：tickCount 根，顺时针均匀分布。
+    // 外缘刻度线：tickCount 根，顺时针均匀分布；
+    // 由 tickProgress 控制点亮前几根（完成场景的级联点亮效果）。
     if (tickCount > 0) {
       final tickPaint = Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1
         ..color = tickColor;
+      final litCount = tickCount * tickProgress;
       for (var i = 0; i < tickCount; i++) {
+        if (i >= litCount) break;
         final angle = _startAngle + i * (6.2832 / tickCount);
         final cosA = math.cos(angle);
         final sinA = math.sin(angle);
@@ -159,6 +175,7 @@ class _MemoryRingPainter extends CustomPainter {
         oldDelegate.strokeWidth != strokeWidth ||
         oldDelegate.tickLength != tickLength ||
         oldDelegate.tickCount != tickCount ||
+        oldDelegate.tickProgress != tickProgress ||
         oldDelegate.color != color ||
         oldDelegate.trackColor != trackColor ||
         oldDelegate.tickColor != tickColor;
