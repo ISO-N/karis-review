@@ -12,6 +12,7 @@ class ReviewCard {
   final int? reentryStage;
   final String? nextReviewDate;
   final int reviewVersion;
+  final String? learningOrigin;
 
   ReviewCard({
     required this.id,
@@ -25,6 +26,7 @@ class ReviewCard {
     this.reentryStage,
     this.nextReviewDate,
     this.reviewVersion = 0,
+    this.learningOrigin,
   });
 
   int get learningGoal =>
@@ -63,6 +65,7 @@ class ReviewCard {
       reentryStage: (json['reentry_stage'] as num?)?.toInt(),
       nextReviewDate: json['next_review_date'] as String?,
       reviewVersion: (json['review_version'] as num?)?.toInt() ?? 0,
+      learningOrigin: json['learning_origin'] as String?,
     );
   }
 }
