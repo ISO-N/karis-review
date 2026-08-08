@@ -102,6 +102,55 @@ class SchedulingEngineTest {
         assertEquals(0, result.getStageAfter());
         assertTrue(result.isLearningMode());
         assertNull(card.getReentryStage());
+        // 学新阶段忘记 → 来源 NEW，重学卡归学新队列
+        assertEquals(SchedulingEngine.NEW_ORIGIN, card.getLearningOrigin());
+    }
+
+    @Test
+    void learningOriginTracksRelearningQueueOwnership() {
+        // 到期卡 FORGET → REVIEW（归复习队列）
+        Card dueCard = new Card();
+        dueCard.setStage(4);
+        engine.rateForget(dueCard, refreshTime);
+        assertEquals(SchedulingEngine.REVIEW_ORIGIN, dueCard.getLearningOrigin());
+
+        // 到期卡 VAGUE → REVIEW
+        Card vagueCard = new Card();
+        vagueCard.setStage(4);
+        engine.rateVague(vagueCard, refreshTime);
+        assertEquals(SchedulingEngine.REVIEW_ORIGIN, vagueCard.getLearningOrigin());
+
+        // 新卡 VAGUE 视同 FORGET → NEW（归学新队列）
+        Card newCard = new Card();
+        newCard.setStage(0);
+        engine.rateVague(newCard, refreshTime);
+        assertEquals(SchedulingEngine.NEW_ORIGIN, newCard.getLearningOrigin());
+
+        // 重学中再次忘记/模糊：保持原来源
+        Card relearningNew = new Card();
+        relearningNew.setStage(0);
+        engine.rateForget(relearningNew, refreshTime);
+        assertEquals(SchedulingEngine.NEW_ORIGIN, relearningNew.getLearningOrigin());
+        engine.rateForget(relearningNew, refreshTime);
+        assertEquals(SchedulingEngine.NEW_ORIGIN, relearningNew.getLearningOrigin());
+
+        // 重学完成脱离 → 清除来源
+        Card graduating = new Card();
+        graduating.setStage(0);
+        engine.rateForget(graduating, refreshTime);
+        for (int i = 0; i < 5; i++) {
+            engine.rateFamiliar(graduating, refreshTime);
+        }
+        assertFalse(graduating.isLearningMode());
+        assertNull(graduating.getLearningOrigin());
+
+        // 历史数据（来源为空的重学卡）再忘记 → 兜底 REVIEW（旧行为归复习队列）
+        Card legacy = new Card();
+        legacy.setStage(0);
+        legacy.setLearningMode(true);
+        legacy.setLearningOrigin(null);
+        engine.rateForget(legacy, refreshTime);
+        assertEquals(SchedulingEngine.REVIEW_ORIGIN, legacy.getLearningOrigin());
     }
 
     @Test

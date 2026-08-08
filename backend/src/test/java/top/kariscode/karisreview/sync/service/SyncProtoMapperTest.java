@@ -32,14 +32,14 @@ class SyncProtoMapperTest {
         BootstrapCard card = new BootstrapCard(
                 cardId, deckId, "正面", "反面",
                 4, 2, LocalDate.of(2025, 8, 5), true, 4, 3,
-                7L, LocalDateTime.of(2025, 8, 1, 10, 0),
+                7L, "REVIEW", LocalDateTime.of(2025, 8, 1, 10, 0),
                 LocalDateTime.of(2025, 8, 2, 11, 0));
         BootstrapDeck deck = new BootstrapDeck(
                 deckId, "日语", LocalDateTime.of(2025, 8, 1, 10, 0),
                 LocalDateTime.of(2025, 8, 2, 11, 0), List.of(card));
         BootstrapReviewLog log = new BootstrapReviewLog(
                 logId, cardId, "FAMILIAR", 4, 4,
-                LocalDateTime.of(2025, 8, 2, 12, 0), true, "request-1");
+                LocalDateTime.of(2025, 8, 2, 12, 0), true, "request-1", "REVIEW");
         BootstrapResponse response = new BootstrapResponse(
                 OffsetDateTime.parse("2025-08-02T12:00:00Z"),
                 new BootstrapUser(userId, "user@example.com", "04:00:00"),
@@ -60,8 +60,10 @@ class SyncProtoMapperTest {
         assertEquals(deckId.toString(), proto.getDecks(0).getId());
         assertEquals(cardId.toString(), proto.getDecks(0).getCards(0).getId());
         assertEquals("4", proto.getDecks(0).getCards(0).getReentryStage());
+        assertEquals("REVIEW", proto.getDecks(0).getCards(0).getLearningOrigin());
         assertEquals(logId.toString(), proto.getReviewLogs(0).getId());
         assertEquals("request-1", proto.getReviewLogs(0).getClientRequestId());
+        assertEquals("REVIEW", proto.getReviewLogs(0).getLearningOrigin());
         assertEquals(1, proto.getChangedCardsCount());
         assertEquals(List.of("deleted-deck"), proto.getDeletedDeckIdsList());
         assertEquals(List.of("deleted-card"), proto.getDeletedCardIdsList());

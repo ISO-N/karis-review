@@ -113,6 +113,7 @@ public class BackupService {
             logNode.put("stage_before", log.getStageBefore());
             logNode.put("stage_after", log.getStageAfter());
             logNode.put("is_new_card", log.isNewCard());
+            logNode.put("learning_origin", log.getLearningOrigin());
             logNode.put("reviewed_at", log.getReviewedAt().toString());
         }
 
@@ -192,6 +193,9 @@ public class BackupService {
                         if (cardNode.has("reentry_stage") && !cardNode.get("reentry_stage").isNull()) {
                             card.setReentryStage(cardNode.get("reentry_stage").asInt());
                         }
+                        if (cardNode.has("learning_origin") && !cardNode.get("learning_origin").isNull()) {
+                            card.setLearningOrigin(cardNode.get("learning_origin").asText());
+                        }
                         cardsToSave.add(card);
                     }
                     // 批量插入（配合 hibernate.jdbc.batch_size 真正合并为批次 INSERT）
@@ -229,6 +233,9 @@ public class BackupService {
                 log.setStageBefore(logNode.has("stage_before") ? logNode.get("stage_before").asInt() : 0);
                 log.setStageAfter(logNode.has("stage_after") ? logNode.get("stage_after").asInt() : 0);
                 log.setNewCard(logNode.has("is_new_card") && logNode.get("is_new_card").asBoolean());
+                if (logNode.has("learning_origin") && !logNode.get("learning_origin").isNull()) {
+                    log.setLearningOrigin(logNode.get("learning_origin").asText());
+                }
                 if (logNode.has("reviewed_at") && !logNode.get("reviewed_at").isNull()) {
                     try {
                         log.setReviewedAt(LocalDateTime.parse(logNode.get("reviewed_at").asText()));

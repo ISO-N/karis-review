@@ -109,6 +109,7 @@ class Card extends $pb.GeneratedMessage {
     $fixnum.Int64? reviewVersion,
     $core.String? createdAt,
     $core.String? updatedAt,
+    $core.String? learningOrigin,
   }) {
     final result = create();
     if (id != null) result.id = id;
@@ -125,6 +126,7 @@ class Card extends $pb.GeneratedMessage {
     if (reviewVersion != null) result.reviewVersion = reviewVersion;
     if (createdAt != null) result.createdAt = createdAt;
     if (updatedAt != null) result.updatedAt = updatedAt;
+    if (learningOrigin != null) result.learningOrigin = learningOrigin;
     return result;
   }
 
@@ -154,6 +156,7 @@ class Card extends $pb.GeneratedMessage {
     ..aInt64(11, _omitFieldNames ? '' : 'reviewVersion')
     ..aOS(12, _omitFieldNames ? '' : 'createdAt')
     ..aOS(13, _omitFieldNames ? '' : 'updatedAt')
+    ..aOS(14, _omitFieldNames ? '' : 'learningOrigin')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -290,6 +293,15 @@ class Card extends $pb.GeneratedMessage {
   $core.bool hasUpdatedAt() => $_has(12);
   @$pb.TagNumber(13)
   void clearUpdatedAt() => $_clearField(13);
+
+  @$pb.TagNumber(14)
+  $core.String get learningOrigin => $_getSZ(13);
+  @$pb.TagNumber(14)
+  set learningOrigin($core.String value) => $_setString(13, value);
+  @$pb.TagNumber(14)
+  $core.bool hasLearningOrigin() => $_has(13);
+  @$pb.TagNumber(14)
+  void clearLearningOrigin() => $_clearField(14);
 }
 
 class Deck extends $pb.GeneratedMessage {
@@ -397,6 +409,7 @@ class ReviewLog extends $pb.GeneratedMessage {
     $core.String? reviewedAt,
     $core.bool? isNewCard,
     $core.String? clientRequestId,
+    $core.String? learningOrigin,
   }) {
     final result = create();
     if (id != null) result.id = id;
@@ -407,6 +420,7 @@ class ReviewLog extends $pb.GeneratedMessage {
     if (reviewedAt != null) result.reviewedAt = reviewedAt;
     if (isNewCard != null) result.isNewCard = isNewCard;
     if (clientRequestId != null) result.clientRequestId = clientRequestId;
+    if (learningOrigin != null) result.learningOrigin = learningOrigin;
     return result;
   }
 
@@ -431,6 +445,7 @@ class ReviewLog extends $pb.GeneratedMessage {
     ..aOS(6, _omitFieldNames ? '' : 'reviewedAt')
     ..aOB(7, _omitFieldNames ? '' : 'isNewCard')
     ..aOS(8, _omitFieldNames ? '' : 'clientRequestId')
+    ..aOS(9, _omitFieldNames ? '' : 'learningOrigin')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -522,6 +537,15 @@ class ReviewLog extends $pb.GeneratedMessage {
   $core.bool hasClientRequestId() => $_has(7);
   @$pb.TagNumber(8)
   void clearClientRequestId() => $_clearField(8);
+
+  @$pb.TagNumber(9)
+  $core.String get learningOrigin => $_getSZ(8);
+  @$pb.TagNumber(9)
+  set learningOrigin($core.String value) => $_setString(8, value);
+  @$pb.TagNumber(9)
+  $core.bool hasLearningOrigin() => $_has(8);
+  @$pb.TagNumber(9)
+  void clearLearningOrigin() => $_clearField(9);
 }
 
 class SyncResponse extends $pb.GeneratedMessage {
@@ -680,6 +704,7 @@ class ReviewCard extends $pb.GeneratedMessage {
     $core.String? reentryStage,
     $core.String? nextReviewDate,
     $fixnum.Int64? reviewVersion,
+    $core.String? learningOrigin,
   }) {
     final result = create();
     if (id != null) result.id = id;
@@ -694,6 +719,7 @@ class ReviewCard extends $pb.GeneratedMessage {
     if (reentryStage != null) result.reentryStage = reentryStage;
     if (nextReviewDate != null) result.nextReviewDate = nextReviewDate;
     if (reviewVersion != null) result.reviewVersion = reviewVersion;
+    if (learningOrigin != null) result.learningOrigin = learningOrigin;
     return result;
   }
 
@@ -721,6 +747,7 @@ class ReviewCard extends $pb.GeneratedMessage {
     ..aOS(9, _omitFieldNames ? '' : 'reentryStage')
     ..aOS(10, _omitFieldNames ? '' : 'nextReviewDate')
     ..aInt64(11, _omitFieldNames ? '' : 'reviewVersion')
+    ..aOS(12, _omitFieldNames ? '' : 'learningOrigin')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -839,6 +866,15 @@ class ReviewCard extends $pb.GeneratedMessage {
   $core.bool hasReviewVersion() => $_has(10);
   @$pb.TagNumber(11)
   void clearReviewVersion() => $_clearField(11);
+
+  @$pb.TagNumber(12)
+  $core.String get learningOrigin => $_getSZ(11);
+  @$pb.TagNumber(12)
+  set learningOrigin($core.String value) => $_setString(11, value);
+  @$pb.TagNumber(12)
+  $core.bool hasLearningOrigin() => $_has(11);
+  @$pb.TagNumber(12)
+  void clearLearningOrigin() => $_clearField(12);
 }
 
 class ReviewCardListResponse extends $pb.GeneratedMessage {

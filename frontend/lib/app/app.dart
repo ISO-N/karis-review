@@ -10,6 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../l10n/app_localizations.dart';
 import '../shared/providers/data_refresh_provider.dart';
 import '../shared/widgets/karis_scroll_behavior.dart';
+import '../shared/widgets/paper_texture.dart';
 import 'router.dart';
 import 'theme.dart';
 
@@ -68,7 +69,14 @@ class _KarisReviewAppState extends ConsumerState<KarisReviewApp>
                 isDark ? Brightness.light : Brightness.dark,
             systemNavigationBarDividerColor: Colors.transparent,
           ),
-          child: child ?? const SizedBox.shrink(),
+          // 纸张纹理全局覆盖：RepaintBoundary 只光栅化一次，滚动/切页零成本；
+          // 置于最上层，让纸面、卡片、导航都带同一层颗粒（alpha 极低）。
+          child: Stack(
+            children: [
+              child ?? const SizedBox.shrink(),
+              const Positioned.fill(child: PaperTexture()),
+            ],
+          ),
         );
       },
       scrollBehavior: const KarisScrollBehavior(),

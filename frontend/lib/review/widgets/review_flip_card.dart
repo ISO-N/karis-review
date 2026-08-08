@@ -79,20 +79,43 @@ class _ReviewFlipCardState extends State<ReviewFlipCard>
           builder: (context, _) {
             final angle = _animation.value * math.pi;
             final showBack = angle >= math.pi / 2;
-            return Transform(
-              alignment: Alignment.center,
-              transform: Matrix4.identity()
-                ..setEntry(3, 2, 0.001)
-                ..rotateY(angle),
-              child: showBack
-                  ? Transform(
-                      alignment: Alignment.center,
-                      transform: Matrix4.identity()
-                        ..setEntry(3, 2, 0.001)
-                        ..rotateY(math.pi),
-                      child: widget.back,
-                    )
-                  : widget.front,
+            // 书脊线可见度：翻面经过 90°（纸缘正对读者）的一帧里最明显，
+            // 以发丝线暗示纸张厚度，让纯几何翻转带上纸的体感。
+            final spineOpacity =
+                (1 - ((angle - math.pi / 2).abs() / 0.38).clamp(0.0, 1.0))
+                    .clamp(0.0, 1.0);
+            return Stack(
+              fit: StackFit.passthrough,
+              children: [
+                Transform(
+                  alignment: Alignment.center,
+                  transform: Matrix4.identity()
+                    ..setEntry(3, 2, 0.001)
+                    ..rotateY(angle),
+                  child: showBack
+                      ? Transform(
+                          alignment: Alignment.center,
+                          transform: Matrix4.identity()
+                            ..setEntry(3, 2, 0.001)
+                            ..rotateY(math.pi),
+                          child: widget.back,
+                        )
+                      : widget.front,
+                ),
+                if (spineOpacity > 0)
+                  IgnorePointer(
+                    child: Center(
+                      child: FractionallySizedBox(
+                        heightFactor: 0.94,
+                        child: Container(
+                          width: 1,
+                          color: context.karisColors.hairline
+                              .withValues(alpha: 0.7 * spineOpacity),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
             );
           },
         ),
@@ -111,11 +134,16 @@ class ReviewCardFrame extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.karisColors;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    // 纸背透光：背面表面色向 paper 轻微靠拢（明暗两套都微暗一档），
+    // 模拟纸背比纸面暗一点的质感，与翻面时的书脊线共同撑起"纸"的体感。
+    final surface = back
+        ? Color.lerp(colors.surface, colors.paper, 0.1)!
+        : colors.surface;
     return Container(
       width: double.infinity,
       height: double.infinity,
       decoration: BoxDecoration(
-        color: colors.surface,
+        color: surface,
         border: Border.all(color: colors.hairline),
         borderRadius: BorderRadius.circular(8),
         boxShadow: [

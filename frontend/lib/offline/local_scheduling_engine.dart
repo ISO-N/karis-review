@@ -43,6 +43,7 @@ class LocalSchedulingEngine {
     var consecutiveFamiliar = card.consecutiveFamiliar;
     var learningStep = card.learningStep;
     var reentryStage = card.reentryStage;
+    var learningOrigin = card.learningOrigin;
     String? nextReviewDate;
 
     switch (rating) {
@@ -56,6 +57,8 @@ class LocalSchedulingEngine {
             learningMode = false;
             consecutiveFamiliar = 0;
             learningStep = 0;
+            // 脱离重学：清除学习来源标记
+            learningOrigin = null;
             if (reentryStage != null && reentryStage > 0) {
               stage = reentryStage;
               reentryStage = null;
@@ -78,6 +81,13 @@ class LocalSchedulingEngine {
           nextReviewDate = _plusDays(today, stageIntervals[maxStage]);
         }
       case 'FORGET':
+        // 学习来源归属：非学习状态进入重学 → 按原状态定来源（新卡=NEW，到期卡=REVIEW）；
+        // 重学中再次忘记 → 保持原来源；历史数据（来源为空）兜底按 REVIEW（旧行为归复习队列）。
+        if (learningMode) {
+          learningOrigin ??= 'REVIEW';
+        } else {
+          learningOrigin = before == 0 ? 'NEW' : 'REVIEW';
+        }
         stage = 0;
         learningMode = true;
         consecutiveFamiliar = 0;
@@ -87,6 +97,12 @@ class LocalSchedulingEngine {
       case 'VAGUE':
         final effectiveStage = calculateEffectiveStage(stage, overdueDays);
         if (effectiveStage <= 1) {
+          // VAGUE 视同 FORGET，来源逻辑与 FORGET 一致
+          if (learningMode) {
+            learningOrigin ??= 'REVIEW';
+          } else {
+            learningOrigin = before == 0 ? 'NEW' : 'REVIEW';
+          }
           stage = 0;
           learningMode = true;
           consecutiveFamiliar = 0;
@@ -94,6 +110,11 @@ class LocalSchedulingEngine {
           reentryStage = null;
           nextReviewDate = _formatDate(today);
         } else {
+          // VAGUE 只发生在 stage≥2 的到期卡上，来源必为 REVIEW；
+          // 重学中再模糊保持原来源，历史数据兜底 REVIEW。
+          if (!learningMode || learningOrigin == null) {
+            learningOrigin = 'REVIEW';
+          }
           reentryStage = effectiveStage;
           stage = effectiveStage - 1;
           learningMode = true;
@@ -132,6 +153,7 @@ class LocalSchedulingEngine {
       due: !DateTime.parse(nextReviewDate).isAfter(today),
       createdAt: card.createdAt,
       reviewVersion: reviewVersionBefore + 1,
+      learningOrigin: learningOrigin,
     );
 
     return LocalRatingOutcome(

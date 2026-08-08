@@ -32,6 +32,14 @@ public class ReviewLog {
     @Column(name = "is_new_card", nullable = false)
     private boolean newCard;
 
+    /**
+     * 评分时刻卡片的 learning_origin 快照（评分前取值）：
+     * "NEW" 表示该评分发生在「学新阶段产生的重学」中，不计入今日复习；
+     * null 表示非重学状态（普通复习/新学），计入今日复习或今日新学。
+     */
+    @Column(name = "learning_origin")
+    private String learningOrigin;
+
     @Column(name = "client_request_id")
     private String clientRequestId;
 
@@ -59,6 +67,8 @@ public class ReviewLog {
     public void setStageAfter(int stageAfter) { this.stageAfter = stageAfter; }
     public boolean isNewCard() { return newCard; }
     public void setNewCard(boolean newCard) { this.newCard = newCard; }
+    public String getLearningOrigin() { return learningOrigin; }
+    public void setLearningOrigin(String learningOrigin) { this.learningOrigin = learningOrigin; }
     public String getClientRequestId() { return clientRequestId; }
     public void setClientRequestId(String clientRequestId) { this.clientRequestId = clientRequestId; }
     public LocalDateTime getReviewedAt() { return reviewedAt; }

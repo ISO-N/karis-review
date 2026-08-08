@@ -43,6 +43,14 @@ public class Card {
     @Column(name = "learning_step", nullable = false)
     private int learningStep = 0;
 
+    /**
+     * 学习来源：进入重学模式时所属的阶段。
+     * "NEW"（学新阶段忘记）/ "REVIEW"（复习阶段忘记/模糊）/ null（非重学或旧数据）。
+     * 决定重学卡归学新队列还是复习队列。
+     */
+    @Column(name = "learning_origin")
+    private String learningOrigin;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -86,6 +94,8 @@ public class Card {
     public void setReentryStage(Integer reentryStage) { this.reentryStage = reentryStage; }
     public int getLearningStep() { return learningStep; }
     public void setLearningStep(int learningStep) { this.learningStep = learningStep; }
+    public String getLearningOrigin() { return learningOrigin; }
+    public void setLearningOrigin(String learningOrigin) { this.learningOrigin = learningOrigin; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }
     public long getReviewVersion() { return reviewVersion; }

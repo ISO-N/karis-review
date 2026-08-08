@@ -76,7 +76,7 @@ class ReviewSessionServiceTest {
         when(userRepository.findById(userId)).thenReturn(Optional.of(user()));
         when(cardRepository.findDueCards(eq(userId), any(LocalDate.class), eq(deckId)))
                 .thenReturn(List.of());
-        when(cardRepository.findLearningModeCards(eq(userId), any(LocalDate.class), eq(deckId)))
+        when(cardRepository.findLearningModeCardsForReview(eq(userId), any(LocalDate.class), eq(deckId)))
                 .thenReturn(List.of());
         ReviewSession[] savedSessionHolder = new ReviewSession[1];
         when(reviewSessionRepository.save(any(ReviewSession.class))).thenAnswer(inv -> {

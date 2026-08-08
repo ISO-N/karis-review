@@ -19,11 +19,12 @@ public class ReviewCardResponse {
     private Integer reentryStage;
     private LocalDate nextReviewDate;
     private long reviewVersion;
+    private String learningOrigin;
 
     public ReviewCardResponse(UUID id, UUID deckId, String front, String back,
                               int stage, boolean learningMode, int consecutiveFamiliar,
                               Integer reentryStage, LocalDate nextReviewDate,
-                              int learningStep, long reviewVersion) {
+                              int learningStep, long reviewVersion, String learningOrigin) {
         this.id = id;
         this.deckId = deckId;
         this.front = front;
@@ -35,6 +36,7 @@ public class ReviewCardResponse {
         this.reentryStage = reentryStage;
         this.nextReviewDate = nextReviewDate;
         this.reviewVersion = reviewVersion;
+        this.learningOrigin = learningOrigin;
     }
 
     public UUID getId() { return id; }
@@ -59,4 +61,6 @@ public class ReviewCardResponse {
     public void setNextReviewDate(LocalDate nextReviewDate) { this.nextReviewDate = nextReviewDate; }
     public long getReviewVersion() { return reviewVersion; }
     public void setReviewVersion(long reviewVersion) { this.reviewVersion = reviewVersion; }
+    public String getLearningOrigin() { return learningOrigin; }
+    public void setLearningOrigin(String learningOrigin) { this.learningOrigin = learningOrigin; }
 }

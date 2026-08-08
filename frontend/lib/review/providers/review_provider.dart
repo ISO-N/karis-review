@@ -373,6 +373,9 @@ class ReviewNotifier extends StateNotifier<ReviewSessionState> {
       }
       final meta = await _offline.getSyncMeta(userId);
       final flash = _toFlashCard(card, refreshTime: meta?.refreshTime);
+      // 评分时刻的学习来源快照（排程算法会返回变更后的卡，必须先取值）：
+      // 学新阶段产生的重学（NEW）评分不计入「今日复习」。
+      final originAtRating = flash.learningOrigin;
       final outcome = LocalSchedulingEngine().rate(
         flash,
         rating,
@@ -388,6 +391,7 @@ class ReviewNotifier extends StateNotifier<ReviewSessionState> {
         ratedAt: DateTime.now().toUtc(),
         reviewVersionBefore: outcome.reviewVersionBefore,
         isNewCard: outcome.wasNewCard,
+        learningOrigin: originAtRating,
       );
       _onDataChanged?.call();
 
@@ -518,6 +522,7 @@ class ReviewNotifier extends StateNotifier<ReviewSessionState> {
       reentryStage: card.reentryStage,
       nextReviewDate: card.nextReviewDate,
       reviewVersion: card.reviewVersion,
+      learningOrigin: card.learningOrigin,
     );
   }
 
@@ -573,6 +578,7 @@ class ReviewNotifier extends StateNotifier<ReviewSessionState> {
           card.nextReviewDate != null &&
           card.nextReviewDate!.compareTo(today) <= 0,
       reviewVersion: card.reviewVersion,
+      learningOrigin: card.learningOrigin,
     );
   }
 

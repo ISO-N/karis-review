@@ -4,6 +4,7 @@ import '../../app/theme.dart';
 import '../utils/motion.dart';
 import 'app_semantics.dart';
 import 'entrance.dart';
+import 'memory_ring.dart';
 
 class SectionHeader extends StatelessWidget {
   final String title;
@@ -86,14 +87,30 @@ class EmptyState extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                width: 54,
-                height: 54,
-                decoration: BoxDecoration(
-                  color: colors.jadeSoft,
-                  borderRadius: BorderRadius.circular(8),
+              // 空刻度环：progress=0 的记忆刻度环只留下底环与刻度——
+              // 「环还在，等待第一圈」。与今日页年轮、完成页收满环同源，
+              // 让空状态也从「图标方块」升维为母题落点。
+              // 装饰性元素：排除语义，避免屏幕阅读器重复朗读图形本身。
+              ExcludeSemantics(
+                child: SizedBox(
+                  width: 58,
+                  height: 58,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Positioned.fill(
+                        child: MemoryRing(
+                          progress: 0,
+                          size: 58,
+                          strokeWidth: 2.5,
+                          tickLength: 3,
+                          tickCount: 24,
+                        ),
+                      ),
+                      Icon(icon, color: colors.jade, size: 22),
+                    ],
+                  ),
                 ),
-                child: Icon(icon, color: colors.jade, size: 26),
               ),
               const SizedBox(height: 16),
               KarisHeading(

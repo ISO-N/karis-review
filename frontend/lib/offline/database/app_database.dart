@@ -41,6 +41,7 @@ class LocalCards extends Table {
   BoolColumn get learningMode => boolean().withDefault(const Constant(false))();
   IntColumn get reentryStage => integer().nullable()();
   IntColumn get learningStep => integer().withDefault(const Constant(0))();
+  TextColumn get learningOrigin => text().nullable()();
   Int64Column get reviewVersion => int64().withDefault(Constant(BigInt.zero))();
   DateTimeColumn get createdAt => dateTime().nullable()();
   DateTimeColumn get updatedAt => dateTime().nullable()();
@@ -62,6 +63,7 @@ class LocalReviewLogs extends Table {
   IntColumn get stageBefore => integer()();
   IntColumn get stageAfter => integer()();
   BoolColumn get isNewCard => boolean().withDefault(const Constant(false))();
+  TextColumn get learningOrigin => text().nullable()();
   DateTimeColumn get reviewedAt => dateTime()();
   TextColumn get clientRequestId => text().nullable()();
   Int64Column get reviewVersion => int64().withDefault(Constant(BigInt.zero))();
@@ -96,7 +98,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor]) : super(executor ?? driftDatabase(name: 'karis_review'));
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -112,6 +114,10 @@ class AppDatabase extends _$AppDatabase {
       }
       if (from < 4) {
         await m.addColumn(syncMeta, syncMeta.lastEventCursor);
+      }
+      if (from < 5) {
+        await m.addColumn(localCards, localCards.learningOrigin);
+        await m.addColumn(localReviewLogs, localReviewLogs.learningOrigin);
       }
     },
   );

@@ -123,6 +123,9 @@ public class ReviewProtoMapper {
         if (card.getNextReviewDate() != null) {
             builder.setNextReviewDate(card.getNextReviewDate().toString());
         }
+        if (card.getLearningOrigin() != null) {
+            builder.setLearningOrigin(card.getLearningOrigin());
+        }
         return builder.build();
     }
 

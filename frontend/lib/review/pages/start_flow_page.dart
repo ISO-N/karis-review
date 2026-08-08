@@ -247,20 +247,46 @@ class _ModeSwitch extends StatelessWidget {
         border: Border.all(color: colors.hairline),
         borderRadius: BorderRadius.circular(10),
       ),
-      child: Row(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Expanded(
-            child: _ModeOption(
-              label: l10n.startFilterDue,
-              active: mode == 'due',
-              onTap: () => onChanged('due'),
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: _ModeOption(
+                  label: l10n.startFilterDue,
+                  active: mode == 'due',
+                  onTap: () => onChanged('due'),
+                ),
+              ),
+              Expanded(
+                child: _ModeOption(
+                  label: '学习新卡',
+                  active: mode == 'new',
+                  onTap: () => onChanged('new'),
+                ),
+              ),
+            ],
           ),
-          Expanded(
-            child: _ModeOption(
-              label: '学习新卡',
-              active: mode == 'new',
-              onTap: () => onChanged('new'),
+          // 槽底 9 段刻度：呼应 StageRuler 的 0-180 天刻度，让「选择队列」
+          // 这个动作也落在记忆刻度母题上。纯装饰、低对比，不抢选项焦点。
+          Padding(
+            padding: const EdgeInsets.fromLTRB(6, 5, 6, 3),
+            child: Row(
+              children: List.generate(9, (index) {
+                return Expanded(
+                  child: Container(
+                    height: 2,
+                    margin: EdgeInsets.only(
+                      right: index == 8 ? 0 : 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: colors.stone.withValues(alpha: 0.22),
+                      borderRadius: BorderRadius.circular(1),
+                    ),
+                  ),
+                );
+              }),
             ),
           ),
         ],

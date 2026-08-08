@@ -22,7 +22,8 @@ class KarisColors extends ThemeExtension<KarisColors> {
   /// 熟悉、完成、主强调（青 / 夜青）
   final Color jade;
 
-  /// 忘记、危险操作（朱 / 夜朱）
+  /// 忘记、危险操作；印章确认（第二合法语义：完成页「今日毕」落戳）
+  /// （朱 / 夜朱）
   final Color cinnabar;
 
   /// 模糊、重学（金 / 夜金）
@@ -139,6 +140,23 @@ extension KarisColorsContext on BuildContext {
 }
 
 abstract final class KarisTheme {
+  /// 语义化间距刻度（像素）。页面/组件统一取此常量，避免硬编码散值。
+  static const double spaceXs = 4;
+  static const double spaceSm = 8;
+  static const double spaceMd = 12;
+  static const double spaceLg = 16;
+  static const double spaceXl = 20;
+  static const double space2xl = 24;
+  static const double space3xl = 32;
+  static const double space4xl = 40;
+  static const double space5xl = 48;
+
+  /// 语义化圆角刻度（像素）。与全局卡片/输入框圆角保持一致。
+  static const double radiusSm = 8;
+  static const double radiusMd = 10;
+  static const double radiusLg = 12;
+  static const double radiusPill = 32;
+
   static const List<int> stageIntervals = [0, 1, 2, 4, 7, 15, 30, 90, 180];
   static const List<String> stageLabels = [
     '0',
@@ -208,6 +226,9 @@ ThemeData _buildTheme(Brightness brightness) {
     ),
     fontFamily: KarisTheme.bodyFamily,
     fontFamilyFallback: KarisTheme.bodyFallbacks,
+    // 焦点/悬停 overlay 基色：语义 jade，确保键盘聚焦可见（WCAG 焦点可达）。
+    focusColor: c.jade.withValues(alpha: 0.14),
+    hoverColor: c.jade.withValues(alpha: 0.08),
     textTheme: base.copyWith(
       displayLarge: base.displayLarge?.copyWith(
         fontFamily: KarisTheme.displayFamily,
@@ -278,7 +299,7 @@ ThemeData _buildTheme(Brightness brightness) {
       color: c.surface,
       surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.all(Radius.circular(8)),
+        borderRadius: BorderRadius.all(Radius.circular(KarisTheme.radiusSm)),
         side: BorderSide(color: c.hairline),
       ),
     ),
@@ -311,41 +332,74 @@ ThemeData _buildTheme(Brightness brightness) {
       hintStyle: TextStyle(color: c.stone),
     ),
     filledButtonTheme: FilledButtonThemeData(
-      style: FilledButton.styleFrom(
-        minimumSize: const Size(0, 46),
-        backgroundColor: c.ink,
-        foregroundColor: c.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        textStyle: const TextStyle(
+      style: ButtonStyle(
+        minimumSize: const WidgetStatePropertyAll(Size(0, 46)),
+        backgroundColor: WidgetStatePropertyAll(c.jade),
+        foregroundColor: WidgetStatePropertyAll(c.surface),
+        overlayColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.pressed)) {
+            return c.surface.withValues(alpha: 0.16);
+          }
+          if (states.contains(WidgetState.focused)) {
+            return c.surface.withValues(alpha: 0.12);
+          }
+          return c.surface.withValues(alpha: 0.10);
+        }),
+        shape: WidgetStatePropertyAll(
+          RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(KarisTheme.radiusSm),
+          ),
+        ),
+        textStyle: const WidgetStatePropertyAll(TextStyle(
           fontSize: 14,
           fontWeight: FontWeight.w600,
           letterSpacing: 0,
-        ),
+        )),
       ),
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
-      style: OutlinedButton.styleFrom(
-        minimumSize: const Size(0, 46),
-        foregroundColor: c.ink,
-        side: BorderSide(color: c.hairline),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        textStyle: const TextStyle(
+      style: ButtonStyle(
+        minimumSize: const WidgetStatePropertyAll(Size(0, 46)),
+        foregroundColor: WidgetStatePropertyAll(c.ink),
+        side: WidgetStatePropertyAll(BorderSide(color: c.hairline)),
+        overlayColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.focused)) {
+            return c.jade.withValues(alpha: 0.10);
+          }
+          return c.jade.withValues(alpha: 0.06);
+        }),
+        shape: WidgetStatePropertyAll(
+          RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(KarisTheme.radiusSm),
+          ),
+        ),
+        textStyle: const WidgetStatePropertyAll(TextStyle(
           fontSize: 14,
           fontWeight: FontWeight.w600,
           letterSpacing: 0,
-        ),
+        )),
       ),
     ),
     textButtonTheme: TextButtonThemeData(
-      style: TextButton.styleFrom(
-        foregroundColor: c.jade,
-        minimumSize: const Size(44, 44),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        textStyle: const TextStyle(
+      style: ButtonStyle(
+        foregroundColor: WidgetStatePropertyAll(c.jade),
+        minimumSize: const WidgetStatePropertyAll(Size(44, 44)),
+        overlayColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.focused)) {
+            return c.jade.withValues(alpha: 0.14);
+          }
+          return c.jade.withValues(alpha: 0.08);
+        }),
+        shape: WidgetStatePropertyAll(
+          RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(KarisTheme.radiusSm),
+          ),
+        ),
+        textStyle: const WidgetStatePropertyAll(TextStyle(
           fontSize: 13,
           fontWeight: FontWeight.w600,
           letterSpacing: 0,
-        ),
+        )),
       ),
     ),
     snackBarTheme: SnackBarThemeData(
@@ -391,7 +445,7 @@ ThemeData _buildTheme(Brightness brightness) {
       backgroundColor: c.surface,
       surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(KarisTheme.radiusMd),
         side: BorderSide(color: c.hairline),
       ),
     ),
@@ -399,8 +453,10 @@ ThemeData _buildTheme(Brightness brightness) {
       backgroundColor: c.surface,
       surfaceTintColor: Colors.transparent,
       showDragHandle: false,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(10)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(KarisTheme.radiusMd),
+        ),
       ),
     ),
     extensions: [c],
@@ -439,6 +495,28 @@ TextStyle karisDisplay({
     color: color,
     fontWeight: weight,
     height: 1.3,
+    letterSpacing: 0,
+  );
+}
+
+/// 纪念碑场景大数字（衬线渲染）。
+///
+/// 与等宽数字的分工规则：
+/// - [karisMono]（等宽）用于需要对齐的数据场景——统计数字、进度、快捷键；
+/// - [karisMonument]（衬线）用于「值得被记住」的大数字——今日待办、已掌握数，
+///   让数字像碑文一样立起来。两条规则不要混用，混用会破坏数字的节奏感。
+TextStyle karisMonument({
+  double fontSize = 54,
+  Color? color,
+  FontWeight weight = FontWeight.w500,
+}) {
+  return TextStyle(
+    fontFamily: KarisTheme.displayFamily,
+    fontFamilyFallback: KarisTheme.displayFallbacks,
+    fontSize: fontSize,
+    color: color,
+    fontWeight: weight,
+    height: 1.12,
     letterSpacing: 0,
   );
 }

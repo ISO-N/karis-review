@@ -243,13 +243,14 @@ public class SyncService {
                 card.getId(), card.getDeckId(), card.getFront(), card.getBack(),
                 card.getStage(), card.getConsecutiveFamiliar(), card.getNextReviewDate(),
                 card.isLearningMode(), card.getReentryStage(), card.getLearningStep(),
-                card.getReviewVersion(), card.getCreatedAt(), card.getUpdatedAt());
+                card.getReviewVersion(), card.getLearningOrigin(),
+                card.getCreatedAt(), card.getUpdatedAt());
     }
 
     private BootstrapReviewLog toBootstrapLog(ReviewLog log) {
         return new BootstrapReviewLog(
                 log.getId(), log.getCardId(), log.getRating(),
                 log.getStageBefore(), log.getStageAfter(), log.getReviewedAt(),
-                log.isNewCard(), log.getClientRequestId());
+                log.isNewCard(), log.getClientRequestId(), log.getLearningOrigin());
     }
 }

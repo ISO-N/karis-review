@@ -58,7 +58,7 @@ class DeckServiceTest {
         when(cardRepository.countByDeckId(deckId)).thenReturn(3L);
         when(cardRepository.countDueByDeckId(deckId, DateUtils.calculateToday(LocalTime.of(4, 0))))
                 .thenReturn(1);
-        when(cardRepository.countByDeckIdAndStageAndLearningModeFalse(deckId, 0)).thenReturn(2L);
+        when(cardRepository.countNewByDeckId(deckId)).thenReturn(2L);
         when(cardRepository.countByDeckIdAndStageGreaterThanEqual(deckId, 5)).thenReturn(1L);
         when(cardRepository.countByStageGroupedByDeck(deckId)).thenReturn(
                 List.<Object[]>of(new Object[]{3, 2L}, new Object[]{5, 1L}));

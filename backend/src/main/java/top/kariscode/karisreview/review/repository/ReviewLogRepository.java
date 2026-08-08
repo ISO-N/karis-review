@@ -30,7 +30,8 @@ public interface ReviewLogRepository extends JpaRepository<ReviewLog, UUID> {
 
     @Query("SELECT COUNT(r) FROM ReviewLog r WHERE r.userId = :userId " +
            "AND r.reviewedAt >= :startOfDay AND r.reviewedAt < :endOfDay " +
-           "AND r.newCard = false")
+           "AND r.newCard = false " +
+           "AND (r.learningOrigin IS NULL OR r.learningOrigin <> 'NEW')")
     long countReviewedToday(@Param("userId") UUID userId,
                             @Param("startOfDay") LocalDateTime startOfDay,
                             @Param("endOfDay") LocalDateTime endOfDay);
@@ -46,11 +47,14 @@ public interface ReviewLogRepository extends JpaRepository<ReviewLog, UUID> {
      * 趋势聚合：按“业务日”分组（reviewed_at 减去用户刷新点后取日期，与
      * DateUtils.calculateToday 口径一致——刷新点之前的日志归到前一天），
      * 聚合下推到数据库，避免把全量 ReviewLog 实体加载进 JVM 内存逐条统计。
-     * 返回行：[业务日, 复习次数(非新卡), 新学次数(新卡且 FAMILIAR)]。
+     * 返回行：[业务日, 复习次数, 新学次数(新卡且 FAMILIAR)]。
+     * 复习次数 = 非新卡评分且非「学新阶段重学」评分（learning_origin <> 'NEW'），
+     * 即今日复习只统计到期卡复习与复习阶段重学。
      */
     @Query(value = """
             SELECT (reviewed_at - CAST(:refreshTime AS time))::date AS review_date,
-                   SUM(CASE WHEN is_new_card = FALSE THEN 1 ELSE 0 END) AS reviewed_cnt,
+                   SUM(CASE WHEN is_new_card = FALSE AND (learning_origin IS NULL OR learning_origin <> 'NEW')
+                            THEN 1 ELSE 0 END) AS reviewed_cnt,
                    SUM(CASE WHEN is_new_card = TRUE AND rating = 'FAMILIAR' THEN 1 ELSE 0 END) AS learned_cnt
             FROM review_logs
             WHERE user_id = :userId AND reviewed_at >= :start
@@ -64,6 +68,7 @@ public interface ReviewLogRepository extends JpaRepository<ReviewLog, UUID> {
     @Query("SELECT COUNT(r) FROM ReviewLog r WHERE r.userId = :userId " +
            "AND r.reviewedAt >= :startOfDay AND r.reviewedAt < :endOfDay " +
            "AND r.newCard = false " +
+           "AND (r.learningOrigin IS NULL OR r.learningOrigin <> 'NEW') " +
            "AND r.cardId IN (SELECT c.id FROM Card c WHERE c.deckId = :deckId)")
     long countReviewedTodayForDeck(@Param("userId") UUID userId,
                                    @Param("deckId") UUID deckId,

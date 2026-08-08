@@ -289,6 +289,17 @@ lib/
 │   ├── pages/stats_page.dart
 │   └── models/stats.dart
 │
+├── tts/
+│   ├── tts_engine.dart                  # TTS 引擎抽象接口 + 平台工厂
+│   ├── system_tts_engine.dart           # flutter_tts 实现（Android/iOS/Windows）
+│   ├── linux_tts_engine.dart            # spd-say 子进程实现（Linux）
+│   ├── tts_text_extractor.dart          # Delta/Markdown → 朗读文本 + 语言分段
+│   ├── tts_provider.dart                # 朗读状态与本地偏好（开关/语速）
+│   ├── phonetic_dict.dart               # 美式 IPA 词库加载/判定/查询（离线）
+│   └── widgets/
+│       ├── tts_button.dart              # 复习页正反面朗读按钮
+│       └── phonetic_line.dart           # 单词音标行（纯英文内容显示）
+│
 └── settings/
     ├── providers/settings_provider.dart
     ├── repositories/settings_repository.dart
@@ -306,6 +317,7 @@ lib/
 | 富文本编辑 | flutter_quill | 10.x | 富文本编辑器 |
 | LaTeX 渲染 | flutter_math_fork | 0.7.x | 数学公式渲染 |
 | 代码高亮 | flutter_highlight | 0.7.x | 语法高亮 |
+| 系统 TTS | flutter_tts | 4.x | Android/iOS/Windows 朗读（Linux 用 spd-say） |
 | 后端框架 | Spring Boot | 3.x | Java 生态最成熟 |
 | Java 版本 | Java | 21 (LTS) | 当前最新 LTS |
 | ORM | Spring Data JPA + Hibernate | — | 与 Spring Boot 深度集成 |
@@ -324,6 +336,27 @@ lib/
 - `SecurityConfig` 放行 `/api/auth/config`、`/api/auth/register`、`/api/auth/register-code`、`/api/auth/login`、`/api/auth/password/reset-code`、`/api/auth/password/reset`、`/v3/api-docs/**`、`/swagger-ui/**`、`/swagger-ui.html`。
 - 生产环境使用 `prod` profile 时关闭文档。
 - 邮件发送通过 `MailSender` 抽象：未配置 `mail.smtp.host` 时用 `NoopMailSender`（验证码仅打日志，便于本地开发）；配置后自动切换 `SmtpMailSender`。SMTP 支持 `mail.smtp.socks.host`/`mail.smtp.socks.port` 走本地 SOCKS5 代理（Resend 等境外服务在国内部署时使用）。
+
+### 5.1 TTS 朗读（前端 `tts/` 模块）
+
+纯客户端系统 TTS，不依赖后端与网络。分层与关键设计：
+
+- **引擎抽象**：`TtsEngine` 接口（`isAvailable/setSpeechRate/speakSegments/stop/dispose`），为云端神经网络 TTS 预留扩展位。
+- **双实现**：
+  - `SystemTtsEngine`（flutter_tts 4.x）：Android / iOS / Windows。iOS 设 `ambient + mixWithOthers` 音频会话，朗读时音乐可继续。
+  - `LinuxTtsEngine`（spd-say 子进程）：flutter_tts **官方不支持 Linux**，Linux 端调用 `speech-dispatcher` 命令行客户端，每段一个 `spd-say -l <lang> -r <rate> -w <text>` 进程，`stop()` kill 当前进程 + 代数递增打断循环。
+  - 工厂 `createTtsEngine()` 按 `Platform.isLinux` 选择。测试环境（`FLUTTER_TEST`）下 SystemTtsEngine 全部短路为 no-op——flutter_tts 的 MethodChannel 在 fake async 下挂起而非抛 MissingPluginException，短路避免测试卡死。
+- **文本提取**（`tts_text_extractor.dart`，纯函数可单测）：卡片内容（Delta JSON / Markdown）→ 朗读纯文本。Delta 只取 String insert，embed（LaTeX/代码块）跳过；Markdown 用正则剥离代码围栏、`$..$`/`$$..$$` 公式、行内代码标记、标题/列表/粗斜体。
+- **中英混读**：`splitForSpeech` 按句末标点切分，CJK ≥ 2 字符判 `zh-CN` 否则 `en-US`，相邻同语言段合并；引擎逐段 `setLanguage` 后朗读，实现中英混合卡片的正确发音。
+- **状态与生命周期**：`ttsProvider` 独立于 `reviewProvider`，管三件事——是否在播、读哪面、本地偏好（开关/语速，存 SharedPreferences，不进后端不参与同步）。换卡、翻面、评分、离开复习页均调用 `stop()` 防叠音。复习页 `dispose()` 阶段 ref 不可用，故在 `initState` 缓存 notifier 实例再调 stop。
+- **UI**：复习页正反面 header 各有 `TtsButton`（引擎不可用或关闭时不占位），键盘 `V` 朗读当前面；设置页「朗读」块含开关与语速滑块（0.5–1.5x）。
+- **音标显示**（`phonetic_dict.dart` + `widgets/phonetic_line.dart`）：卡片某面为**纯英文单词/短语**时（无中文/数字/标点，允许撇号、连字符、空格，≤40 字符），内容下方显示美式 IPA 音标。词库 `assets/ipa/en_US_ipa.txt` 源自 `open-dict-data/ipa-dict`（CC0 许可），约 12.5 万词、3.1MB（已过滤缩写词、去除音标包裹斜杠）；首次查询惰性加载进内存，结果 LRU 缓存（容量 256）。规则：一词多音标（record 名词/动词重音不同）取第一个主要发音；多词按空格逐词拼接；连字符合成词整体查不到按 `-` 拆段回退；未收录或非纯英文一律返回 null，UI 静默不显示。纯客户端离线查询，不碰后端、不动表结构。
+
+平台配置要求：
+
+- Android：minSdk ≥ 21（项目 `flutter.minSdkVersion` 默认 24 满足）；`AndroidManifest.xml` 的 `<queries>` 已声明 `android.intent.action.TTS_SERVICE`（Android 11+ 发现引擎需要）。
+- Windows：flutter_tts 走 WinRT SpeechSynthesis，需 Windows 10 1809+；非中文系统可能缺中文 voice，`isAvailable` 只检测语言列表非空，缺 voice 时按钮隐藏。**构建前置**：flutter_tts 的 Windows 插件用 NuGet 拉取 `Microsoft.Windows.CppWinRT` 依赖，构建机需要 `nuget.exe` 在 PATH（`find_program` 找不到会直接 CMake fatal error）。本机已放一份在 `~/.workbuddy/binaries/nuget/nuget.exe`，构建前 `export PATH="$HOME/.workbuddy/binaries/nuget:$PATH"` 即可。
+- Linux：运行时依赖 `speech-dispatcher` + `espeak-ng`（`apt install speech-dispatcher espeak-ng`）；未安装时 `isAvailable` 返回 false，UI 提示安装。Linux 实现是纯 Dart 子进程，无额外构建依赖。
 
 ## 6. 模块间依赖关系
 ```
@@ -356,6 +389,25 @@ log ───────► common
 - 同步 Bootstrap、复习会话/分页、复习队列、评分同步支持同 URL Protobuf 内容协商；默认 JSON，客户端生产请求优先使用 Protobuf。
 - 前端 `SyncService` 对刷新做单飞行与冷却，评分同步做防抖批量提交，避免重复下载和重复请求。
 - `review_logs` 同步回传时携带 `client_request_id`，Drift 用它替换本地待同步镜像，统计层对旧重复数据去重，避免同一评分被计两次。
+
+## 7.1.1 队列归属与统计口径（learning_origin）
+
+重学卡（`learning_mode=true`）按进入重学时的阶段决定归属，`cards.learning_origin`（V15 迁移）记录来源：
+
+- `NEW`：学新阶段（新卡）忘记进入重学 → 归**学新队列**（新卡 + `NEW` 重学卡按 2^n 间距插入）。
+- `REVIEW`：复习阶段（到期卡）忘记/模糊进入重学 → 归**复习队列**（到期卡 + `REVIEW` 重学卡按 2^n 间距插入）。
+- null：非重学或历史数据（旧数据按 `REVIEW` 处理，保持原行为）。
+
+服务端 `ReviewService.buildNewQueue/buildDueQueue` 与前端离线 `OfflineRepository.getNewQueue/getDueQueue` 按同一来源规则构建队列，因此学新页忘记/模糊的卡退出重进后仍能在学新队列遇到；重学中再忘记/模糊保持原来源，脱离重学（连续 Familiar 达标）清除来源。
+
+统计口径随之调整（前后端一致）：
+
+- `reviewed_today`（已复习）：今日 `is_new_card=false` 且 `learning_origin <> 'NEW'` 的评分——到期卡复习 + 复习阶段重学计入；学新阶段的重学评分不计入。
+- `due_today` / `due_stage_distribution`（待复习）：已排期且非 `NEW` 重学的卡；学新阶段重学卡不计入。
+- `new_cards`（待学习/学新队列规模）：待学新卡 + `NEW` 重学卡。
+- `review_logs.learning_origin` 是评分时刻的卡片来源快照（评分前取值），用于统计与历史回溯。
+
+`learning_origin` 经同步载荷（Bootstrap/复习会话 protobuf 与 JSON）与备份导出导入全链路传递。
 
 ## 7.2 自动刷新与关键时机同步
 

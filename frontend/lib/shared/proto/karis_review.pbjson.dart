@@ -69,10 +69,20 @@ const Card$json = {
     {'1': 'review_version', '3': 11, '4': 1, '5': 3, '10': 'reviewVersion'},
     {'1': 'created_at', '3': 12, '4': 1, '5': 9, '10': 'createdAt'},
     {'1': 'updated_at', '3': 13, '4': 1, '5': 9, '10': 'updatedAt'},
+    {
+      '1': 'learning_origin',
+      '3': 14,
+      '4': 1,
+      '5': 9,
+      '9': 2,
+      '10': 'learningOrigin',
+      '17': true
+    },
   ],
   '8': [
     {'1': '_next_review_date'},
     {'1': '_reentry_stage'},
+    {'1': '_learning_origin'},
   ],
 };
 
@@ -85,8 +95,9 @@ final $typed_data.Uint8List cardDescriptor = $convert.base64Decode(
     'bW9kZRgIIAEoCFIMbGVhcm5pbmdNb2RlEigKDXJlZW50cnlfc3RhZ2UYCSABKAlIAVIMcmVlbn'
     'RyeVN0YWdliAEBEiMKDWxlYXJuaW5nX3N0ZXAYCiABKAVSDGxlYXJuaW5nU3RlcBIlCg5yZXZp'
     'ZXdfdmVyc2lvbhgLIAEoA1INcmV2aWV3VmVyc2lvbhIdCgpjcmVhdGVkX2F0GAwgASgJUgljcm'
-    'VhdGVkQXQSHQoKdXBkYXRlZF9hdBgNIAEoCVIJdXBkYXRlZEF0QhMKEV9uZXh0X3Jldmlld19k'
-    'YXRlQhAKDl9yZWVudHJ5X3N0YWdl');
+    'VhdGVkQXQSHQoKdXBkYXRlZF9hdBgNIAEoCVIJdXBkYXRlZEF0EiwKD2xlYXJuaW5nX29yaWdp'
+    'bhgOIAEoCUgCUg5sZWFybmluZ09yaWdpbogBAUITChFfbmV4dF9yZXZpZXdfZGF0ZUIQCg5fcm'
+    'VlbnRyeV9zdGFnZUISChBfbGVhcm5pbmdfb3JpZ2lu');
 
 @$core.Deprecated('Use deckDescriptor instead')
 const Deck$json = {
@@ -133,9 +144,19 @@ const ReviewLog$json = {
       '10': 'clientRequestId',
       '17': true
     },
+    {
+      '1': 'learning_origin',
+      '3': 9,
+      '4': 1,
+      '5': 9,
+      '9': 1,
+      '10': 'learningOrigin',
+      '17': true
+    },
   ],
   '8': [
     {'1': '_client_request_id'},
+    {'1': '_learning_origin'},
   ],
 };
 
@@ -145,8 +166,9 @@ final $typed_data.Uint8List reviewLogDescriptor = $convert.base64Decode(
     'ZyYXRpbmcYAyABKAlSBnJhdGluZxIhCgxzdGFnZV9iZWZvcmUYBCABKAVSC3N0YWdlQmVmb3Jl'
     'Eh8KC3N0YWdlX2FmdGVyGAUgASgFUgpzdGFnZUFmdGVyEh8KC3Jldmlld2VkX2F0GAYgASgJUg'
     'pyZXZpZXdlZEF0Eh4KC2lzX25ld19jYXJkGAcgASgIUglpc05ld0NhcmQSLwoRY2xpZW50X3Jl'
-    'cXVlc3RfaWQYCCABKAlIAFIPY2xpZW50UmVxdWVzdElkiAEBQhQKEl9jbGllbnRfcmVxdWVzdF'
-    '9pZA==');
+    'cXVlc3RfaWQYCCABKAlIAFIPY2xpZW50UmVxdWVzdElkiAEBEiwKD2xlYXJuaW5nX29yaWdpbh'
+    'gJIAEoCUgBUg5sZWFybmluZ09yaWdpbogBAUIUChJfY2xpZW50X3JlcXVlc3RfaWRCEgoQX2xl'
+    'YXJuaW5nX29yaWdpbg==');
 
 @$core.Deprecated('Use syncResponseDescriptor instead')
 const SyncResponse$json = {
@@ -249,10 +271,20 @@ const ReviewCard$json = {
       '17': true
     },
     {'1': 'review_version', '3': 11, '4': 1, '5': 3, '10': 'reviewVersion'},
+    {
+      '1': 'learning_origin',
+      '3': 12,
+      '4': 1,
+      '5': 9,
+      '9': 2,
+      '10': 'learningOrigin',
+      '17': true
+    },
   ],
   '8': [
     {'1': '_reentry_stage'},
     {'1': '_next_review_date'},
+    {'1': '_learning_origin'},
   ],
 };
 
@@ -264,8 +296,9 @@ final $typed_data.Uint8List reviewCardDescriptor = $convert.base64Decode(
     'l2ZV9mYW1pbGlhchgHIAEoBVITY29uc2VjdXRpdmVGYW1pbGlhchIjCg1sZWFybmluZ19zdGVw'
     'GAggASgFUgxsZWFybmluZ1N0ZXASKAoNcmVlbnRyeV9zdGFnZRgJIAEoCUgAUgxyZWVudHJ5U3'
     'RhZ2WIAQESLQoQbmV4dF9yZXZpZXdfZGF0ZRgKIAEoCUgBUg5uZXh0UmV2aWV3RGF0ZYgBARIl'
-    'Cg5yZXZpZXdfdmVyc2lvbhgLIAEoA1INcmV2aWV3VmVyc2lvbkIQCg5fcmVlbnRyeV9zdGFnZU'
-    'ITChFfbmV4dF9yZXZpZXdfZGF0ZQ==');
+    'Cg5yZXZpZXdfdmVyc2lvbhgLIAEoA1INcmV2aWV3VmVyc2lvbhIsCg9sZWFybmluZ19vcmlnaW'
+    '4YDCABKAlIAlIObGVhcm5pbmdPcmlnaW6IAQFCEAoOX3JlZW50cnlfc3RhZ2VCEwoRX25leHRf'
+    'cmV2aWV3X2RhdGVCEgoQX2xlYXJuaW5nX29yaWdpbg==');
 
 @$core.Deprecated('Use reviewCardListResponseDescriptor instead')
 const ReviewCardListResponse$json = {
