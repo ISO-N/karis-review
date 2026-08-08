@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart';
 import '../../card/models/card.dart';
 import '../../deck/models/deck.dart';
 import '../../review/models/review_card.dart';
-import '../../shared/scheduling/scheduling_constants.dart';
+import '../../shared/scheduling/queue_composer.dart';
 import '../../shared/utils/app_timezone.dart';
 import '../../stats/models/stats.dart';
 import 'database/app_database.dart';
@@ -66,16 +66,15 @@ class OfflineRepository {
     final meta = await getSyncMeta(userId);
     final today = _formatDate(_today(meta));
     final normalizedQuery = query.trim().toLowerCase();
+    // 筛选口径委托 _isNewCard/_isDueCard 单一事实源（架构评审候选 3 的闭合：
+    // 此前 due 分支漏排除学新重学卡、new 分支漏含 NEW 来源重学卡，导致
+    // 筛选内容与计数（DeckStats 走同一谓词）不一致）。
     final filtered =
         switch (filter) {
-          'due' => cards.where(
-            (c) =>
-                c.nextReviewDate != null &&
-                c.nextReviewDate!.compareTo(today) <= 0,
-          ),
+          'due' => cards.where((c) => _isDueCard(c, today)),
           'learning' => cards.where((c) => c.learningMode),
           'new' =>
-            cards.where((c) => c.stage == 0 && !c.learningMode).toList()..sort(
+            cards.where(_isNewCard).toList()..sort(
               (a, b) => (b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0))
                   .compareTo(
                     a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0),
@@ -138,12 +137,13 @@ class OfflineRepository {
                 );
           });
 
-    final queue = List<LocalCard>.from(due);
-    for (final card in learning) {
-      final offset = SchedulingConstants.relearningInsertOffset(card.learningStep);
-      final position = offset.clamp(0, queue.length).toInt();
-      queue.insert(position, card);
-    }
+    // 插位语义统一走 QueueComposer（架构评审 F1），与 getNewQueue、
+    // 会话内 _reinsertRelearningCard 同一实现。
+    final queue = QueueComposer.interleave(
+      queue: due,
+      learningCards: learning,
+      learningStepOf: (c) => c.learningStep,
+    );
     debugPrint(
       '[KARIS-DBG] getDueQueue userId=$userId deckId=$deckId '
       'due=${due.length} learning=${learning.length} '
@@ -183,12 +183,11 @@ class OfflineRepository {
         return (a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0))
             .compareTo(b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0));
       });
-    final queue = List<LocalCard>.from(newCards);
-    for (final card in learningNew) {
-      final offset = SchedulingConstants.relearningInsertOffset(card.learningStep);
-      final position = offset.clamp(0, queue.length).toInt();
-      queue.insert(position, card);
-    }
+    final queue = QueueComposer.interleave(
+      queue: newCards,
+      learningCards: learningNew,
+      learningStepOf: (c) => c.learningStep,
+    );
     debugPrint(
       '[KARIS-DBG] getNewQueue userId=$userId deckId=$deckId '
       'new=${newCards.length} learningNew=${learningNew.length} '
