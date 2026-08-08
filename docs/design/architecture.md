@@ -415,6 +415,8 @@ log ───────► common
 
 > **2026-08-08 架构评审候选 4 落地**：统计口径收敛——`StatsService.getDeckCounters` 成为卡组计数唯一出口（`DeckCounters` DTO），`DeckService.toDeckResponse` 改调它并删除本类 6 项计数与 `distributionFromRows` 重复实现；模块依赖新增 `deck → stats`（仅 service 层，包级无环）。刷新点解析统一收口 `auth/util/UserRefreshTime.resolve`（兜底 04:00 原复制 4 份）。业务日边界权威定义写入 `DateUtils.calculateToday` javadoc（区间法 `[today@refresh, +1d)` 与 SQL 截断法 `(reviewed_at-refresh)::date` 两种等价写法，禁止第三种）。
 
+> **2026-08-08 架构评审候选 5 落地**：排期公式单一数据源——前端新建 `shared/scheduling/scheduling_constants.dart`（间隔表 / maxStage / 3·5 阈值 / familiar·vague 间隔公式 / 2^n 插位偏移），此前间隔表在 `local_scheduling_engine.dart`、`review_card.dart`、`app/theme.dart`（业务常量混入 UI 间距类）三处副本，公式双份实现；现引擎与 `ReviewCard` 委托本类公式，`theme.dart` 不再持有排期常量（`stageLabels`/`stageName` 引用单一源），插位统一走 `relearningInsertOffset`（原前端 3 处 `1 << step`）。与后端 `SchedulingEngine.java` 为跨语言独立副本，改公式必须两端同步（由 `LocalSchedulingEngineTest` 与系统测试保障）。
+
 ## 7.1.2 统计一致性问题复盘（2026-08 生产故障）
 
 ### 现象

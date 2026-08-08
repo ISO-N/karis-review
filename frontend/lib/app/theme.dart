@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../shared/scheduling/scheduling_constants.dart';
+
 /// Karis Review 语义化颜色 tokens。
 ///
 /// 通过 [ThemeExtension] 挂载到 [ThemeData.extensions]，
@@ -157,18 +159,10 @@ abstract final class KarisTheme {
   static const double radiusLg = 12;
   static const double radiusPill = 32;
 
-  static const List<int> stageIntervals = [0, 1, 2, 4, 7, 15, 30, 90, 180];
-  static const List<String> stageLabels = [
-    '0',
-    '1',
-    '2',
-    '4',
-    '7',
-    '15',
-    '30',
-    '90',
-    '180',
-  ];
+  // 记忆刻度显示标签（间隔天数，与排期间隔表一一对应）。
+  // 单一数据源：shared/scheduling/scheduling_constants.dart（架构评审候选 5，
+  // 排期业务常量不再由 UI 持有）。
+  static const List<String> stageLabels = SchedulingConstants.stageLabels;
 
   static const String displayFamily = 'Noto Serif SC';
   static const String bodyFamily = 'Noto Sans SC';
@@ -193,8 +187,10 @@ abstract final class KarisTheme {
   }
 
   static String stageName(int stage) {
-    if (stage < 0 || stage >= stageIntervals.length) return 'Stage $stage';
-    final days = stageIntervals[stage];
+    if (stage < 0 || stage >= SchedulingConstants.stageIntervals.length) {
+      return 'Stage $stage';
+    }
+    final days = SchedulingConstants.stageIntervals[stage];
     if (days == 0) return '新卡';
     return '$days 天';
   }

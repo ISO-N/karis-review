@@ -1,5 +1,6 @@
+import '../../shared/scheduling/scheduling_constants.dart';
+
 class ReviewCard {
-  static const List<int> _intervals = [0, 1, 2, 4, 7, 15, 30, 90, 180];
 
   final String id;
   final String deckId;
@@ -29,28 +30,21 @@ class ReviewCard {
     this.learningOrigin,
   });
 
-  int get learningGoal =>
-      learningMode ? (reentryStage != null && reentryStage! > 0 ? 3 : 5) : 5;
+  int get learningGoal => learningMode
+      ? SchedulingConstants.relearningThreshold(reentryStage)
+      : SchedulingConstants.forgetThreshold;
 
-  int get currentIntervalDays => _intervals[stage.clamp(0, 8)];
+  int get currentIntervalDays => SchedulingConstants.stageInterval(stage);
 
-  int get familiarIntervalDays {
-    if (learningMode) {
-      final threshold = reentryStage != null && reentryStage! > 0 ? 3 : 5;
-      if (consecutiveFamiliar + 1 >= threshold) {
-        final target = reentryStage;
-        if (target != null && target > 0) {
-          return _intervals[target] - _intervals[target - 1];
-        }
-        return _intervals[1];
-      }
-      return 0;
-    }
-    if (stage >= 8) return _intervals[8];
-    return _intervals[stage + 1];
-  }
+  int get familiarIntervalDays =>
+      SchedulingConstants.familiarIntervalAfterRating(
+        stage: stage,
+        learningMode: learningMode,
+        consecutiveFamiliar: consecutiveFamiliar,
+        reentryStage: reentryStage,
+      );
 
-  int get vagueIntervalDays => stage <= 1 ? 0 : _intervals[stage];
+  int get vagueIntervalDays => SchedulingConstants.vagueIntervalAfterRating(stage);
 
   factory ReviewCard.fromJson(Map<String, dynamic> json) {
     return ReviewCard(

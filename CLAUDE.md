@@ -69,7 +69,7 @@ Android release 包名为 `top.kariscode.karisreview`，debug 包名为 `top.kar
 
 #### 排期算法（核心业务逻辑）
 
-`review/service/SchedulingEngine.java` 是零依赖的纯算法类（便于单测），`ReviewService` 负责编排：
+`review/service/SchedulingEngine.java` 是零依赖的纯算法类（便于单测），`ReviewService` 负责编排。**前端排期常量与公式单一数据源**：`shared/scheduling/scheduling_constants.dart`（间隔表 / maxStage / 3·5 阈值 / familiar·vague 间隔公式 / 2^n 插位偏移），`LocalSchedulingEngine` 与 `ReviewCard` 委托其公式，UI（`theme.dart`）不持有业务常量（2026-08 架构评审候选 5）；与后端为跨语言独立副本，改公式必须两端同步：
 
 - **Stage 0-8**，间隔为 `{0, 1, 2, 4, 7, 15, 30, 90, 180}` 天。
 - **FAMILIAR**：非重学模式升级 1 级；Stage 0 → 1（1 天后）。

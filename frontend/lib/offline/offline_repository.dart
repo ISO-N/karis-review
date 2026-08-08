@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import '../../card/models/card.dart';
 import '../../deck/models/deck.dart';
 import '../../review/models/review_card.dart';
+import '../../shared/scheduling/scheduling_constants.dart';
 import '../../shared/utils/app_timezone.dart';
 import '../../stats/models/stats.dart';
 import 'database/app_database.dart';
@@ -139,7 +140,7 @@ class OfflineRepository {
 
     final queue = List<LocalCard>.from(due);
     for (final card in learning) {
-      final offset = 1 << card.learningStep;
+      final offset = SchedulingConstants.relearningInsertOffset(card.learningStep);
       final position = offset.clamp(0, queue.length).toInt();
       queue.insert(position, card);
     }
@@ -184,7 +185,7 @@ class OfflineRepository {
       });
     final queue = List<LocalCard>.from(newCards);
     for (final card in learningNew) {
-      final offset = 1 << card.learningStep;
+      final offset = SchedulingConstants.relearningInsertOffset(card.learningStep);
       final position = offset.clamp(0, queue.length).toInt();
       queue.insert(position, card);
     }
