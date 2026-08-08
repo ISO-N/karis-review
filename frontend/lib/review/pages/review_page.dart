@@ -644,13 +644,29 @@ class _RatingRow extends StatelessWidget {
   }
 }
 
-class _QueuePanel extends ConsumerWidget {
+class _QueuePanel extends ConsumerStatefulWidget {
   const _QueuePanel();
+
+  @override
+  ConsumerState<_QueuePanel> createState() => _QueuePanelState();
+}
+
+class _QueuePanelState extends ConsumerState<_QueuePanel> {
+  /// 当前卡（active 项）的定位锚点：评分换卡后列表自动滚动跟随，
+  /// 避免队列超过可视高度时高亮项滚出视口、看起来「队列没动」。
+  final GlobalKey _activeKey = GlobalKey();
 
   static final RegExp _spaceRegExp = RegExp(r'\s+');
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  void initState() {
+    super.initState();
+    // 覆盖旋转进入横屏 / 重进页面时队列已滚到深处的场景：首帧后归位到当前卡。
+    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToActive());
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final colors = context.karisColors;
     // 只监听队列本身：loadMore 追加卡片 / currentIndex 移动时重建面板，
     // 评分过程中的其他状态变化（isFlipped、lastResult、pendingSyncCount 等）
@@ -658,6 +674,15 @@ class _QueuePanel extends ConsumerWidget {
     final cards = ref.watch(reviewProvider.select((s) => s.cards));
     final currentIndex = ref.watch(
       reviewProvider.select((s) => s.currentIndex),
+    );
+    // 评分换卡（currentIndex 前移）后，把高亮的当前卡滚回视野中央。
+    ref.listen<int>(
+      reviewProvider.select((s) => s.currentIndex),
+      (prev, next) {
+        if (prev == next) return;
+        // 等新帧把 active 项挂到新 key 上再滚动，避免取到旧位置。
+        WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToActive());
+      },
     );
     return Container(
       width: 246,
@@ -689,6 +714,7 @@ class _QueuePanel extends ConsumerWidget {
                 final card = cards[index];
                 final active = index == currentIndex;
                 return Container(
+                  key: active ? _activeKey : null,
                   margin: active
                       ? const EdgeInsets.symmetric(horizontal: 8)
                       : null,
@@ -733,6 +759,19 @@ class _QueuePanel extends ConsumerWidget {
           ),
         ],
       ),
+    );
+  }
+
+  /// 把当前卡滚动到队列可视区域中央（reduced-motion 下瞬间归位）。
+  void _scrollToActive() {
+    if (!mounted) return;
+    final ctx = _activeKey.currentContext;
+    if (ctx == null) return;
+    Scrollable.ensureVisible(
+      ctx,
+      alignment: 0.5,
+      duration: reducedDuration(context, KarisMotion.cardSwitch),
+      curve: KarisMotion.easeOut,
     );
   }
 
