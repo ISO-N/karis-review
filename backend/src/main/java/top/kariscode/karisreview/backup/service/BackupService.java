@@ -15,6 +15,7 @@ import top.kariscode.karisreview.backup.repository.BackupRepository;
 import top.kariscode.karisreview.card.entity.Card;
 import top.kariscode.karisreview.card.entity.SchedulingState;
 import top.kariscode.karisreview.card.repository.CardRepository;
+import top.kariscode.karisreview.common.util.DateUtils;
 import top.kariscode.karisreview.deck.entity.Deck;
 import top.kariscode.karisreview.deck.repository.DeckRepository;
 import top.kariscode.karisreview.log.service.UserLogService;
@@ -68,7 +69,9 @@ public class BackupService {
 
         // Build export JSON
         ObjectNode root = objectMapper.createObjectNode();
-        root.put("exported_at", LocalDateTime.now().toString());
+        // exported_at 走 DateUtils.now()（业务时区 AppTimeZone），与全局时区口径一致
+        // （此前 LocalDateTime.now() 用 JVM 本地时区，架构评审 B4）。
+        root.put("exported_at", DateUtils.now().toString());
 
         // User info
         ObjectNode userNode = root.putObject("user");
@@ -84,6 +87,9 @@ public class BackupService {
             List<Card> cards = cardRepository.findByDeckIdOrderByCreatedAtAsc(deck.getId());
             for (Card card : cards) {
                 ObjectNode cardNode = cardsArray.addObject();
+                // 携带原 card_id，导入时直连恢复（架构评审 B4）：
+                // 此前只写 front/back 文本，恢复靠 front 匹配，同 front 多卡会错挂第一张。
+                cardNode.put("id", card.getId().toString());
                 cardNode.put("front", card.getFront());
                 cardNode.put("back", card.getBack());
                 // 排期状态经 SchedulingState 全字段投影（架构评审候选 2）：
@@ -108,6 +114,9 @@ public class BackupService {
 
         for (ReviewLog log : logs) {
             ObjectNode logNode = logsArray.addObject();
+            // 携带原 card_id（架构评审 B4）：导入时直连恢复；
+            // card_front 保留，兼容旧版本导入工具。
+            logNode.put("card_id", log.getCardId().toString());
             logNode.put("card_front", cardFrontMap.getOrDefault(log.getCardId(), ""));
             logNode.put("rating", log.getRating());
             logNode.put("stage_before", log.getStageBefore());
@@ -156,12 +165,15 @@ public class BackupService {
         // Step 1: Delete all existing data for this user（批量删除，数据库级联 + 触发器照常记录）
         deckRepository.deleteAllByUserId(userId);
 
-        // Step 2: Import decks, cards, and track each new card by front+back so
-        // review logs can be re-attached after the imported cards receive fresh IDs.
+        // Step 2: Import decks, cards, and track each new card so review logs can be
+        // re-attached after the imported cards receive fresh IDs.
+        // 直连恢复（架构评审 B4）：新备份携带原 card_id，按备份 id → 新 id 映射；
+        // 旧备份（无 id）回退 front+back 文本映射。
         JsonNode decksNode = root.get("decks");
         int importedDecks = 0;
         int importedCards = 0;
         int importedLogs = 0;
+        Map<String, UUID> backupCardIdToNewId = new HashMap<>();
         Map<String, UUID> cardFrontBackToId = new HashMap<>();
         List<ReviewLog> logsToSave = new ArrayList<>();
 
@@ -176,6 +188,7 @@ public class BackupService {
                 JsonNode cardsNode = deckNode.get("cards");
                 if (cardsNode != null && cardsNode.isArray()) {
                     List<Card> cardsToSave = new ArrayList<>();
+                    List<String> backupCardIds = new ArrayList<>();
                     for (JsonNode cardNode : cardsNode) {
                         Card card = new Card();
                         card.setDeckId(deck.getId());
@@ -187,11 +200,22 @@ public class BackupService {
                         if (cardNode.has("review_version")) {
                             card.setReviewVersion(cardNode.get("review_version").asLong());
                         }
+                        backupCardIds.add(
+                                (cardNode.has("id") && !cardNode.get("id").isNull())
+                                        ? cardNode.get("id").asText()
+                                        : null);
                         cardsToSave.add(card);
                     }
-                    // 批量插入（配合 hibernate.jdbc.batch_size 真正合并为批次 INSERT）
-                    for (Card saved : cardRepository.saveAll(cardsToSave)) {
+                    // 批量插入（配合 hibernate.jdbc.batch_size 真正合并为批次 INSERT），
+                    // saveAll 顺序与入参一致，backupCardIds 与 saved 按索引对应。
+                    List<Card> savedCards = cardRepository.saveAll(cardsToSave);
+                    for (int i = 0; i < savedCards.size(); i++) {
+                        Card saved = savedCards.get(i);
                         importedCards++;
+                        String backupId = backupCardIds.get(i);
+                        if (backupId != null) {
+                            backupCardIdToNewId.put(backupId, saved.getId());
+                        }
                         String key = saved.getFront() + "\u0000" + saved.getBack();
                         cardFrontBackToId.putIfAbsent(key, saved.getId());
                     }
@@ -199,21 +223,27 @@ public class BackupService {
             }
         }
 
-        // Step 3: Import review logs, matching by card_front. If the front text is
-        // ambiguous (multiple cards share it), the first matching imported card is used.
+        // Step 3: Import review logs。优先按备份 card_id 直连恢复；
+        // 旧备份（无 card_id）回退 front 文本匹配——同 front 多卡取首个匹配（原语义兜底）。
         JsonNode logsNode = root.get("review_logs");
 
         if (logsNode != null && logsNode.isArray()) {
             for (JsonNode logNode : logsNode) {
-                String cardFront = logNode.has("card_front") ? logNode.get("card_front").asText() : "";
-                UUID cardId = cardFrontBackToId.get(cardFront);
-                if (cardId == null && !cardFront.isEmpty()) {
-                    // Fallback: find any imported card with the same front content.
-                    cardId = cardFrontBackToId.entrySet().stream()
-                            .filter(e -> e.getKey().startsWith(cardFront + "\u0000"))
-                            .map(Map.Entry::getValue)
-                            .findFirst()
-                            .orElse(null);
+                UUID cardId = null;
+                if (logNode.has("card_id") && !logNode.get("card_id").isNull()) {
+                    cardId = backupCardIdToNewId.get(logNode.get("card_id").asText());
+                }
+                if (cardId == null) {
+                    String cardFront = logNode.has("card_front") ? logNode.get("card_front").asText() : "";
+                    cardId = cardFrontBackToId.get(cardFront);
+                    if (cardId == null && !cardFront.isEmpty()) {
+                        // Fallback: find any imported card with the same front content.
+                        cardId = cardFrontBackToId.entrySet().stream()
+                                .filter(e -> e.getKey().startsWith(cardFront + "\u0000"))
+                                .map(Map.Entry::getValue)
+                                .findFirst()
+                                .orElse(null);
+                    }
                 }
                 if (cardId == null) continue;
 
