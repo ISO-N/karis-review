@@ -289,6 +289,11 @@ class _FlipCardArea extends ConsumerWidget {
     final current = ref.watch(reviewProvider.select((s) => s.currentIndex + 1));
     final total = ref.watch(reviewProvider.select((s) => s.sessionTotal));
     final isFlipped = ref.watch(reviewProvider.select((s) => s.isFlipped));
+    // 只读上次评分的 rating 字段：决定换卡时旧卡向哪个方向离场。
+    // 队列加载/追加时 lastResult 已被 clear，不会残留上一轮的方向。
+    final lastRating = ref.watch(
+      reviewProvider.select((s) => s.lastResult?.rating),
+    );
     return AnimatedSwitcher(
       duration: reducedDuration(
         context,
@@ -297,13 +302,18 @@ class _FlipCardArea extends ConsumerWidget {
       switchInCurve: Curves.easeOutCubic,
       switchOutCurve: Curves.easeIn,
       transitionBuilder: (child, animation) {
+        // 评分离场方向即语义（一次性微型叙事）：
+        // FORGET 向左下方沉出（回落）、FAMILIAR 向右上方轻扬（生长）、
+        // VAGUE 垂直淡出（悬置）。新卡仍从下方淡入，保持克制不抢戏。
+        final isOutgoing = animation.status == AnimationStatus.reverse;
+        final begin = isOutgoing
+            ? Offset.zero
+            : const Offset(0, 0.025);
+        final end = isOutgoing ? _exitOffsetFor(lastRating) : Offset.zero;
         return FadeTransition(
           opacity: animation,
           child: SlideTransition(
-            position: Tween<Offset>(
-              begin: const Offset(0, 0.025),
-              end: Offset.zero,
-            ).animate(animation),
+            position: Tween<Offset>(begin: begin, end: end).animate(animation),
             child: child,
           ),
         );
@@ -325,6 +335,7 @@ class _FlipCardArea extends ConsumerWidget {
         ),
         back: _CardFace(
           key: const ValueKey('back'),
+          back: true,
           child: _BackFace(card: card),
         ),
       ),
@@ -699,12 +710,28 @@ class _QueuePanel extends ConsumerWidget {
 
 class _CardFace extends StatelessWidget {
   final Widget child;
+  final bool back;
 
-  const _CardFace({super.key, required this.child});
+  const _CardFace({super.key, required this.child, this.back = false});
 
   @override
   Widget build(BuildContext context) {
-    return ReviewCardFrame(child: child);
+    return ReviewCardFrame(back: back, child: child);
+  }
+}
+
+/// 评分 → 离场方向映射（相对卡片尺寸的分数偏移）。
+/// 方向即语义：忘记回落、熟悉生长、模糊悬置。
+Offset _exitOffsetFor(String? rating) {
+  switch (rating) {
+    case 'FORGET':
+      return const Offset(-0.12, 0.10);
+    case 'FAMILIAR':
+      return const Offset(0.12, -0.10);
+    case 'VAGUE':
+      return const Offset(0, 0.05);
+    default:
+      return const Offset(0, 0.03);
   }
 }
 
@@ -1008,46 +1035,10 @@ class _CompleteView extends ConsumerWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // 完成图标：记忆刻度环收满 + 弹性放大收尾，克制不浮夸。
-              // 环与首页"今日完成度环"呼应——此处 progress 到顶表示本轮记忆刻度闭合。
-              TweenAnimationBuilder<double>(
-                tween: Tween(begin: 0.6, end: 1),
-                duration: reducedDuration(context, KarisMotion.grow),
-                curve: KarisMotion.springy,
-                child: SizedBox(
-                  width: 78,
-                  height: 78,
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      Positioned.fill(
-                        child: MemoryRing(
-                          progress: 1,
-                          strokeWidth: 2.5,
-                          tickLength: 3,
-                          tickCount: 28,
-                          duration: KarisMotion.grow,
-                        ),
-                      ),
-                      Container(
-                        width: 54,
-                        height: 54,
-                        decoration: BoxDecoration(
-                          color: colors.jade,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Icon(
-                          Icons.check,
-                          color: colors.surface,
-                          size: 26,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                builder: (context, scale, child) =>
-                    Transform.scale(scale: scale, child: child),
-              ),
+              // 完成徽章：记忆刻度环收满 → 外缘刻度级联点亮 → 印章落戳。
+              // 环与首页「今日完成度环」呼应——此处 progress 到顶表示本轮
+              // 记忆刻度闭合；收尾以印章封存，让「完成」值得每天看一次。
+              _CompletionBadge(mode: mode),
               const SizedBox(height: 16),
               KarisHeading(
                 child: Text(
@@ -1095,5 +1086,151 @@ class _CompleteView extends ConsumerWidget {
         ),
       ),
     );
+  }
+}
+
+/// 完成徽章：环收满 → 外缘刻度级联点亮 → cinnabar 印章落戳。
+///
+/// 三段式收尾是「完成」的仪式：弧先合拢、刻度再依次亮起、最后落章封存。
+/// 全程 ≤1.5s，克制不浮夸；reduced-motion 直接呈现终态。
+class _CompletionBadge extends StatefulWidget {
+  final String mode;
+
+  const _CompletionBadge({required this.mode});
+
+  @override
+  State<_CompletionBadge> createState() => _CompletionBadgeState();
+}
+
+class _CompletionBadgeState extends State<_CompletionBadge>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  bool _started = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_started) return;
+    _started = true;
+    // 读 MediaQuery 必须在 didChangeDependencies（initState 不可用）：
+    // reduced-motion 直接呈现终态，否则完整播放三段式收尾。
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _controller.value = 1;
+    } else {
+      _controller.forward();
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.karisColors;
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        final t = _controller.value;
+        final scale = _segment(t, 0.0, 0.4, Curves.easeOutBack);
+        final tickLight = _segment(t, 0.4, 0.75, Curves.easeOut);
+        final stamp = _segment(t, 0.78, 1.0, Curves.easeOutBack);
+        return Transform.scale(
+          scale: 0.7 + 0.3 * scale,
+          child: SizedBox(
+            width: 78,
+            height: 78,
+            child: Stack(
+              clipBehavior: Clip.none,
+              alignment: Alignment.center,
+              children: [
+                Positioned.fill(
+                  child: MemoryRing(
+                    progress: 1,
+                    strokeWidth: 2.5,
+                    tickLength: 3,
+                    tickCount: 28,
+                    tickProgress: tickLight,
+                    duration: KarisMotion.grow,
+                  ),
+                ),
+                Container(
+                  width: 54,
+                  height: 54,
+                  decoration: BoxDecoration(
+                    color: colors.jade,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(Icons.check, color: colors.surface, size: 26),
+                ),
+                // 印章落戳：cinnabar 的第二合法语义。装饰性元素排除语义，
+                // 完成信息由下方标题朗读，避免屏幕阅读器重复。
+                Positioned(
+                  right: -12,
+                  bottom: -10,
+                  child: ExcludeSemantics(
+                    child: Opacity(
+                      // easeOutBack 会过冲（>1），Opacity 只接受 0..1，
+                      // 钳制透明度的同时保留 scale 的弹性回弹。
+                      opacity: stamp.clamp(0.0, 1.0),
+                      child: Transform.rotate(
+                        angle: -0.12,
+                        child: Transform.scale(
+                          scale: 0.6 + 0.4 * stamp,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 7,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              border: Border.all(
+                                color: colors.cinnabar,
+                                width: 1.4,
+                              ),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              widget.mode == 'new' ? '本轮毕' : '今日毕',
+                              style: TextStyle(
+                                color: colors.cinnabar,
+                                fontFamily: KarisTheme.displayFamily,
+                                fontFamilyFallback:
+                                    KarisTheme.displayFallbacks,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                height: 1,
+                                letterSpacing: 2,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  /// 把 [t] 映射到 [start, end] 区间上的 0..1 进度（区间外钳制）。
+  double _segment(double t, double start, double end, Curve curve) {
+    if (t <= start) return 0;
+    if (t >= end) return 1;
+    return curve.transform((t - start) / (end - start));
   }
 }

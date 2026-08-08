@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/theme.dart';
+import '../../stats/providers/stats_provider.dart';
 import 'app_semantics.dart';
+import 'memory_ring.dart';
 
 enum KarisNavItem { home, decks, stats, settings }
 
-class AdaptiveAppScaffold extends StatefulWidget {
+class AdaptiveAppScaffold extends ConsumerStatefulWidget {
   final Widget body;
   final KarisNavItem current;
   final bool showNavigation;
@@ -20,10 +23,11 @@ class AdaptiveAppScaffold extends StatefulWidget {
   });
 
   @override
-  State<AdaptiveAppScaffold> createState() => _AdaptiveAppScaffoldState();
+  ConsumerState<AdaptiveAppScaffold> createState() =>
+      _AdaptiveAppScaffoldState();
 }
 
-class _AdaptiveAppScaffoldState extends State<AdaptiveAppScaffold> {
+class _AdaptiveAppScaffoldState extends ConsumerState<AdaptiveAppScaffold> {
   final FocusNode _mainFocusNode = FocusNode(debugLabel: '主内容');
 
   @override
@@ -96,6 +100,18 @@ class _AdaptiveAppScaffoldState extends State<AdaptiveAppScaffold> {
     final navWidth = isTablet
         ? (width - 64).clamp(0.0, 560.0).toDouble()
         : (width - 36).clamp(0.0, 356.0).toDouble();
+
+    // 今日完成度：数据就绪时（含 0 任务）以微环展示年轮生长；
+    // 无数据时退回静态指示条，避免骨架闪烁。
+    final stats = ref.watch(statsProvider.select((s) => s.value));
+    final totalToday = stats == null
+        ? 0
+        : stats.reviewedToday + stats.dueToday;
+    final todayProgress = stats == null
+        ? null
+        : (totalToday == 0
+              ? 0.0
+              : (stats.reviewedToday / totalToday).clamp(0.0, 1.0));
 
     final items = [
       (KarisNavItem.home, Icons.home_outlined, Icons.home, '今日'),
@@ -175,7 +191,13 @@ class _AdaptiveAppScaffoldState extends State<AdaptiveAppScaffold> {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            if (!isTablet && active)
+                            // 非「今日」项在移动端保留顶部指示条；「今日」项
+                            // 有数据时改为图标左侧的 12px 微环（与图标同行，
+                            // 不增加纵向高度，避免 64px 药丸内溢出）。
+                            if (!isTablet &&
+                                active &&
+                                (item.$1 != KarisNavItem.home ||
+                                    todayProgress == null))
                               Container(
                                 width: 24,
                                 height: 2,
@@ -185,10 +207,29 @@ class _AdaptiveAppScaffoldState extends State<AdaptiveAppScaffold> {
                                   borderRadius: BorderRadius.circular(2),
                                 ),
                               ),
-                            Icon(
-                              active ? item.$3 : item.$2,
-                              size: 20,
-                              color: active ? colors.jade : color,
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                // 年轮生长在任何页面都可见；微型环刻度不可读，
+                                // 刻意省略 tick（tickCount 0），仅保留环与弧。
+                                if (active &&
+                                    item.$1 == KarisNavItem.home &&
+                                    todayProgress != null) ...[
+                                  MemoryRing(
+                                    progress: todayProgress,
+                                    size: 12,
+                                    strokeWidth: 2,
+                                    tickCount: 0,
+                                  ),
+                                  const SizedBox(width: 5),
+                                ],
+                                Icon(
+                                  active ? item.$3 : item.$2,
+                                  size: 20,
+                                  color: active ? colors.jade : color,
+                                ),
+                              ],
                             ),
                             const SizedBox(height: 4),
                             Text(

@@ -1876,27 +1876,36 @@ void main() {
         await tester.binding.setSurfaceSize(const Size(390, 844));
         addTearDown(() => tester.binding.setSurfaceSize(null));
 
+        // 导航「今日」微环会读取概览统计：stub 数据让 StatsNotifier 正常就绪。
+        final statsRepo = MockStatsRepository();
+        when(
+          () => statsRepo.getOverview(),
+        ).thenAnswer((_) async => OverviewStats.fromJson(overviewStatsJson()));
+
         await tester.pumpWidget(
-          MaterialApp(
-            localizationsDelegates: const [
-              GlobalMaterialLocalizations.delegate,
-              GlobalWidgetsLocalizations.delegate,
-              GlobalCupertinoLocalizations.delegate,
-              KarisReviewLocalizations.delegate,
-            ],
-            supportedLocales: KarisReviewLocalizations.supportedLocales,
-          locale: const Locale('zh'),
-            builder: (context, child) => MediaQuery(
-              data: MediaQuery.of(
-                context,
-              ).copyWith(padding: const EdgeInsets.only(top: 24, bottom: 24)),
-              child: child!,
-            ),
-            home: const AdaptiveAppScaffold(
-              body: SizedBox(
-                key: Key('scaffold-body'),
-                width: 100,
-                height: 100,
+          ProviderScope(
+            overrides: statsOverrides(statsRepo),
+            child: MaterialApp(
+              localizationsDelegates: const [
+                GlobalMaterialLocalizations.delegate,
+                GlobalWidgetsLocalizations.delegate,
+                GlobalCupertinoLocalizations.delegate,
+                KarisReviewLocalizations.delegate,
+              ],
+              supportedLocales: KarisReviewLocalizations.supportedLocales,
+            locale: const Locale('zh'),
+              builder: (context, child) => MediaQuery(
+                data: MediaQuery.of(
+                  context,
+                ).copyWith(padding: const EdgeInsets.only(top: 24, bottom: 24)),
+                child: child!,
+              ),
+              home: const AdaptiveAppScaffold(
+                body: SizedBox(
+                  key: Key('scaffold-body'),
+                  width: 100,
+                  height: 100,
+                ),
               ),
             ),
           ),
