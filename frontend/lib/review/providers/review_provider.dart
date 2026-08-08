@@ -63,6 +63,9 @@ class ReviewSessionState {
   ReviewCard? get currentCard =>
       currentIndex < cards.length ? cards[currentIndex] : null;
 
+  /// 当前第几张（从 1 计），UI 进度显示用，避免各页自算。
+  int get currentNumber => currentIndex + 1;
+
   bool get isComplete =>
       !hasMore && currentIndex >= cards.length && cards.isNotEmpty;
 
