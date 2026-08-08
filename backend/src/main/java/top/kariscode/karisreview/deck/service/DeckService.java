@@ -78,7 +78,7 @@ public class DeckService {
         UUID deckId = deck.getId();
         int cardCount = (int) cardRepository.countByDeckId(deckId);
         int dueCount = cardRepository.countDueByDeckId(deckId, today);
-        int newCount = (int) cardRepository.countByDeckIdAndStageAndLearningModeFalse(deckId, 0);
+        int newCount = (int) cardRepository.countNewByDeckId(deckId);
         int masteredCount = (int) cardRepository.countByDeckIdAndStageGreaterThanEqual(deckId, 5);
         List<Long> stageDistribution = distributionFromRows(
                 cardRepository.countByStageGroupedByDeck(deckId));

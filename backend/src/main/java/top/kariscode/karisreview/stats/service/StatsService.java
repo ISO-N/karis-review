@@ -104,7 +104,7 @@ public class StatsService {
         stats.setTotalCards(cardRepository.countByDeckId(deckId));
         stats.setDueToday(cardRepository.countDueByDeckId(deckId, today));
         stats.setReviewedToday(reviewLogRepository.countReviewedTodayForDeck(userId, deckId, refreshStart, refreshEnd));
-        stats.setNewCards(cardRepository.countByDeckIdAndStageAndLearningModeFalse(deckId, 0));
+        stats.setNewCards(cardRepository.countNewByDeckId(deckId));
         stats.setLearningCards(cardRepository.countByDeckIdAndLearningModeTrue(deckId));
         stats.setMasteredCards(cardRepository.countByDeckIdAndStageGreaterThanEqual(deckId, 5));
         stats.setStageDistribution(distributionFromRows(
