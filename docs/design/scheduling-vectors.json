@@ -1,0 +1,136 @@
+{
+  "_comment": "排期公式跨语言测试向量（2026-08-08 架构评审 A1 落地）。语言无关的单一事实源：后端 SchedulingEngineTest/SchedulingVectorsTest 与前端 LocalSchedulingEngine 向量测试读同一份数据断言。改公式必须：1) 改本文件；2) 两端测试同绿。nextIntervalDays 是相对业务日的间隔天数（两端各按自己的 DateUtils.calculateToday 计算，断言相对值）。",
+  "refreshTime": "04:00:00",
+  "vectors": [
+    {
+      "id": "familiar-new-card",
+      "input": { "stage": 0, "rating": "FAMILIAR", "learningMode": false, "consecutiveFamiliar": 0, "learningStep": 0, "reentryStage": null, "overdueDays": 0 },
+      "expected": { "stageAfter": 1, "learningMode": false, "consecutiveFamiliar": 0, "learningOrigin": null, "nextIntervalDays": 1 }
+    },
+    {
+      "id": "familiar-advance",
+      "input": { "stage": 3, "rating": "FAMILIAR", "learningMode": false, "consecutiveFamiliar": 0, "learningStep": 0, "reentryStage": null, "overdueDays": 0 },
+      "expected": { "stageAfter": 4, "learningMode": false, "consecutiveFamiliar": 0, "learningOrigin": null, "nextIntervalDays": 7 }
+    },
+    {
+      "id": "familiar-at-max-stage",
+      "input": { "stage": 8, "rating": "FAMILIAR", "learningMode": false, "consecutiveFamiliar": 0, "learningStep": 0, "reentryStage": null, "overdueDays": 0 },
+      "expected": { "stageAfter": 8, "learningMode": false, "consecutiveFamiliar": 0, "learningOrigin": null, "nextIntervalDays": 180 }
+    },
+    {
+      "id": "familiar-relearning-pending",
+      "input": { "stage": 0, "rating": "FAMILIAR", "learningMode": true, "consecutiveFamiliar": 1, "learningStep": 1, "reentryStage": null, "overdueDays": 0, "learningOriginInput": "REVIEW" },
+      "expected": { "stageAfter": 0, "learningMode": true, "consecutiveFamiliar": 2, "learningOrigin": "REVIEW", "nextIntervalDays": 0 }
+    },
+    {
+      "id": "familiar-relearning-complete-forget",
+      "input": { "stage": 0, "rating": "FAMILIAR", "learningMode": true, "consecutiveFamiliar": 4, "learningStep": 3, "reentryStage": null, "overdueDays": 0 },
+      "expected": { "stageAfter": 1, "learningMode": false, "consecutiveFamiliar": 0, "learningOrigin": null, "nextIntervalDays": 1 }
+    },
+    {
+      "id": "familiar-relearning-complete-vague",
+      "input": { "stage": 2, "rating": "FAMILIAR", "learningMode": true, "consecutiveFamiliar": 2, "learningStep": 2, "reentryStage": 4, "overdueDays": 0 },
+      "expected": { "stageAfter": 4, "learningMode": false, "consecutiveFamiliar": 0, "learningOrigin": null, "nextIntervalDays": 3 }
+    },
+    {
+      "id": "forget-new-card",
+      "input": { "stage": 0, "rating": "FORGET", "learningMode": false, "consecutiveFamiliar": 0, "learningStep": 0, "reentryStage": null, "overdueDays": 0 },
+      "expected": { "stageAfter": 0, "learningMode": true, "consecutiveFamiliar": 0, "learningOrigin": "NEW", "nextIntervalDays": 0 }
+    },
+    {
+      "id": "forget-due-card",
+      "input": { "stage": 4, "rating": "FORGET", "learningMode": false, "consecutiveFamiliar": 0, "learningStep": 0, "reentryStage": null, "overdueDays": 0 },
+      "expected": { "stageAfter": 0, "learningMode": true, "consecutiveFamiliar": 0, "learningOrigin": "REVIEW", "nextIntervalDays": 0 }
+    },
+    {
+      "id": "forget-relearning-preserves-origin",
+      "input": { "stage": 0, "rating": "FORGET", "learningMode": true, "consecutiveFamiliar": 2, "learningStep": 1, "reentryStage": null, "overdueDays": 0, "learningOriginInput": "NEW" },
+      "expected": { "stageAfter": 0, "learningMode": true, "consecutiveFamiliar": 0, "learningOrigin": "NEW", "nextIntervalDays": 0 }
+    },
+    {
+      "id": "forget-legacy-null-origin-falls-back-to-review",
+      "input": { "stage": 0, "rating": "FORGET", "learningMode": true, "consecutiveFamiliar": 1, "learningStep": 0, "reentryStage": null, "overdueDays": 0 },
+      "expected": { "stageAfter": 0, "learningMode": true, "consecutiveFamiliar": 0, "learningOrigin": "REVIEW", "nextIntervalDays": 0 }
+    },
+    {
+      "id": "vague-normal",
+      "input": { "stage": 4, "rating": "VAGUE", "learningMode": false, "consecutiveFamiliar": 0, "learningStep": 0, "reentryStage": null, "overdueDays": 0 },
+      "expected": { "stageAfter": 3, "learningMode": true, "consecutiveFamiliar": 0, "learningOrigin": "REVIEW", "reentryStageAfter": 4, "nextIntervalDays": 0 }
+    },
+    {
+      "id": "vague-stage-two",
+      "input": { "stage": 2, "rating": "VAGUE", "learningMode": false, "consecutiveFamiliar": 0, "learningStep": 0, "reentryStage": null, "overdueDays": 0 },
+      "expected": { "stageAfter": 1, "learningMode": true, "consecutiveFamiliar": 0, "learningOrigin": "REVIEW", "reentryStageAfter": 2, "nextIntervalDays": 0 }
+    },
+    {
+      "id": "vague-stage-one-behaves-like-forget",
+      "input": { "stage": 1, "rating": "VAGUE", "learningMode": false, "consecutiveFamiliar": 0, "learningStep": 0, "reentryStage": null, "overdueDays": 0 },
+      "expected": { "stageAfter": 0, "learningMode": true, "consecutiveFamiliar": 0, "learningOrigin": "REVIEW", "reentryStageAfter": null, "nextIntervalDays": 0 }
+    },
+    {
+      "id": "vague-stage-zero-behaves-like-forget",
+      "input": { "stage": 0, "rating": "VAGUE", "learningMode": false, "consecutiveFamiliar": 0, "learningStep": 0, "reentryStage": null, "overdueDays": 0 },
+      "expected": { "stageAfter": 0, "learningMode": true, "consecutiveFamiliar": 0, "learningOrigin": "NEW", "reentryStageAfter": null, "nextIntervalDays": 0 }
+    },
+    {
+      "id": "vague-overdue-effective-stage",
+      "input": { "stage": 4, "rating": "VAGUE", "learningMode": false, "consecutiveFamiliar": 0, "learningStep": 0, "reentryStage": null, "overdueDays": 7 },
+      "expected": { "stageAfter": 2, "learningMode": true, "consecutiveFamiliar": 0, "learningOrigin": "REVIEW", "reentryStageAfter": 3, "nextIntervalDays": 0 }
+    },
+    {
+      "id": "vague-heavily-overdue-degrades-to-forget",
+      "input": { "stage": 2, "rating": "VAGUE", "learningMode": false, "consecutiveFamiliar": 0, "learningStep": 0, "reentryStage": null, "overdueDays": 30 },
+      "expected": { "stageAfter": 0, "learningMode": true, "consecutiveFamiliar": 0, "learningOrigin": "REVIEW", "reentryStageAfter": null, "nextIntervalDays": 0 }
+    },
+    {
+      "id": "vague-within-grace-period",
+      "input": { "stage": 4, "rating": "VAGUE", "learningMode": false, "consecutiveFamiliar": 0, "learningStep": 0, "reentryStage": null, "overdueDays": 2 },
+      "expected": { "stageAfter": 3, "learningMode": true, "consecutiveFamiliar": 0, "learningOrigin": "REVIEW", "reentryStageAfter": 4, "nextIntervalDays": 0 }
+    },
+    {
+      "id": "effective-stage-no-overdue",
+      "input": { "stage": 4, "rating": "NONE", "overdueDays": 0 },
+      "expected": { "effectiveStage": 4 }
+    },
+    {
+      "id": "effective-stage-within-ratio-grace",
+      "input": { "stage": 4, "rating": "NONE", "overdueDays": 3 },
+      "expected": { "effectiveStage": 4 }
+    },
+    {
+      "id": "effective-stage-ratio-two",
+      "input": { "stage": 4, "rating": "NONE", "overdueDays": 7 },
+      "expected": { "effectiveStage": 3 }
+    },
+    {
+      "id": "effective-stage-heavy-overdue",
+      "input": { "stage": 4, "rating": "NONE", "overdueDays": 82 },
+      "expected": { "effectiveStage": 1 }
+    },
+    {
+      "id": "effective-stage-high-stage",
+      "input": { "stage": 8, "rating": "NONE", "overdueDays": 60 },
+      "expected": { "effectiveStage": 8 }
+    },
+    {
+      "id": "effective-stage-high-stage-overdue",
+      "input": { "stage": 8, "rating": "NONE", "overdueDays": 200 },
+      "expected": { "effectiveStage": 7 }
+    },
+    {
+      "id": "effective-stage-extreme-overdue-floors-at-one",
+      "input": { "stage": 8, "rating": "NONE", "overdueDays": 1825 },
+      "expected": { "effectiveStage": 5 }
+    },
+    {
+      "id": "effective-stage-stage-one-never-penalized",
+      "input": { "stage": 1, "rating": "NONE", "overdueDays": 30 },
+      "expected": { "effectiveStage": 1 }
+    },
+    {
+      "id": "effective-stage-stage-zero-never-penalized",
+      "input": { "stage": 0, "rating": "NONE", "overdueDays": 30 },
+      "expected": { "effectiveStage": 0 }
+    }
+  ]
+}
