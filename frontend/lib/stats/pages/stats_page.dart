@@ -11,6 +11,7 @@ import '../../shared/utils/motion.dart';
 import '../../shared/widgets/adaptive_scaffold.dart';
 import '../../shared/widgets/app_semantics.dart';
 import '../../shared/widgets/loading_widget.dart';
+import '../../shared/widgets/memory_ring.dart';
 import '../../shared/widgets/metric_tile.dart';
 import '../../shared/widgets/section_widgets.dart';
 import '../models/stats.dart';
@@ -98,6 +99,8 @@ class _StatsPageState extends ConsumerState<StatsPage> {
                       final main = Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          _MasteryRingHero(stats: value),
+                          const SizedBox(height: 20),
                           _MetricGrid(stats: value),
                           const SizedBox(height: 20),
                           _TrendPanel(trendAsync: trendAsync),
@@ -164,6 +167,98 @@ class _StatsHeader extends StatelessWidget {
           child: Icon(Icons.bar_chart, size: 18, color: colors.jade),
         ),
       ],
+    );
+  }
+}
+
+class _MasteryRingHero extends StatelessWidget {
+  final OverviewStats stats;
+
+  const _MasteryRingHero({required this.stats});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.karisColors;
+    // 记忆年轮：已掌握占比。环的 progress 表示「时间留下的圈」，
+    // 让统计页从数据仪表盘回归品牌母题（与首页年轮、完成页收满环同源）。
+    final ratio = stats.totalCards == 0
+        ? 0.0
+        : (stats.masteredCards / stats.totalCards).clamp(0.0, 1.0);
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        border: Border.all(color: colors.hairline),
+        borderRadius: BorderRadius.circular(KarisTheme.radiusLg),
+      ),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 104,
+            height: 104,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Positioned.fill(
+                  child: MemoryRing(
+                    progress: ratio,
+                    size: 104,
+                    strokeWidth: 4,
+                    tickLength: 4,
+                    tickCount: 32,
+                  ),
+                ),
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // 纪念碑场景：衬线数字（karisMonument），非等宽数据数字。
+                    Text(
+                      '${stats.masteredCards}',
+                      style: karisMonument(fontSize: 30, color: colors.ink),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '已掌握',
+                      style: TextStyle(
+                        color: colors.stone,
+                        fontSize: 10,
+                        letterSpacing: 0,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 20),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Kicker('MASTERED · 记忆年轮'),
+                const SizedBox(height: 7),
+                KarisHeading(
+                  child: Text(
+                    '已掌握 ${stats.masteredCards} / ${stats.totalCards} 张',
+                    style: karisDisplay(fontSize: 21, color: colors.ink),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '掌握意味着卡片进入长期记忆，复习间隔来到 15 天以上。'
+                  '年轮每长一圈，都是时间留下的刻度。',
+                  style: TextStyle(
+                    color: colors.stone,
+                    fontSize: 12,
+                    height: 1.7,
+                    letterSpacing: 0,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -566,19 +661,21 @@ class TrendChartPainter extends CustomPainter {
     canvas.drawPath(areaPath, areaPaint);
     canvas.drawPath(linePath, linePaint);
 
-    final dotPaint = Paint()
-      ..color = colors.surface
-      ..strokeWidth = 1.6
-      ..style = PaintingStyle.fill;
-    final dotBorder = Paint()
+    // 数据点：改为竖向小刻度（tick），与记忆刻度环的刻度线同源——
+    // 每个复习日都是记忆刻度上的一根线，而非通用的空心圆点。
+    final tickPaint = Paint()
       ..color = colors.jade
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.6;
+      ..strokeWidth = 1.6
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke;
     final step = math.max(1, (points.length / 5).floor());
     for (var i = 0; i < points.length; i += step) {
       final offset = pointAt(i);
-      canvas.drawCircle(offset, 3, dotBorder);
-      canvas.drawCircle(offset, 3, dotPaint);
+      canvas.drawLine(
+        offset - const Offset(0, 3.2),
+        offset + const Offset(0, 3.2),
+        tickPaint,
+      );
     }
 
     canvas.restore();

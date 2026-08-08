@@ -22,7 +22,8 @@ class KarisColors extends ThemeExtension<KarisColors> {
   /// 熟悉、完成、主强调（青 / 夜青）
   final Color jade;
 
-  /// 忘记、危险操作（朱 / 夜朱）
+  /// 忘记、危险操作；印章确认（第二合法语义：完成页「今日毕」落戳）
+  /// （朱 / 夜朱）
   final Color cinnabar;
 
   /// 模糊、重学（金 / 夜金）
@@ -494,6 +495,28 @@ TextStyle karisDisplay({
     color: color,
     fontWeight: weight,
     height: 1.3,
+    letterSpacing: 0,
+  );
+}
+
+/// 纪念碑场景大数字（衬线渲染）。
+///
+/// 与等宽数字的分工规则：
+/// - [karisMono]（等宽）用于需要对齐的数据场景——统计数字、进度、快捷键；
+/// - [karisMonument]（衬线）用于「值得被记住」的大数字——今日待办、已掌握数，
+///   让数字像碑文一样立起来。两条规则不要混用，混用会破坏数字的节奏感。
+TextStyle karisMonument({
+  double fontSize = 54,
+  Color? color,
+  FontWeight weight = FontWeight.w500,
+}) {
+  return TextStyle(
+    fontFamily: KarisTheme.displayFamily,
+    fontFamilyFallback: KarisTheme.displayFallbacks,
+    fontSize: fontSize,
+    color: color,
+    fontWeight: weight,
+    height: 1.12,
     letterSpacing: 0,
   );
 }
