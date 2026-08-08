@@ -45,6 +45,7 @@ Map<String, dynamic> cardToMap(Card card) {
     'review_version': card.reviewVersion.toInt(),
     'created_at': card.createdAt,
     'updated_at': card.updatedAt,
+    'learning_origin': card.hasLearningOrigin() ? card.learningOrigin : null,
   };
 }
 
@@ -75,6 +76,7 @@ Map<String, dynamic> reviewCardToMap(ReviewCard card) {
     'reentry_stage': card.hasReentryStage() ? card.reentryStage : null,
     'next_review_date': card.hasNextReviewDate() ? card.nextReviewDate : null,
     'review_version': card.reviewVersion.toInt(),
+    'learning_origin': card.hasLearningOrigin() ? card.learningOrigin : null,
   };
 }
 
